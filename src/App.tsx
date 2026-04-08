@@ -91,57 +91,7 @@ interface Flashcard {
 
 // ─── Neural Background ────────────────────────────────────────────────────────
 
-const NeuralBackground = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    resize();
-    window.addEventListener('resize', resize);
-    const COLORS = ['rgba(0, 212, 255', 'rgba(139, 92, 246', 'rgba(244, 114, 182'];
-    const particles = Array.from({ length: 55 }, () => ({
-      x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
-      radius: Math.random() * 1.4 + 0.4,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      pulsePhase: Math.random() * Math.PI * 2,
-    }));
-    let frame = 0, animId: number;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      frame++;
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            const opacity = (1 - dist / 120) * 0.1;
-            const grad = ctx.createLinearGradient(particles[i].x, particles[i].y, particles[j].x, particles[j].y);
-            grad.addColorStop(0, `${particles[i].color}, ${opacity})`);
-            grad.addColorStop(1, `${particles[j].color}, ${opacity})`);
-            ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 0.5;
-            ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
-          }
-        }
-      }
-      particles.forEach(p => {
-        const pulse = Math.sin(frame * 0.02 + p.pulsePhase) * 0.3 + 0.7;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = `${p.color}, ${0.45 * pulse})`; ctx.fill();
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-      });
-      animId = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
-  }, []);
-  return <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0, opacity: 0.6 }} />;
-};
+const NeuralBackground = () => null;
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
@@ -185,62 +135,60 @@ const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
 }) => {
-  const w = isCollapsed ? 72 : 230;
+  const w = isCollapsed ? 64 : 224;
   return (
     <div style={{
-      width: w, minWidth: w, height: '100vh', background: 'rgba(5,5,15,0.95)',
-      borderRight: '1px solid rgba(0,212,255,0.08)', display: 'flex', flexDirection: 'column',
-      position: 'relative', zIndex: 50, transition: 'width 0.3s ease', flexShrink: 0,
-      backdropFilter: 'blur(30px)',
+      width: w, minWidth: w, height: '100vh', background: '#ffffff',
+      borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column',
+      position: 'relative', zIndex: 50, transition: 'width 0.25s ease', flexShrink: 0,
     }}>
       {/* Logo */}
-      <div style={{ padding: '20px 14px', borderBottom: '1px solid rgba(0,212,255,0.08)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#00d4ff 0%,#8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 24px rgba(0,212,255,0.45)' }}>
-          <Brain size={22} color="white" />
+      <div style={{ padding: '16px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
+          <Brain size={20} color="white" />
         </div>
         {!isCollapsed && (
           <div style={{ overflow: 'hidden' }}>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
-            <div style={{ color: '#00d4ff', fontSize: 9, letterSpacing: '2.5px', textTransform: 'uppercase', opacity: 0.8 }}>Neural OS v2.0</div>
+            <div style={{ color: '#0f172a', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
+            <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
           </div>
         )}
       </div>
 
       {/* Status badge */}
       {!isCollapsed && (
-        <div style={{ margin: '8px 12px 4px', padding: '6px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', flexShrink: 0 }} />
-          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 500 }}>System Ready</span>
+        <div style={{ margin: '8px 10px 4px', padding: '5px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+          <span style={{ color: '#059669', fontSize: 11, fontWeight: 600 }}>System Ready</span>
         </div>
       )}
 
       {/* Grouped Nav */}
-      <nav style={{ flex: 1, padding: '4px 8px 4px', overflowY: 'auto', overflowX: 'hidden' }} className="scroll-custom">
+      <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto', overflowX: 'hidden' }} className="scroll-custom">
         {NAV_GROUPS.map(group => (
-          <div key={group.label} style={{ marginBottom: 4 }}>
+          <div key={group.label} style={{ marginBottom: 2 }}>
             {!isCollapsed && (
-              <div style={{ padding: '10px 12px 4px', color: '#6b7280', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
+              <div style={{ padding: '10px 8px 3px', color: '#94a3b8', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
             )}
             {group.items.map(({ id, label, icon: Icon, color }) => {
               const active = currentView === id;
               return (
                 <button key={id} onClick={() => setView(id as View)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: isCollapsed ? '11px' : '9px 12px',
-                    borderRadius: 9, border: `1px solid ${active ? color + '35' : 'transparent'}`,
-                    background: active ? `${color}15` : 'transparent',
-                    cursor: 'pointer', transition: 'all 0.2s ease',
-                    boxShadow: active ? `0 0 20px ${color}08` : 'none',
+                    display: 'flex', alignItems: 'center', gap: 9,
+                    padding: isCollapsed ? '10px' : '8px 10px',
+                    borderRadius: 8, border: 'none',
+                    background: active ? '#eef2ff' : 'transparent',
+                    cursor: 'pointer', transition: 'all 0.15s',
                     position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
                     flexShrink: 0, width: '100%', marginBottom: 1,
                   }}
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 2.5, background: color, borderRadius: '0 3px 3px 0', boxShadow: `0 0 8px ${color}` }} />}
-                  <Icon size={16} color={active ? color : '#4b5563'} style={{ filter: active ? `drop-shadow(0 0 5px ${color})` : 'none', transition: 'all 0.2s', flexShrink: 0 }} />
-                  {!isCollapsed && <span style={{ color: active ? '#e2e8f0' : '#6b7280', fontSize: 12.5, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
+                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: '#6366f1', borderRadius: '0 3px 3px 0' }} />}
+                  <Icon size={15} color={active ? '#6366f1' : '#94a3b8'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
+                  {!isCollapsed && <span style={{ color: active ? '#4f46e5' : '#64748b', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
                 </button>
               );
             })}
@@ -249,13 +197,13 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
       </nav>
 
       {/* User */}
-      <div style={{ padding: '10px 8px 14px', borderTop: '1px solid rgba(0,212,255,0.08)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '8px' : '8px 10px', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#8b5cf6,#f472b6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 14px rgba(139,92,246,0.4)', color: '#fff', fontSize: 13, fontWeight: 700 }}>P</div>
+      <div style={{ padding: '8px 8px 12px', borderTop: '1px solid #f1f5f9', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '6px' : '6px 8px', borderRadius: 8, justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700 }}>P</div>
           {!isCollapsed && (
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: '#d1d5db', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
-              <div style={{ color: '#4b5563', fontSize: 10 }}>Pro Neural Plan</div>
+              <div style={{ color: '#0f172a', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
+              <div style={{ color: '#94a3b8', fontSize: 10 }}>Pro Neural Plan</div>
             </div>
           )}
         </div>
@@ -263,9 +211,9 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
 
       {/* Collapse toggle */}
       <button onClick={() => setIsCollapsed(!isCollapsed)}
-        style={{ position: 'absolute', right: -12, top: 80, width: 24, height: 24, borderRadius: '50%', background: 'rgba(5,5,15,0.95)', border: '1px solid rgba(0,212,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#00d4ff', zIndex: 60, boxShadow: '0 0 12px rgba(0,212,255,0.15)' }}
+        style={{ position: 'absolute', right: -11, top: 76, width: 22, height: 22, borderRadius: '50%', background: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6366f1', zIndex: 60, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
       >
-        <ChevronRight size={13} style={{ transform: isCollapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.3s' }} />
+        <ChevronRight size={12} style={{ transform: isCollapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.25s' }} />
       </button>
     </div>
   );
@@ -273,7 +221,7 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-const DOMAIN_COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+const DOMAIN_COLORS = ['#6366f1', '#9333ea', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
 
 const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
 const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
@@ -311,44 +259,44 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   ];
 
   const statCards = [
-    { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#00d4ff', glow: 'rgba(0,212,255,0.15)', border: 'rgba(0,212,255,0.25)', trend: '+12%' },
-    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#8b5cf6', glow: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.25)', trend: '2 due today' },
-    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: '#f472b6', glow: 'rgba(244,114,182,0.15)', border: 'rgba(244,114,182,0.25)', trend: 'Lifetime' },
-    { label: 'Knowledge Domains', value: domains.length, icon: Network, color: '#10b981', glow: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.25)', trend: 'Active' },
+    { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#6366f1', bg: '#eef2ff', trend: '+12%' },
+    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#9333ea', bg: '#faf5ff', trend: '2 due today' },
+    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: '#ec4899', bg: '#fdf2f8', trend: 'Lifetime' },
+    { label: 'Knowledge Domains', value: domains.length, icon: Network, color: '#10b981', bg: '#ecfdf5', trend: 'Active' },
   ];
 
   const S = { // shared card styles
-    card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, backdropFilter: 'blur(20px)', transition: 'all 0.3s' } as React.CSSProperties,
+    card: { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', transition: 'all 0.2s' } as React.CSSProperties,
   };
 
   return (
-    <div style={{ color: '#e2e8f0' }}>
+    <div style={{ color: '#0f172a' }}>
       {/* ── Header ── */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 28 }}>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <span style={{ color: '#6b7280', fontSize: 12, letterSpacing: '0.05em' }}>NEURAL OS ACTIVE</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981' }} />
+              <span style={{ color: '#94a3b8', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
             </div>
-            <h1 style={{ fontSize: 30, fontWeight: 700, color: '#f1f5f9', margin: 0, lineHeight: 1.15 }}>
-              Welcome back, <span style={{ color: '#00d4ff', textShadow: '0 0 20px rgba(0,212,255,0.4)' }}>Prashant</span>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+              Welcome back, <span style={{ color: '#6366f1' }}>Prashant</span>
             </h1>
-            <p style={{ color: '#4b5563', fontSize: 13, marginTop: 4 }}>{today}</p>
+            <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{today}</p>
           </div>
 
           {/* Briefing card */}
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid rgba(0,212,255,0.18)', boxShadow: '0 0 30px rgba(0,212,255,0.06)' }}>
+            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid #c7d2fe' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#00d4ff25,#8b5cf625)', border: '1px solid rgba(0,212,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Sparkles size={15} color="#00d4ff" />
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sparkles size={15} color="#6366f1" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#00d4ff', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 600 }}>AI DAILY BRIEFING</div>
+                <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
                 {briefingLoading
-                  ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4ff55', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
-                  : <p style={{ color: '#9ca3af', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
+                  ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#c7d2fe', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
+                  : <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
                 }
               </div>
             </div>
@@ -357,94 +305,94 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
       </motion.div>
 
       {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 22 }}>
         {statCards.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            style={{ ...S.card, padding: '20px 22px', border: `1px solid ${s.border}`, boxShadow: `0 0 30px ${s.glow}`, cursor: 'default' }}
+            style={{ ...S.card, padding: '18px 20px', cursor: 'default' }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 11, background: `${s.color}18`, border: `1px solid ${s.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <s.icon size={19} color={s.color} style={{ filter: `drop-shadow(0 0 6px ${s.color})` }} />
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <s.icon size={18} color={s.color} />
               </div>
-              <span style={{ fontSize: 10, color: s.color, background: `${s.color}18`, padding: '3px 8px', borderRadius: 20, fontWeight: 500 }}>{s.trend}</span>
+              <span style={{ fontSize: 10, color: s.color, background: s.bg, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{s.trend}</span>
             </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#f1f5f9', lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>{s.label}</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: '#0f172a', lineHeight: 1, marginBottom: 4, letterSpacing: '-0.5px' }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>{s.label}</div>
           </motion.div>
         ))}
       </div>
 
       {/* ── Middle Row: Chart + Radar ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14, marginBottom: 22 }}>
+      <div className="dash-chart-row" style={{ marginBottom: 16 }}>
         {/* Activity line chart */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          style={{ ...S.card, padding: '20px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          style={{ ...S.card, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
-              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
-              <div style={{ color: '#4b5563', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
+              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
+              <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10b981', fontSize: 11 }}>
-              <Activity size={13} /> <span>Live</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#10b981', fontSize: 11, fontWeight: 500 }}>
+              <Activity size={12} /> <span>Live</span>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={140}>
             <LineChart data={activityData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <XAxis dataKey="day" tick={{ fill: '#4b5563', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#4b5563', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} cursor={{ stroke: 'rgba(0,212,255,0.15)' }} />
-              <Line type="monotone" dataKey="captures" stroke="#00d4ff" strokeWidth={2} dot={{ fill: '#00d4ff', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: '#00d4ff', boxShadow: '0 0 12px #00d4ff' }} />
+              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} cursor={{ stroke: 'rgba(99,102,241,0.15)' }} />
+              <Line type="monotone" dataKey="captures" stroke="#6366f1" strokeWidth={2.5} dot={{ fill: '#6366f1', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: '#6366f1' }} />
             </LineChart>
           </ResponsiveContainer>
         </motion.div>
 
         {/* Radar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-          style={{ ...S.card, padding: '20px 22px' }}>
-          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
-          <div style={{ color: '#4b5563', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
+          style={{ ...S.card, padding: '18px 20px' }}>
+          <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
+          <div style={{ color: '#94a3b8', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
           <ResponsiveContainer width="100%" height={170}>
             <RadarChart data={radarData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-              <PolarGrid stroke="rgba(255,255,255,0.06)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 9 }} />
+              <PolarGrid stroke="#e2e8f0" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} />
-              <Radar dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} strokeWidth={1.5} dot={{ r: 2, fill: '#8b5cf6' }} />
+              <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} strokeWidth={2} dot={{ r: 2, fill: '#6366f1' }} />
             </RadarChart>
           </ResponsiveContainer>
         </motion.div>
       </div>
 
       {/* ── Bottom Row: Memories + Sidebar ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14 }}>
+      <div className="dash-bottom-row">
         {/* Recent Memories */}
         <div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ ...S.card, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
-              <button onClick={() => setView('vault')} style={{ color: '#00d4ff', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
+              <button onClick={() => setView('vault')} style={{ color: '#6366f1', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
                 View all <ArrowUpRight size={11} />
               </button>
             </div>
             {recent.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {recent.map((mem) => {
                   const Icon = SRC_ICON[mem.source_type] ?? Brain;
-                  const clr = SRC_CLR[mem.source_type] ?? '#00d4ff';
+                  const clr = SRC_CLR[mem.source_type] ?? '#6366f1';
                   return (
-                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s', cursor: 'default' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = `${clr}35`; (e.currentTarget as HTMLDivElement).style.background = `${clr}08`; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)'; }}
+                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', transition: 'all 0.15s', cursor: 'default' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#c7d2fe'; (e.currentTarget as HTMLDivElement).style.background = '#eef2ff'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e2e8f0'; (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
                     >
-                      <div style={{ width: 34, height: 34, borderRadius: 9, background: `${clr}15`, border: `1px solid ${clr}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon size={15} color={clr} />
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${clr}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={14} color={clr} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.title}</div>
-                        <div style={{ color: '#4b5563', fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.summary}</div>
+                        <div style={{ color: '#0f172a', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.title}</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.summary}</div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                        <span style={{ fontSize: 9, color: clr, background: `${clr}18`, padding: '2px 7px', borderRadius: 20, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mem.source_type}</span>
-                        <span style={{ fontSize: 10, color: '#6b7280' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
+                        <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mem.source_type}</span>
+                        <span style={{ fontSize: 10, color: '#94a3b8' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   );
@@ -452,9 +400,9 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
               </div>
             ) : (
               <div style={{ padding: '36px 0', textAlign: 'center' }}>
-                <Brain size={36} color="#4b5563" style={{ margin: '0 auto 12px' }} />
-                <p style={{ color: '#6b7280', fontSize: 13 }}>No memories yet</p>
-                <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#00d4ff', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Capture your first memory →</button>
+                <Brain size={32} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
+                <p style={{ color: '#94a3b8', fontSize: 13 }}>No memories yet</p>
+                <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#6366f1', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Capture your first memory →</button>
               </div>
             )}
           </motion.div>
@@ -462,25 +410,25 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
           {/* AI Interactions */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
-              <button onClick={() => setView('recall')} style={{ color: '#8b5cf6', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
+              <button onClick={() => setView('recall')} style={{ color: '#9333ea', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
                 Open Recall <ArrowUpRight size={11} />
               </button>
             </div>
             {logs.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {logs.map((log, i) => (
-                  <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: '#faf5ff', border: '1px solid #e9d5ff' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                      <span style={{ color: '#d1d5db', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
-                      <span style={{ color: '#6b7280', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{ color: '#1e293b', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
+                      <span style={{ color: '#94a3b8', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <p style={{ color: '#4b5563', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
+                    <p style={{ color: '#64748b', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: '#6b7280', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
             )}
           </motion.div>
         </div>
@@ -489,7 +437,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Knowledge Domains */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.42 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
+            <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
             {domains.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {domains.slice(0, 5).map((d: any, i: number) => {
@@ -498,31 +446,31 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                   return (
                     <div key={d.name}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ color: '#9ca3af', fontSize: 12 }}>{d.name}</span>
+                        <span style={{ color: '#64748b', fontSize: 12 }}>{d.name}</span>
                         <span style={{ color: clr, fontSize: 11, fontWeight: 600 }}>{d.value}</span>
                       </div>
-                      <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: 4, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: 0.5 + i * 0.1 }}
-                          style={{ height: '100%', borderRadius: 4, background: `linear-gradient(90deg, ${clr}, ${clr}88)`, boxShadow: `0 0 8px ${clr}60` }} />
+                          style={{ height: '100%', borderRadius: 4, background: clr }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 12 }}>Start capturing to see domains</div>
+              <div style={{ padding: '24px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>Start capturing to see domains</div>
             )}
           </motion.div>
 
           {/* Domain bar chart */}
           {domains.length > 0 && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.47 }} style={{ ...S.card, padding: '18px 20px' }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
+              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={domains.slice(0, 6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 8 }} axisLine={false} tickLine={false} />
                   <YAxis tick={false} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
+                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {domains.slice(0, 6).map((_: any, i: number) => <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />)}
                   </Bar>
@@ -533,21 +481,21 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
 
           {/* Quick Actions */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {[
-                { label: 'Capture Knowledge', icon: Plus, view: 'capture' as View, color: '#00d4ff', bg: 'linear-gradient(135deg,#00d4ff,#0099cc)' },
-                { label: 'Ask Recall AI', icon: Bot, view: 'recall' as View, color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
-                { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
-                { label: 'Manage Tasks', icon: CheckSquare, view: 'tasks' as View, color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-              ].map((a, i) => (
+                { label: 'Capture Knowledge', icon: Plus, view: 'capture' as View, color: '#ffffff', bg: '#6366f1', isAccent: true },
+                { label: 'Ask Recall AI', icon: Bot, view: 'recall' as View, color: '#9333ea', bg: '#faf5ff' },
+                { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: '#ec4899', bg: '#fdf2f8' },
+                { label: 'Manage Tasks', icon: CheckSquare, view: 'tasks' as View, color: '#10b981', bg: '#ecfdf5' },
+              ].map((a) => (
                 <button key={a.label} onClick={() => setView(a.view)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: i === 0 ? a.bg : 'rgba(255,255,255,0.03)', border: `1px solid ${a.color}${i === 0 ? '60' : '25'}`, cursor: 'pointer', transition: 'all 0.2s', boxShadow: i === 0 ? `0 0 20px ${a.color}30` : 'none' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : '#e2e8f0'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
                 >
-                  <a.icon size={14} color={i === 0 ? '#fff' : a.color} />
-                  <span style={{ color: i === 0 ? '#fff' : '#9ca3af', fontSize: 12, fontWeight: i === 0 ? 600 : 400 }}>{a.label}</span>
+                  <a.icon size={14} color={a.isAccent ? '#ffffff' : a.color} />
+                  <span style={{ color: a.isAccent ? '#ffffff' : a.color, fontSize: 12, fontWeight: 600 }}>{a.label}</span>
                 </button>
               ))}
             </div>
@@ -2859,46 +2807,47 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
       <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }} className="hidden lg:flex">
 
         {/* Panel Toggle */}
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, border: '1px solid #e2e8f0' }}>
           {(['agents', 'history'] as const).map(tab => (
             <button key={tab} onClick={() => setActivePanel(tab)}
               style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                background: activePanel === tab ? 'rgba(0,212,255,0.12)' : 'transparent',
-                color: activePanel === tab ? '#00d4ff' : '#6b7280', fontSize: 11, fontWeight: 600, textTransform: 'capitalize', transition: 'all 0.2s' }}>
+                background: activePanel === tab ? '#ffffff' : 'transparent',
+                color: activePanel === tab ? '#6366f1' : '#94a3b8', fontSize: 11, fontWeight: 600, textTransform: 'capitalize', transition: 'all 0.2s',
+                boxShadow: activePanel === tab ? '0 1px 3px rgba(0,0,0,0.07)' : 'none' }}>
               {tab === 'agents' ? 'Agents' : 'History'}
             </button>
           ))}
         </div>
 
         {activePanel === 'agents' ? (
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ color: '#9ca3af', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Agent Registry</div>
+          <div style={{ flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Agent Registry</div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
               {agentList.map(agent => {
                 const status = agentStatuses[agent.name] || 'idle';
                 return (
-                  <div key={agent.name} style={{ padding: '8px 10px', borderRadius: 10, marginBottom: 3,
+                  <div key={agent.name} style={{ padding: '8px 10px', borderRadius: 9, marginBottom: 2,
                     background: status === 'running' ? `${agent.color}10` : 'transparent',
-                    border: `1px solid ${status === 'running' ? agent.color + '35' : 'transparent'}`,
-                    transition: 'all 0.3s' }}>
+                    border: `1px solid ${status === 'running' ? agent.color + '30' : 'transparent'}`,
+                    transition: 'all 0.25s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ position: 'relative', width: 7, height: 7, flexShrink: 0 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: status === 'running' ? agent.color : status === 'done' ? '#10b981' : '#374151' }} />
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: status === 'running' ? agent.color : status === 'done' ? '#10b981' : '#e2e8f0' }} />
                         {status === 'running' && (
                           <div style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: `1px solid ${agent.color}`, animation: 'ping 1s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.6 }} />
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: status === 'running' ? agent.color : '#9ca3af', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
-                        <div style={{ color: '#4b5563', fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.role}</div>
+                        <div style={{ color: status === 'running' ? agent.color : '#1e293b', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
+                        <div style={{ color: '#94a3b8', fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.role}</div>
                       </div>
                     </div>
                     {status === 'running' && (
-                      <div style={{ marginTop: 6, display: 'flex', gap: 3 }}>
+                      <div style={{ marginTop: 5, display: 'flex', gap: 3 }}>
                         {[1,2,3].map(i => (
-                          <div key={i} style={{ height: 2, flex: 1, background: agent.color, borderRadius: 2, opacity: 0.6, animation: `pulse ${0.6 + i * 0.2}s ease-in-out infinite alternate` }} />
+                          <div key={i} style={{ height: 2, flex: 1, background: agent.color, borderRadius: 2, opacity: 0.5, animation: `pulse ${0.6 + i * 0.2}s ease-in-out infinite alternate` }} />
                         ))}
                       </div>
                     )}
@@ -2906,28 +2855,28 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                 );
               })}
             </div>
-            <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,212,255,0.03)' }}>
+            <div style={{ padding: '9px 14px', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-                <span style={{ color: '#6b7280', fontSize: 10 }}>{agentList.length} agents ready</span>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+                <span style={{ color: '#64748b', fontSize: 10 }}>{agentList.length} agents ready</span>
               </div>
             </div>
           </div>
         ) : (
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ color: '#9ca3af', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Workflow History</div>
+          <div style={{ flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Workflow History</div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
               {workflows.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 0', color: '#4b5563', fontSize: 11 }}>No workflows yet</div>
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 11 }}>No workflows yet</div>
               ) : workflows.map(wf => (
-                <div key={wf.id} style={{ padding: '8px 10px', borderRadius: 10, marginBottom: 4, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={wf.id} style={{ padding: '8px 10px', borderRadius: 9, marginBottom: 4, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: wf.status === 'completed' ? '#10b981' : wf.status === 'failed' ? '#ef4444' : '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ color: '#9ca3af', fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
+                    <span style={{ color: '#1e293b', fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
                   </div>
-                  <div style={{ color: '#4b5563', fontSize: 9.5 }}>{wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps</div>
+                  <div style={{ color: '#94a3b8', fontSize: 9.5 }}>{wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps</div>
                 </div>
               ))}
             </div>
@@ -2935,16 +2884,16 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         )}
 
         {/* Quick navigate */}
-        <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14 }}>
-          <div style={{ color: '#4b5563', fontSize: 9.5, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>Quick Access</div>
+        <div style={{ padding: '10px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ color: '#94a3b8', fontSize: 9.5, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>Quick Access</div>
           {[
-            { label: 'Vault', view: 'vault' as View, color: '#f472b6' },
+            { label: 'Vault', view: 'vault' as View, color: '#ec4899' },
             { label: 'Tasks', view: 'tasks' as View, color: '#10b981' },
             { label: 'Calendar', view: 'calendar' as View, color: '#f59e0b' },
           ].map(link => (
             <button key={link.view} onClick={() => setView(link.view)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', borderRadius: 7, border: 'none', background: 'transparent', color: link.color, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', borderRadius: 7, border: 'none', background: 'transparent', color: link.color, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, transition: 'background 0.12s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
               → {link.label}
             </button>
@@ -2958,34 +2907,34 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
           <div>
-            <h2 style={{ color: '#e2e8f0', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.3px' }}>
-              Agent Hub <span style={{ color: '#a78bfa', marginLeft: 4 }}>✦</span>
+            <h2 style={{ color: '#0f172a', fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>
+              Agent Hub <span style={{ color: '#6366f1', marginLeft: 4 }}>✦</span>
             </h2>
-            <p style={{ color: '#4b5563', fontSize: 12, margin: '2px 0 0' }}>Multi-agent AI system · Real-time coordination · SSE streaming</p>
+            <p style={{ color: '#94a3b8', fontSize: 12, margin: '2px 0 0' }}>Multi-agent AI system · Real-time coordination · SSE streaming</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isStreaming && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: 'pulse 1s ease-in-out infinite' }} />
-                <span style={{ color: '#a78bfa', fontSize: 11, fontWeight: 500 }}>Agents active</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: 'pulse 1s ease-in-out infinite' }} />
+                <span style={{ color: '#6366f1', fontSize: 11, fontWeight: 600 }}>Agents active</span>
               </div>
             )}
             <button onClick={() => { setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: 'Session cleared. How can I help you?' }]); setAgentStatuses({}); }}
-              style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#6b7280', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, color: '#64748b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               Clear
             </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)', padding: 16, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom">
+        <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 16, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom agent-messages">
           {messages.map(msg => (
             <div key={msg.id} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
 
               {/* Avatar */}
               {msg.role === 'assistant' && (
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#00d4ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 16px rgba(167,139,250,0.3)' }}>
-                  <Brain size={16} color="white" />
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.25)' }}>
+                  <Brain size={15} color="white" />
                 </div>
               )}
 
@@ -2993,13 +2942,13 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
 
                 {/* Thinking indicator */}
                 {msg.type === 'thinking' && (msg.steps || []).length === 0 && (
-                  <div style={{ padding: '10px 14px', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ padding: '10px 14px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {[0,1,2].map(i => (
-                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />
+                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />
                       ))}
                     </div>
-                    <span style={{ color: '#a78bfa', fontSize: 12 }}>Orchestrator is planning...</span>
+                    <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 500 }}>Orchestrator is planning...</span>
                   </div>
                 )}
 
@@ -3007,21 +2956,21 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                 {msg.type === 'steps' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {(msg.steps || []).map(step => {
-                      const color = AGENT_COLORS[step.agent] || '#6b7280';
+                      const color = AGENT_COLORS[step.agent] || '#6366f1';
                       return (
-                        <div key={step.step_id} style={{ padding: '10px 14px', background: `${color}08`, border: `1px solid ${color}25`, borderRadius: '4px 14px 14px 14px', transition: 'all 0.3s' }}>
+                        <div key={step.step_id} style={{ padding: '10px 14px', background: `${color}08`, border: `1px solid ${color}20`, borderRadius: '4px 14px 14px 14px', transition: 'all 0.3s' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step.status !== 'running' ? 6 : 0 }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: step.status === 'completed' ? '#10b981' : step.status === 'failed' ? '#ef4444' : color,
-                              ...(step.status === 'running' ? { animation: 'pulse 1s ease-in-out infinite', boxShadow: `0 0 8px ${color}` } : {}) }} />
+                              ...(step.status === 'running' ? { animation: 'pulse 1s ease-in-out infinite' } : {}) }} />
                             <span style={{ color, fontSize: 10.5, fontWeight: 700 }}>{step.agent}</span>
-                            <span style={{ color: '#4b5563', fontSize: 10 }}>›</span>
-                            <span style={{ color: '#9ca3af', fontSize: 10.5 }}>{step.name}</span>
-                            {step.status === 'running' && <span style={{ marginLeft: 'auto', color: '#4b5563', fontSize: 9.5 }}>Running...</span>}
+                            <span style={{ color: '#cbd5e1', fontSize: 10 }}>›</span>
+                            <span style={{ color: '#64748b', fontSize: 10.5 }}>{step.name}</span>
+                            {step.status === 'running' && <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: 9.5 }}>Running...</span>}
                             {step.status === 'completed' && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: 9.5 }}>✓ {step.duration_ms?.toFixed(0)}ms</span>}
                             {step.status === 'failed' && <span style={{ marginLeft: 'auto', color: '#ef4444', fontSize: 9.5 }}>✗ Failed</span>}
                           </div>
                           {step.status === 'completed' && step.output_summary && (
-                            <div style={{ color: '#6b7280', fontSize: 11, paddingLeft: 14, borderLeft: `2px solid ${color}30`, marginTop: 4 }}>{step.output_summary}</div>
+                            <div style={{ color: '#64748b', fontSize: 11, paddingLeft: 14, borderLeft: `2px solid ${color}30`, marginTop: 4 }}>{step.output_summary}</div>
                           )}
                           {step.status === 'failed' && step.error && (
                             <div style={{ color: '#ef4444', fontSize: 10.5, marginTop: 4 }}>{step.error}</div>
@@ -3036,24 +2985,25 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                 {(msg.type === 'text' || msg.type === 'welcome') && (
                   <div>
                     <div style={{
-                      padding: '12px 16px', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
+                      padding: '11px 15px', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
                       background: msg.role === 'user'
-                        ? 'linear-gradient(135deg,rgba(0,212,255,0.15),rgba(167,139,250,0.15))'
-                        : msg.type === 'welcome' ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.04)',
+                        ? '#6366f1'
+                        : msg.type === 'welcome' ? '#eef2ff' : '#ffffff',
                       border: msg.role === 'user'
-                        ? '1px solid rgba(0,212,255,0.25)'
-                        : `1px solid ${msg.type === 'welcome' ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                        ? 'none'
+                        : `1px solid ${msg.type === 'welcome' ? '#c7d2fe' : '#e2e8f0'}`,
+                      boxShadow: msg.role === 'user' ? '0 2px 8px rgba(99,102,241,0.25)' : '0 1px 3px rgba(0,0,0,0.04)',
                     }}>
-                      <p style={{ color: '#e2e8f0', fontSize: 13, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                      <p style={{ color: msg.role === 'user' ? '#ffffff' : '#0f172a', fontSize: 13, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
                     </div>
 
                     {/* Completed workflow steps summary */}
                     {msg.steps && msg.steps.length > 0 && (
                       <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {msg.steps.map(s => {
-                          const color = AGENT_COLORS[s.agent] || '#6b7280';
+                          const color = AGENT_COLORS[s.agent] || '#6366f1';
                           return (
-                            <span key={s.step_id} style={{ padding: '2px 8px', background: `${color}12`, border: `1px solid ${color}25`, borderRadius: 20, color, fontSize: 9.5, fontWeight: 600 }}>
+                            <span key={s.step_id} style={{ padding: '2px 8px', background: `${color}10`, border: `1px solid ${color}20`, borderRadius: 20, color, fontSize: 9.5, fontWeight: 700 }}>
                               {s.agent.replace('Agent', '')} · {s.name}
                             </span>
                           );
@@ -3062,7 +3012,7 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                     )}
 
                     {msg.role === 'assistant' && msg.ts && (
-                      <div style={{ color: '#374151', fontSize: 9.5, marginTop: 4, paddingLeft: 2 }}>
+                      <div style={{ color: '#94a3b8', fontSize: 9.5, marginTop: 4, paddingLeft: 2 }}>
                         {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         {msg.agents && msg.agents.length > 0 && ` · ${msg.agents.length} agents`}
                       </div>
@@ -3080,9 +3030,9 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, flexShrink: 0 }}>
             {QUICK_PROMPTS.map(qp => (
               <button key={qp.label} onClick={() => handleSend(qp.msg)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, color: '#9ca3af', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.3)'; e.currentTarget.style.color = '#a78bfa'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#9ca3af'; }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 20, color: '#64748b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.15s', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#c7d2fe'; e.currentTarget.style.color = '#6366f1'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
                 <qp.icon size={11} /> {qp.label}
               </button>
             ))}
@@ -3090,23 +3040,23 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         )}
 
         {/* Input */}
-        <div style={{ flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ flexShrink: 0, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 13, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Ask Neural AI anything... (Enter to send, Shift+Enter for new line)"
             disabled={isStreaming}
             rows={1}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#0f172a', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
           />
           <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
-            style={{ width: 36, height: 36, borderRadius: 10, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0,
-              background: input.trim() && !isStreaming ? 'linear-gradient(135deg,#a78bfa,#00d4ff)' : 'rgba(255,255,255,0.06)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s',
-              boxShadow: input.trim() && !isStreaming ? '0 0 20px rgba(167,139,250,0.3)' : 'none' }}>
-            {isStreaming ? <Loader2 size={16} color="#6b7280" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} color={input.trim() ? 'white' : '#4b5563'} />}
+            style={{ width: 34, height: 34, borderRadius: 9, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0,
+              background: input.trim() && !isStreaming ? '#6366f1' : '#f1f5f9',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+              boxShadow: input.trim() && !isStreaming ? '0 2px 8px rgba(99,102,241,0.3)' : 'none' }}>
+            {isStreaming ? <Loader2 size={15} color="#94a3b8" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} color={input.trim() ? 'white' : '#94a3b8'} />}
           </button>
         </div>
 
-        <p style={{ color: '#374151', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
+        <p style={{ color: '#cbd5e1', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
           Powered by Neural AI · Multi-agent orchestration with real-time SSE streaming
         </p>
       </div>
@@ -3140,14 +3090,13 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div style={{ height: '100vh', width: '100%', background: '#05050f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
-        <NeuralBackground />
-        <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 2.2 }} style={{ position: 'relative', zIndex: 10 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg,#00d4ff,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px rgba(0,212,255,0.5)' }}>
-            <Brain size={38} color="white" />
+      <div style={{ height: '100vh', width: '100%', background: '#f5f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+        <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2.2 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(99,102,241,0.35)' }}>
+            <Brain size={34} color="white" />
           </div>
         </motion.div>
-        <div style={{ color: '#4b5563', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', zIndex: 10 }}>Initializing Neural OS...</div>
+        <div style={{ color: '#94a3b8', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 500 }}>Initializing Neural OS...</div>
       </div>
     );
   }
@@ -3167,12 +3116,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#05050f', color: '#e2e8f0', overflow: 'hidden', fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-      <NeuralBackground />
-      {/* Ambient blobs */}
-      <div className="recall-blob-1" />
-      <div className="recall-blob-2" />
-      <div className="recall-blob-3" />
+    <div style={{ display: 'flex', height: '100vh', background: '#f5f6fa', color: '#0f172a', overflow: 'hidden', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       {/* Desktop Sidebar */}
       <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
@@ -3185,11 +3129,11 @@ export default function App() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 60 }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(2px)', zIndex: 60 }}
               className="lg:hidden" />
-            <motion.div initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 230 }}
+            <motion.div initial={{ x: -240 }} animate={{ x: 0 }} exit={{ x: -240 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 224 }}
               className="lg:hidden">
               <Sidebar currentView={view} setView={(v) => { setView(v); setIsMobileMenuOpen(false); }} isCollapsed={false} setIsCollapsed={() => {}} />
             </motion.div>
@@ -3198,34 +3142,37 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 10 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0 }}>
         {/* Header */}
         <header style={{
-          background: 'rgba(5,5,15,0.85)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(0,212,255,0.08)',
-          padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0, zIndex: 30,
+          background: '#ffffff',
+          borderBottom: '1px solid #e2e8f0',
+          padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
             <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden"
-              style={{ padding: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
+              style={{ padding: 7, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <Menu size={16} />
             </button>
-            <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
-              <Search size={14} color="#6b7280" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+            <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 440 }}>
+              <Search size={13} color="#94a3b8" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input readOnly onFocus={() => setShowCommandPalette(true)}
                 placeholder="Search memories, tasks, anything... (⌘K)"
-                style={{ width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, color: '#9ca3af', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 8, paddingBottom: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, color: '#94a3b8', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               />
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 20 }}>
-              <Cpu size={11} color="#00d4ff" />
-              <span style={{ color: '#00d4ff', fontSize: 11, fontWeight: 500 }}>Neural AI</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20 }}>
+              <Cpu size={11} color="#6366f1" />
+              <span style={{ color: '#6366f1', fontSize: 11, fontWeight: 600 }}>Neural AI</span>
             </div>
             <button onClick={() => setView('capture')}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: 'linear-gradient(135deg,#00d4ff,#0099cc)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px rgba(0,212,255,0.3)', fontFamily: 'inherit' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#6366f1', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3)', fontFamily: 'inherit', transition: 'all 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#6366f1')}
+            >
               <Plus size={14} /> Capture
             </button>
           </div>
@@ -3258,38 +3205,38 @@ export default function App() {
       {/* Command Palette */}
       <AnimatePresence>
         {showCommandPalette && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh', padding: '14vh 16px 16px' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '14vh 16px 16px' }}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowCommandPalette(false)}
-              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: -20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              style={{ position: 'relative', width: '100%', maxWidth: 560, background: 'rgba(10,10,20,0.97)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 0 80px rgba(0,212,255,0.15)' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Search size={15} color="#00d4ff" />
+              style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} />
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: -16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: -16 }}
+              style={{ position: 'relative', width: '100%', maxWidth: 540, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.14)' }}>
+              <div style={{ padding: '13px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Search size={15} color="#6366f1" />
                 <input autoFocus type="text" placeholder="Type a command or navigate..."
-                  style={{ flex: 1, background: 'none', border: 'none', color: '#e2e8f0', fontSize: 15, outline: 'none', fontFamily: 'inherit' }} />
-                <div style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: 6, color: '#4b5563', fontSize: 10, fontWeight: 700 }}>ESC</div>
+                  style={{ flex: 1, background: 'none', border: 'none', color: '#0f172a', fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+                <div style={{ padding: '3px 8px', background: '#f1f5f9', borderRadius: 6, color: '#94a3b8', fontSize: 10, fontWeight: 700 }}>ESC</div>
               </div>
               <div style={{ padding: '6px', maxHeight: '55vh', overflowY: 'auto' }} className="scroll-custom">
-                <div style={{ padding: '8px 10px 4px', color: '#6b7280', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Quick Navigation</div>
+                <div style={{ padding: '8px 10px 4px', color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Quick Navigation</div>
                 {commands.map((item) => (
                   <button key={item.label} onClick={() => { setView(item.view); setShowCommandPalette(false); }}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s', fontFamily: 'inherit' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,212,255,0.06)')}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <item.icon size={14} color="#00d4ff" />
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <item.icon size={14} color="#6366f1" />
                     </div>
-                    <span style={{ color: '#9ca3af', fontSize: 13 }}>{item.label}</span>
+                    <span style={{ color: '#374151', fontSize: 13 }}>{item.label}</span>
                   </button>
                 ))}
               </div>
-              <div style={{ padding: '10px 18px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#6b7280', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Brain size={12} color="#00d4ff" />
-                  <span style={{ color: '#6b7280', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Recall X247</span>
+              <div style={{ padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Brain size={11} color="#6366f1" />
+                  <span style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase' }}>Recall X247</span>
                 </div>
               </div>
             </motion.div>
