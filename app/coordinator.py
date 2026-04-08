@@ -159,7 +159,11 @@ async def run_coordinator(message: str, session_id: str) -> dict:
         }
 
     import datetime
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    client = AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.openai_base_url,
+        default_headers=settings.openai_extra_headers
+    )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
         {"role": "user", "content": message}

@@ -13,7 +13,11 @@ from app.config import settings
 
 
 def get_openai_client() -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    return AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.openai_base_url,
+        default_headers=settings.openai_extra_headers
+    )
 
 
 async def analyze_with_openai(raw_text: str, model: str) -> dict:

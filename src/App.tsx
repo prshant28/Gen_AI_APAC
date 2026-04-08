@@ -1597,7 +1597,7 @@ const SettingsView = () => {
             <div className="space-y-4">
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                 <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Active AI Provider</p>
-                <p className="text-lg font-bold text-indigo-900">{settings?.ai_provider === 'openai' ? 'OpenAI GPT' : 'Google Gemini'}</p>
+                <p className="text-lg font-bold text-indigo-900">{settings?.use_openrouter ? 'OpenRouter' : settings?.ai_provider === 'openai' ? 'OpenAI GPT' : 'Google Gemini'}</p>
                 <p className="text-xs text-indigo-500">{settings?.openai_model || settings?.gemini_model}</p>
               </div>
 
@@ -1631,7 +1631,7 @@ const SettingsView = () => {
               )}
             >
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              Test OpenAI Connection
+              {settings?.use_openrouter ? 'Test OpenRouter Connection' : 'Test OpenAI Connection'}
             </button>
             {testResult && (
               <motion.div
@@ -1655,7 +1655,7 @@ const SettingsView = () => {
               {[
                 { label: 'Backend Server', value: 'HEALTHY', color: 'text-emerald-600', pulse: true },
                 { label: 'Firestore Database', value: 'CONNECTED', color: 'text-emerald-600' },
-                { label: 'AI Provider', value: settings?.ai_provider === 'openai' ? 'OpenAI GPT-4o Mini' : 'Gemini Flash', color: 'text-indigo-600' },
+                { label: 'AI Provider', value: settings?.use_openrouter ? `OpenRouter (${settings?.openai_model})` : settings?.ai_provider === 'openai' ? 'OpenAI GPT-4o Mini' : 'Gemini Flash', color: 'text-indigo-600' },
                 { label: 'App Version', value: 'v2.0.0 HACKATHON', color: 'text-slate-400' },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
@@ -1705,6 +1705,11 @@ export default function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [appSettings, setAppSettings] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/settings').then(r => r.ok ? r.json() : null).then(setAppSettings).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsReady(true), 100);
@@ -1775,7 +1780,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
               <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-              <span className="text-xs font-bold text-indigo-600">OpenAI Active</span>
+              <span className="text-xs font-bold text-indigo-600">{appSettings?.use_openrouter ? 'OpenRouter Active' : 'OpenAI Active'}</span>
             </div>
             <button
               onClick={() => setView('capture')}

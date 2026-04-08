@@ -140,6 +140,8 @@ async def settings_endpoint():
         "gemini_api_key_set": bool(settings.GEMINI_API_KEY),
         "gemini_model": settings.GEMINI_MODEL,
         "ai_provider": "openai" if settings.using_openai else "gemini",
+        "use_openrouter": settings.USE_OPENROUTER,
+        "openai_base_url": settings.openai_base_url,
         "gcp_project_id": settings.GCP_PROJECT_ID,
         "firestore_database_id": settings.FIREBASE_DATABASE_ID,
         "google_calendar_configured": bool(settings.GOOGLE_CALENDAR_ID),
@@ -152,7 +154,11 @@ async def test_ai_endpoint():
         raise HTTPException(status_code=401, detail="OPENAI_API_KEY is not set.")
     try:
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.openai_base_url,
+            default_headers=settings.openai_extra_headers
+        )
         response = await client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": "Reply with exactly: 'OpenAI Connection Successful!'"}],

@@ -10,7 +10,11 @@ ALLOWED_DOMAINS = ["AI", "Technology", "Science", "Business", "Health", "History
 
 
 def get_client() -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    return AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.openai_base_url,
+        default_headers=settings.openai_extra_headers
+    )
 
 
 async def recall(query: str) -> dict:

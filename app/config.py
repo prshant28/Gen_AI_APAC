@@ -3,6 +3,9 @@ import json
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+
 class Settings(BaseSettings):
     GCP_PROJECT_ID: Optional[str] = None
     FIREBASE_DATABASE_ID: Optional[str] = None
@@ -15,7 +18,8 @@ class Settings(BaseSettings):
     GOOGLE_CSE_CX: Optional[str] = None
     GEN_APAC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL: str = "openai/gpt-4o-mini"
+    USE_OPENROUTER: bool = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -38,13 +42,30 @@ class Settings(BaseSettings):
         if not self.GEMINI_API_KEY:
             self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY"))
 
-        # GEN_APAC_API_KEY is the primary key — used as the OpenAI key throughout the app
+        # GEN_APAC_API_KEY is an OpenRouter key — takes priority
         gen_apac = os.getenv("GEN_APAC_API_KEY")
         if gen_apac:
             self.GEN_APAC_API_KEY = gen_apac
             self.OPENAI_API_KEY = gen_apac
+            self.USE_OPENROUTER = True
+            self.OPENAI_MODEL = "openai/gpt-4o-mini"
         elif not self.OPENAI_API_KEY:
             self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+            self.USE_OPENROUTER = False
+            self.OPENAI_MODEL = "gpt-4o-mini"
+
+    @property
+    def openai_base_url(self) -> str:
+        return OPENROUTER_BASE_URL if self.USE_OPENROUTER else OPENAI_BASE_URL
+
+    @property
+    def openai_extra_headers(self) -> dict:
+        if self.USE_OPENROUTER:
+            return {
+                "HTTP-Referer": "https://recall-x247.replit.app",
+                "X-Title": "Recall X247"
+            }
+        return {}
 
     @property
     def active_ai_key(self) -> Optional[str]:
