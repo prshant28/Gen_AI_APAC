@@ -41,3 +41,11 @@ externalPort = 8000
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "python main.py"]
 build = ["bash", "-c", "npm run build"]
+
+[userenv]
+
+[userenv.shared]
+GCP_PROJECT_ID = "balmy-vertex-478515-m4"
+GEMINI_MODEL = "gemini-2.0-flash"
+GOOGLE_CALENDAR_ID = "prashantmaurya600@gmail.com"
+GOOGLE_APPLICATION_CREDENTIALS = "./service_account.json"
