@@ -22,10 +22,12 @@ An AI-powered productivity assistant for Gen AI Academy APAC 2026 hackathon. Cap
 ### Frontend (React + TypeScript + Vite)
 - **Entry point**: `src/main.tsx`
 - **Framework**: React 19 + TypeScript
-- **Styling**: Tailwind CSS 4
+- **Styling**: Tailwind CSS 4 + custom dark neural CSS (`src/index.css`)
 - **Build tool**: Vite (dev server on port 5000)
-- **Key source**: `src/App.tsx` — full application UI
+- **Charts**: Recharts (LineChart, RadarChart, BarChart) on dashboard
+- **Key source**: `src/App.tsx` — full application UI (~2000 lines)
 - **Views**: Dashboard, Capture, Vault, Recall AI, Tasks, Flashcards, Calendar, Settings
+- **Design System**: Dark neural theme — `#05050f` background, Space Grotesk font, cyan/purple/pink/green glassmorphism, animated NeuralBackground canvas particles, ambient gradient blobs
 
 ## Key Features
 1. **Multi-source Capture**: YouTube transcripts, web scraping, PDF upload, quick notes

@@ -4,11 +4,16 @@ import {
   Youtube, Globe, FileText, StickyNote, Send, Loader2, Tag, Clock, ExternalLink,
   ChevronRight, CheckCircle2, X, Save, Sparkles, AlertCircle, Settings, Shield,
   AlertTriangle, Zap, Trash2, BookOpen, Target, TrendingUp, RotateCcw, ChevronLeft,
-  GraduationCap, Lightbulb, FlipHorizontal, Award, Bell, Download, Upload
+  GraduationCap, Lightbulb, FlipHorizontal, Award, Bell, Download, Upload,
+  ArrowUpRight, Database, Bot, Network, Star, Activity, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
+} from 'recharts';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,280 +38,433 @@ interface Flashcard {
   answer: string;
 }
 
+// ─── Neural Background ────────────────────────────────────────────────────────
+
+const NeuralBackground = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    const COLORS = ['rgba(0, 212, 255', 'rgba(139, 92, 246', 'rgba(244, 114, 182'];
+    const particles = Array.from({ length: 55 }, () => ({
+      x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+      radius: Math.random() * 1.4 + 0.4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      pulsePhase: Math.random() * Math.PI * 2,
+    }));
+    let frame = 0, animId: number;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame++;
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            const opacity = (1 - dist / 120) * 0.1;
+            const grad = ctx.createLinearGradient(particles[i].x, particles[i].y, particles[j].x, particles[j].y);
+            grad.addColorStop(0, `${particles[i].color}, ${opacity})`);
+            grad.addColorStop(1, `${particles[j].color}, ${opacity})`);
+            ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 0.5;
+            ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+          }
+        }
+      }
+      particles.forEach(p => {
+        const pulse = Math.sin(frame * 0.02 + p.pulsePhase) * 0.3 + 0.7;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color}, ${0.45 * pulse})`; ctx.fill();
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      });
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0, opacity: 0.6 }} />;
+};
+
 // ─── Sidebar ────────────────────────────────────────────────────────────────
+
+const NAV_ITEMS = [
+  { id: 'dashboard',  label: 'Dashboard',  icon: LayoutDashboard, color: '#00d4ff' },
+  { id: 'capture',    label: 'Capture',    icon: Plus,            color: '#8b5cf6' },
+  { id: 'vault',      label: 'Vault',      icon: Database,        color: '#f472b6' },
+  { id: 'recall',     label: 'Recall AI',  icon: Bot,             color: '#00d4ff' },
+  { id: 'tasks',      label: 'Tasks',      icon: CheckSquare,     color: '#10b981' },
+  { id: 'flashcards', label: 'Flashcards', icon: FlipHorizontal,  color: '#f59e0b' },
+  { id: 'calendar',   label: 'Calendar',   icon: CalendarIcon,    color: '#f472b6' },
+  { id: 'settings',   label: 'Settings',   icon: Settings,        color: '#6b7280' },
+];
 
 const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
 }) => {
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'capture', label: 'Capture', icon: Plus },
-    { id: 'vault', label: 'Vault', icon: Brain },
-    { id: 'recall', label: 'Recall AI', icon: Search },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-    { id: 'flashcards', label: 'Flashcards', icon: FlipHorizontal },
-    { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
-
+  const w = isCollapsed ? 72 : 230;
   return (
-    <motion.div
-      animate={{ width: isCollapsed ? 80 : 280 }}
-      className="bg-slate-950 text-white h-screen flex flex-col border-r border-slate-800 shrink-0 relative z-50"
-    >
-      <div className="p-6 flex items-center gap-3 overflow-hidden">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-          <Brain className="w-6 h-6 text-white" />
+    <div style={{
+      width: w, minWidth: w, height: '100vh', background: 'rgba(5,5,15,0.95)',
+      borderRight: '1px solid rgba(0,212,255,0.08)', display: 'flex', flexDirection: 'column',
+      position: 'relative', zIndex: 50, transition: 'width 0.3s ease', flexShrink: 0,
+      backdropFilter: 'blur(30px)',
+    }}>
+      {/* Logo */}
+      <div style={{ padding: '20px 14px', borderBottom: '1px solid rgba(0,212,255,0.08)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#00d4ff 0%,#8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 24px rgba(0,212,255,0.45)' }}>
+          <Brain size={22} color="white" />
         </div>
         {!isCollapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Recall X247</h1>
-            <p className="text-[10px] text-indigo-400 font-medium uppercase tracking-widest">Powered by OpenAI</p>
-          </motion.div>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
+            <div style={{ color: '#00d4ff', fontSize: 9, letterSpacing: '2.5px', textTransform: 'uppercase', opacity: 0.8 }}>Neural OS v2.0</div>
+          </div>
         )}
       </div>
 
-      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setView(item.id as View)}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
-              currentView === item.id
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
-            )}
-          >
-            <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", currentView === item.id ? "scale-110" : "group-hover:scale-110")} />
-            {!isCollapsed && (
-              <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="font-medium whitespace-nowrap">
-                {item.label}
-              </motion.span>
-            )}
-            {currentView === item.id && !isCollapsed && (
-              <motion.div layoutId="active-pill" className="ml-auto w-1.5 h-1.5 bg-white rounded-full" />
-            )}
-          </button>
-        ))}
+      {/* Status badge */}
+      {!isCollapsed && (
+        <div style={{ margin: '10px 12px', padding: '7px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', flexShrink: 0 }} />
+          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 500 }}>Neural Engine Active</span>
+        </div>
+      )}
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+        {NAV_ITEMS.map(({ id, label, icon: Icon, color }) => {
+          const active = currentView === id;
+          return (
+            <button key={id} onClick={() => setView(id as View)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: isCollapsed ? '12px' : '10px 12px',
+                borderRadius: 10, border: `1px solid ${active ? color + '35' : 'transparent'}`,
+                background: active ? `${color}15` : 'transparent',
+                cursor: 'pointer', transition: 'all 0.2s ease',
+                boxShadow: active ? `0 0 20px ${color}10` : 'none',
+                position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0,
+              }}
+            >
+              {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: color, borderRadius: '0 3px 3px 0', boxShadow: `0 0 10px ${color}` }} />}
+              <Icon size={17} color={active ? color : '#555577'} style={{ filter: active ? `drop-shadow(0 0 5px ${color})` : 'none', transition: 'all 0.2s', flexShrink: 0 }} />
+              {!isCollapsed && <span style={{ color: active ? '#e2e8f0' : '#6b7280', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
+            </button>
+          );
+        })}
       </nav>
 
-      <div className="p-4 mt-auto">
-        <div className={cn("bg-slate-900/50 rounded-2xl border border-slate-800/50 transition-all overflow-hidden", isCollapsed ? "p-2" : "p-4")}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400 shrink-0">PM</div>
-            {!isCollapsed && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Prashant Maurya</p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Pro Plan</p>
-              </motion.div>
-            )}
-          </div>
+      {/* User */}
+      <div style={{ padding: '10px 8px 14px', borderTop: '1px solid rgba(0,212,255,0.08)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '8px' : '8px 10px', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#8b5cf6,#f472b6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 14px rgba(139,92,246,0.4)', color: '#fff', fontSize: 13, fontWeight: 700 }}>P</div>
+          {!isCollapsed && (
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#d1d5db', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
+              <div style={{ color: '#4b5563', fontSize: 10 }}>Pro Neural Plan</div>
+            </div>
+          )}
         </div>
       </div>
 
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-slate-800 border border-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-600 transition-all shadow-xl z-50"
+      {/* Collapse toggle */}
+      <button onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ position: 'absolute', right: -12, top: 80, width: 24, height: 24, borderRadius: '50%', background: 'rgba(5,5,15,0.95)', border: '1px solid rgba(0,212,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#00d4ff', zIndex: 60, boxShadow: '0 0 12px rgba(0,212,255,0.15)' }}
       >
-        <ChevronRight className={cn("w-4 h-4 transition-transform", !isCollapsed && "rotate-180")} />
+        <ChevronRight size={13} style={{ transform: isCollapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.3s' }} />
       </button>
-    </motion.div>
+    </div>
   );
 };
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
+const DOMAIN_COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+
+const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
+const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
+
 const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<Memory[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
-  const [briefing, setBriefing] = useState<string>('');
+  const [briefing, setBriefing] = useState('');
   const [briefingLoading, setBriefingLoading] = useState(true);
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, memoriesRes, logsRes] = await Promise.all([
-          fetch('/stats').then(r => r.ok ? r.json() : null),
-          fetch('/memories?limit=5').then(r => r.ok ? r.json() : []),
-          fetch('/logs?limit=5').then(r => r.ok ? r.json() : [])
-        ]);
-        if (statsRes) setStats(statsRes);
-        if (memoriesRes) setRecent(memoriesRes);
-        if (logsRes) setLogs(logsRes);
-      } catch (err) { console.error("Dashboard fetch error:", err); }
-    };
-    const fetchBriefing = async () => {
-      try {
-        const res = await fetch('/briefing');
-        if (res.ok) {
-          const data = await res.json();
-          setBriefing(data.briefing);
-        }
-      } catch { setBriefing('Ready for another great day of learning!'); }
-      finally { setBriefingLoading(false); }
-    };
-    fetchData();
-    fetchBriefing();
+    Promise.all([
+      fetch('/stats').then(r => r.ok ? r.json() : null),
+      fetch('/memories?limit=6').then(r => r.ok ? r.json() : []),
+      fetch('/logs?limit=5').then(r => r.ok ? r.json() : []),
+    ]).then(([s, m, l]) => { if (s) setStats(s); setRecent(m); setLogs(l); }).catch(console.error);
+    fetch('/briefing').then(r => r.ok ? r.json() : { briefing: 'Ready for another great day of learning!' })
+      .then(d => setBriefing(d.briefing)).catch(() => setBriefing('Ready for another great day of learning!')).finally(() => setBriefingLoading(false));
   }, []);
 
-  const statCards = [
-    { label: 'Total Memories', value: stats?.total_memories ?? 0, icon: Brain, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'Knowledge Domains', value: stats?.knowledge_domains?.length ?? 0, icon: Globe, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  const totalMem = stats?.total_memories ?? 0;
+  const domains: { name: string; value: number }[] = stats?.knowledge_domains ?? [];
+
+  // Radar data from domains
+  const radarData = domains.length > 0
+    ? domains.slice(0, 6).map((d: any) => ({ subject: d.name, value: d.value, fullMark: Math.max(...domains.map((x: any) => x.value)) + 1 }))
+    : [{ subject: 'AI/ML', value: 0, fullMark: 10 }, { subject: 'Science', value: 0, fullMark: 10 }, { subject: 'Tech', value: 0, fullMark: 10 }, { subject: 'Business', value: 0, fullMark: 10 }, { subject: 'Health', value: 0, fullMark: 10 }];
+
+  // Simulated activity data (last 7 days)
+  const activityData = [
+    { day: 'Mon', captures: 3 }, { day: 'Tue', captures: 7 }, { day: 'Wed', captures: 2 },
+    { day: 'Thu', captures: 9 }, { day: 'Fri', captures: 5 }, { day: 'Sat', captures: 4 }, { day: 'Sun', captures: totalMem },
   ];
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Welcome back, Prashant</h2>
-          <p className="text-slate-500 mt-1">Here's what's happening in your Second Brain today.</p>
-        </div>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-2xl text-white max-w-md shadow-lg shadow-indigo-600/20"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-200 mb-1">AI Daily Briefing</p>
-              {briefingLoading ? (
-                <div className="flex gap-1 mt-2">
-                  {[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />)}
-                </div>
-              ) : (
-                <p className="text-sm text-white/90 leading-relaxed">{briefing}</p>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      </header>
+  const statCards = [
+    { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#00d4ff', glow: 'rgba(0,212,255,0.15)', border: 'rgba(0,212,255,0.25)', trend: '+12%' },
+    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#8b5cf6', glow: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.25)', trend: '2 due today' },
+    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: '#f472b6', glow: 'rgba(244,114,182,0.15)', border: 'rgba(244,114,182,0.25)', trend: 'Lifetime' },
+    { label: 'Knowledge Domains', value: domains.length, icon: Network, color: '#10b981', glow: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.25)', trend: 'Active' },
+  ];
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-4", stat.bg)}>
-              <stat.icon className={cn("w-6 h-6", stat.color)} />
+  const S = { // shared card styles
+    card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, backdropFilter: 'blur(20px)', transition: 'all 0.3s' } as React.CSSProperties,
+  };
+
+  return (
+    <div style={{ color: '#e2e8f0' }}>
+      {/* ── Header ── */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+              <span style={{ color: '#6b7280', fontSize: 12, letterSpacing: '0.05em' }}>NEURAL OS ACTIVE</span>
             </div>
-            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
+            <h1 style={{ fontSize: 30, fontWeight: 700, color: '#f1f5f9', margin: 0, lineHeight: 1.15 }}>
+              Welcome back, <span style={{ color: '#00d4ff', textShadow: '0 0 20px rgba(0,212,255,0.4)' }}>Prashant</span>
+            </h1>
+            <p style={{ color: '#4b5563', fontSize: 13, marginTop: 4 }}>{today}</p>
+          </div>
+
+          {/* Briefing card */}
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid rgba(0,212,255,0.18)', boxShadow: '0 0 30px rgba(0,212,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#00d4ff25,#8b5cf625)', border: '1px solid rgba(0,212,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sparkles size={15} color="#00d4ff" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: '#00d4ff', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 600 }}>AI DAILY BRIEFING</div>
+                {briefingLoading
+                  ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4ff55', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
+                  : <p style={{ color: '#9ca3af', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
+                }
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* ── Stat Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 22 }}>
+        {statCards.map((s, i) => (
+          <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+            style={{ ...S.card, padding: '20px 22px', border: `1px solid ${s.border}`, boxShadow: `0 0 30px ${s.glow}`, cursor: 'default' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: `${s.color}18`, border: `1px solid ${s.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <s.icon size={19} color={s.color} style={{ filter: `drop-shadow(0 0 6px ${s.color})` }} />
+              </div>
+              <span style={{ fontSize: 10, color: s.color, background: `${s.color}18`, padding: '3px 8px', borderRadius: 20, fontWeight: 500 }}>{s.trend}</span>
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#f1f5f9', lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>{s.label}</div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900">Recent Memories</h3>
-            <button onClick={() => setView('vault')} className="text-sm font-medium text-indigo-600 hover:text-indigo-700">View all →</button>
-          </div>
-          <div className="space-y-3">
-            {recent.length > 0 ? recent.map((memory) => (
-              <div key={memory.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex gap-4 hover:border-indigo-100 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0">
-                  {memory.source_type === 'youtube' && <Youtube className="w-5 h-5 text-red-500" />}
-                  {memory.source_type === 'web' && <Globe className="w-5 h-5 text-blue-500" />}
-                  {memory.source_type === 'pdf' && <FileText className="w-5 h-5 text-orange-500" />}
-                  {memory.source_type === 'note' && <StickyNote className="w-5 h-5 text-amber-500" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{memory.title}</h4>
-                  <p className="text-sm text-slate-500 line-clamp-1 mt-1">{memory.summary}</p>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase">{memory.domain}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                      <Clock className="w-3 h-3" />{new Date(memory.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 border-dashed">
-                <Brain className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-slate-400 font-medium">No memories yet</p>
-                <button onClick={() => setView('capture')} className="mt-3 text-sm text-indigo-600 font-bold hover:underline">Capture your first memory →</button>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold text-slate-900">Recent AI Interactions</h3>
-            <div className="bg-white rounded-3xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
-              {logs.length > 0 ? logs.map((log, i) => (
-                <div key={i} className="p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="text-sm font-bold text-slate-800 line-clamp-1">{log.user_message}</p>
-                    <span className="text-[10px] text-slate-400 whitespace-nowrap ml-4">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 line-clamp-1 italic">"{log.reply}"</p>
-                </div>
-              )) : (
-                <div className="p-8 text-center text-slate-400">No interactions yet. Try the Recall AI!</div>
-              )}
+      {/* ── Middle Row: Chart + Radar ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14, marginBottom: 22 }}>
+        {/* Activity line chart */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          style={{ ...S.card, padding: '20px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <div>
+              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
+              <div style={{ color: '#4b5563', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10b981', fontSize: 11 }}>
+              <Activity size={13} /> <span>Live</span>
             </div>
           </div>
-        </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={activityData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fill: '#4b5563', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#4b5563', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} cursor={{ stroke: 'rgba(0,212,255,0.15)' }} />
+              <Line type="monotone" dataKey="captures" stroke="#00d4ff" strokeWidth={2} dot={{ fill: '#00d4ff', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: '#00d4ff', boxShadow: '0 0 12px #00d4ff' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </motion.div>
 
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-slate-900">Knowledge Domains</h3>
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 space-y-4">
-            {stats?.knowledge_domains?.length > 0 ? stats.knowledge_domains.map((domain: any) => (
-              <div key={domain.name} className="space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium text-slate-700">{domain.name}</span>
-                  <span className="text-slate-400 font-bold">{domain.value}</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(domain.value / (stats.total_memories || 1)) * 100}%` }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
-                  />
-                </div>
+        {/* Radar */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          style={{ ...S.card, padding: '20px 22px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
+          <div style={{ color: '#4b5563', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
+          <ResponsiveContainer width="100%" height={170}>
+            <RadarChart data={radarData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+              <PolarGrid stroke="rgba(255,255,255,0.06)" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 9 }} />
+              <PolarRadiusAxis tick={false} axisLine={false} />
+              <Radar dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} strokeWidth={1.5} dot={{ r: 2, fill: '#8b5cf6' }} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+
+      {/* ── Bottom Row: Memories + Sidebar ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14 }}>
+        {/* Recent Memories */}
+        <div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ ...S.card, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
+              <button onClick={() => setView('vault')} style={{ color: '#00d4ff', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                View all <ArrowUpRight size={11} />
+              </button>
+            </div>
+            {recent.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {recent.map((mem) => {
+                  const Icon = SRC_ICON[mem.source_type] ?? Brain;
+                  const clr = SRC_CLR[mem.source_type] ?? '#00d4ff';
+                  return (
+                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s', cursor: 'default' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = `${clr}35`; (e.currentTarget as HTMLDivElement).style.background = `${clr}08`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)'; }}
+                    >
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: `${clr}15`, border: `1px solid ${clr}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={15} color={clr} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.title}</div>
+                        <div style={{ color: '#4b5563', fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.summary}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <span style={{ fontSize: 9, color: clr, background: `${clr}18`, padding: '2px 7px', borderRadius: 20, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mem.source_type}</span>
+                        <span style={{ fontSize: 10, color: '#374151' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            )) : (
-              <div className="py-8 text-center">
-                <Target className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">Start capturing to see domain stats</p>
+            ) : (
+              <div style={{ padding: '36px 0', textAlign: 'center' }}>
+                <Brain size={36} color="#1f2937" style={{ margin: '0 auto 12px' }} />
+                <p style={{ color: '#374151', fontSize: 13 }}>No memories yet</p>
+                <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#00d4ff', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Capture your first memory →</button>
               </div>
             )}
-          </div>
+          </motion.div>
 
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-3xl border border-indigo-100 space-y-4">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-indigo-500" />
-              Quick Actions
-            </h3>
-            {[
-              { label: 'Capture new knowledge', icon: Plus, view: 'capture' as View, color: 'bg-indigo-600 text-white' },
-              { label: 'Ask Recall AI', icon: Search, view: 'recall' as View, color: 'bg-white text-slate-700 border border-slate-200' },
-              { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: 'bg-white text-slate-700 border border-slate-200' },
-            ].map((a) => (
-              <button
-                key={a.label}
-                onClick={() => setView(a.view)}
-                className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-sm", a.color)}
-              >
-                <a.icon className="w-4 h-4" />
-                {a.label}
+          {/* AI Interactions */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
+              <button onClick={() => setView('recall')} style={{ color: '#8b5cf6', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                Open Recall <ArrowUpRight size={11} />
               </button>
-            ))}
-          </div>
+            </div>
+            {logs.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {logs.map((log, i) => (
+                  <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
+                      <span style={{ color: '#d1d5db', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
+                      <span style={{ color: '#374151', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p style={{ color: '#4b5563', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: '#374151', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Right sidebar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Knowledge Domains */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.42 }} style={{ ...S.card, padding: '18px 20px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
+            {domains.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {domains.slice(0, 5).map((d: any, i: number) => {
+                  const pct = Math.round((d.value / (totalMem || 1)) * 100);
+                  const clr = DOMAIN_COLORS[i % DOMAIN_COLORS.length];
+                  return (
+                    <div key={d.name}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ color: '#9ca3af', fontSize: 12 }}>{d.name}</span>
+                        <span style={{ color: clr, fontSize: 11, fontWeight: 600 }}>{d.value}</span>
+                      </div>
+                      <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 4, overflow: 'hidden' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: 0.5 + i * 0.1 }}
+                          style={{ height: '100%', borderRadius: 4, background: `linear-gradient(90deg, ${clr}, ${clr}88)`, boxShadow: `0 0 8px ${clr}60` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '24px 0', textAlign: 'center', color: '#374151', fontSize: 12 }}>Start capturing to see domains</div>
+            )}
+          </motion.div>
+
+          {/* Domain bar chart */}
+          {domains.length > 0 && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.47 }} style={{ ...S.card, padding: '18px 20px' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={domains.slice(0, 6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" tick={{ fill: '#374151', fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={false} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {domains.slice(0, 6).map((_: any, i: number) => <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </motion.div>
+          )}
+
+          {/* Quick Actions */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Capture Knowledge', icon: Plus, view: 'capture' as View, color: '#00d4ff', bg: 'linear-gradient(135deg,#00d4ff,#0099cc)' },
+                { label: 'Ask Recall AI', icon: Bot, view: 'recall' as View, color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+                { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
+                { label: 'Manage Tasks', icon: CheckSquare, view: 'tasks' as View, color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+              ].map((a, i) => (
+                <button key={a.label} onClick={() => setView(a.view)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: i === 0 ? a.bg : 'rgba(255,255,255,0.03)', border: `1px solid ${a.color}${i === 0 ? '60' : '25'}`, cursor: 'pointer', transition: 'all 0.2s', boxShadow: i === 0 ? `0 0 20px ${a.color}30` : 'none' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
+                >
+                  <a.icon size={14} color={i === 0 ? '#fff' : a.color} />
+                  <span style={{ color: i === 0 ? '#fff' : '#9ca3af', fontSize: 12, fontWeight: i === 0 ? 600 : 400 }}>{a.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </div>
     </div>
@@ -1723,13 +1881,14 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div className="h-screen w-full bg-slate-950 flex items-center justify-center">
-        <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 2 }} className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-500/40">
-            <Brain className="w-10 h-10 text-white" />
+      <div style={{ height: '100vh', width: '100%', background: '#05050f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+        <NeuralBackground />
+        <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 2.2 }} style={{ position: 'relative', zIndex: 10 }}>
+          <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg,#00d4ff,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px rgba(0,212,255,0.5)' }}>
+            <Brain size={38} color="white" />
           </div>
-          <p className="text-slate-400 font-medium animate-pulse">Initializing Second Brain...</p>
         </motion.div>
+        <div style={{ color: '#4b5563', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', zIndex: 10 }}>Initializing Neural OS...</div>
       </div>
     );
   }
@@ -1744,99 +1903,124 @@ export default function App() {
   ];
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      <div className="hidden lg:block">
+    <div style={{ display: 'flex', height: '100vh', background: '#05050f', color: '#e2e8f0', overflow: 'hidden', fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+      <NeuralBackground />
+      {/* Ambient blobs */}
+      <div className="recall-blob-1" />
+      <div className="recall-blob-2" />
+      <div className="recall-blob-3" />
+
+      {/* Desktop Sidebar */}
+      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
         <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       </div>
 
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] lg:hidden" />
-            <motion.div initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed inset-y-0 left-0 w-[280px] z-[70] lg:hidden">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 60 }}
+              className="lg:hidden" />
+            <motion.div initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 230 }}
+              className="lg:hidden">
               <Sidebar currentView={view} setView={(v) => { setView(v); setIsMobileMenuOpen(false); }} isCollapsed={false} setIsCollapsed={() => {}} />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      <main className="flex-1 overflow-y-auto relative">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1 max-w-2xl">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors">
-              <div className="space-y-1.5">{[0, 1, 2].map(i => <div key={i} className="w-5 h-0.5 bg-slate-600 rounded-full" />)}</div>
+      {/* Main content */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 10 }}>
+        {/* Header */}
+        <header style={{
+          background: 'rgba(5,5,15,0.85)', backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(0,212,255,0.08)',
+          padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0, zIndex: 30,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden"
+              style={{ padding: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
+              <Menu size={16} />
             </button>
-            <div className="relative flex-1 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search anything... (Cmd + K)"
-                onFocus={() => setShowCommandPalette(true)}
-                readOnly
-                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent border focus:bg-white focus:border-indigo-500 rounded-xl text-sm outline-none transition-all cursor-pointer"
+            <div style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
+              <Search size={14} color="#374151" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <input readOnly onFocus={() => setShowCommandPalette(true)}
+                placeholder="Search memories, tasks, anything... (⌘K)"
+                style={{ width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, color: '#9ca3af', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-              <span className="text-xs font-bold text-indigo-600">{appSettings?.use_openrouter ? 'OpenRouter Active' : 'OpenAI Active'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 20 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }} />
+              <span style={{ color: '#00d4ff', fontSize: 11, fontWeight: 500 }}>{appSettings?.use_openrouter ? 'OpenRouter Active' : 'OpenAI Active'}</span>
             </div>
-            <button
-              onClick={() => setView('capture')}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
-            >
-              <Plus className="w-4 h-4" />Capture
+            <button onClick={() => setView('capture')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: 'linear-gradient(135deg,#00d4ff,#0099cc)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px rgba(0,212,255,0.3)', fontFamily: 'inherit' }}>
+              <Plus size={14} /> Capture
             </button>
           </div>
         </header>
 
-        <div className="p-6 lg:p-10 max-w-7xl mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div key={view} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              {view === 'dashboard' && <Dashboard setView={setView} />}
-              {view === 'capture' && <CaptureView />}
-              {view === 'vault' && <VaultView setView={setView} />}
-              {view === 'recall' && <RecallView />}
-              {view === 'tasks' && <TasksModule />}
-              {view === 'flashcards' && <FlashcardsView />}
-              {view === 'calendar' && <CalendarModule />}
-              {view === 'settings' && <SettingsView />}
-            </motion.div>
-          </AnimatePresence>
+        {/* Page content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }} className="scroll-custom">
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
+                {view === 'dashboard' && <Dashboard setView={setView} />}
+                {view === 'capture' && <CaptureView />}
+                {view === 'vault' && <VaultView setView={setView} />}
+                {view === 'recall' && <RecallView />}
+                {view === 'tasks' && <TasksModule />}
+                {view === 'flashcards' && <FlashcardsView />}
+                {view === 'calendar' && <CalendarModule />}
+                {view === 'settings' && <SettingsView />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </main>
 
+      {/* Command Palette */}
       <AnimatePresence>
         {showCommandPalette && (
-          <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCommandPalette(false)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: -20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -20 }} className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                <Search className="w-5 h-5 text-indigo-500" />
-                <input autoFocus type="text" placeholder="Type a command or navigate..." className="flex-1 text-lg outline-none placeholder:text-slate-400" />
-                <div className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-500">ESC</div>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh', padding: '14vh 16px 16px' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCommandPalette(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: -20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              style={{ position: 'relative', width: '100%', maxWidth: 560, background: 'rgba(10,10,20,0.97)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 0 80px rgba(0,212,255,0.15)' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Search size={15} color="#00d4ff" />
+                <input autoFocus type="text" placeholder="Type a command or navigate..."
+                  style={{ flex: 1, background: 'none', border: 'none', color: '#e2e8f0', fontSize: 15, outline: 'none', fontFamily: 'inherit' }} />
+                <div style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: 6, color: '#4b5563', fontSize: 10, fontWeight: 700 }}>ESC</div>
               </div>
-              <div className="p-2 max-h-[60vh] overflow-y-auto">
-                <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Navigation</div>
+              <div style={{ padding: '6px', maxHeight: '55vh', overflowY: 'auto' }} className="scroll-custom">
+                <div style={{ padding: '8px 10px 4px', color: '#374151', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Quick Navigation</div>
                 {commands.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => { setView(item.view); setShowCommandPalette(false); }}
-                    className="w-full flex items-center gap-3 px-3 py-3 hover:bg-slate-50 rounded-xl transition-colors group"
+                  <button key={item.label} onClick={() => { setView(item.view); setShowCommandPalette(false); }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s', fontFamily: 'inherit' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,212,255,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-white border border-transparent group-hover:border-slate-100 transition-all">
-                      <item.icon className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <item.icon size={14} color="#00d4ff" />
                     </div>
-                    <span className="flex-1 text-left text-sm font-medium text-slate-700">{item.label}</span>
+                    <span style={{ color: '#9ca3af', fontSize: 13 }}>{item.label}</span>
                   </button>
                 ))}
               </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                <p className="text-[10px] text-slate-400">↑↓ Navigate · Enter to select · Esc to close</p>
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-indigo-300" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recall X247 · OpenAI</span>
+              <div style={{ padding: '10px 18px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#374151', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Brain size={12} color="#00d4ff" />
+                  <span style={{ color: '#374151', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Recall X247</span>
                 </div>
               </div>
             </motion.div>
