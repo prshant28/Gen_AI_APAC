@@ -2166,13 +2166,13 @@ const KnowledgeGraphView = () => {
         // Label
         if (n.type !== 'memory' || n.r > 6) {
           ctx.fillStyle = n.type === 'center' ? '#00d4ff' : '#9ca3af';
-          ctx.font = `${n.type === 'center' ? '700 11px' : '500 9px'} 'Space Grotesk', sans-serif`;
+          ctx.font = `${n.type === 'center' ? '700 11px' : '500 9px'} 'Poppins', sans-serif`;
           ctx.textAlign = 'center';
           ctx.fillText(n.label, n.x, n.y + pulse + 12);
         }
         if (n.type === 'center') {
           ctx.fillStyle = '#ffffff';
-          ctx.font = "600 9px 'Space Grotesk', sans-serif";
+          ctx.font = "600 9px 'Poppins', sans-serif";
           ctx.textAlign = 'center';
           ctx.fillText(n.label, n.x, n.y + 4);
         }
@@ -3128,7 +3128,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif" }}>
 
       {/* Desktop Sidebar */}
       <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
