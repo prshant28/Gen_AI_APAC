@@ -70,7 +70,7 @@ const YouTubeThumbnail = ({ url, onClick }: { url: string; onClick?: () => void 
   );
 };
 
-type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings' | 'timeline' | 'graph' | 'workspace' | 'analytics';
+type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings' | 'timeline' | 'graph' | 'workspace' | 'analytics' | 'agent';
 
 interface Memory {
   id: string;
@@ -150,6 +150,7 @@ const NAV_GROUPS = [
     label: 'Core',
     items: [
       { id: 'dashboard',  label: 'Dashboard',   icon: LayoutDashboard, color: '#00d4ff' },
+      { id: 'agent',      label: 'Agent Hub',    icon: Cpu,             color: '#a78bfa' },
       { id: 'capture',    label: 'Capture',      icon: Plus,            color: '#8b5cf6' },
       { id: 'vault',      label: 'Vault',        icon: Database,        color: '#f472b6' },
       { id: 'recall',     label: 'Neural Recall',icon: Bot,             color: '#00d4ff' },
@@ -2655,6 +2656,464 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
   );
 };
 
+// ─── Agent Hub View ───────────────────────────────────────────────────────────
+
+interface AgentMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  type: 'text' | 'thinking' | 'steps' | 'welcome';
+  steps?: AgentStepData[];
+  agents?: string[];
+  workflow_id?: string;
+  ts: string;
+}
+
+interface AgentStepData {
+  step_id: string;
+  agent: string;
+  tool: string;
+  name: string;
+  status: 'running' | 'completed' | 'failed';
+  input?: any;
+  output_summary?: string;
+  error?: string;
+  duration_ms?: number;
+}
+
+const AGENT_COLORS: Record<string, string> = {
+  Orchestrator: '#00d4ff', CaptureAgent: '#f43f5e', RecallAgent: '#8b5cf6',
+  TaskAgent: '#10b981', CalendarAgent: '#f59e0b', BriefingAgent: '#06b6d4', AnalyticsAgent: '#3b82f6'
+};
+
+const QUICK_PROMPTS = [
+  { label: 'Daily briefing', icon: Sparkles, msg: 'Give me my AI daily briefing with learning summary' },
+  { label: 'Review tasks', icon: CheckSquare, msg: 'Show me all my pending tasks and prioritize them' },
+  { label: 'What did I learn?', icon: Brain, msg: 'Recall the most important things I have saved recently' },
+  { label: 'Study schedule', icon: CalendarIcon, msg: 'Create a study plan for this week based on my knowledge base' },
+  { label: 'Knowledge stats', icon: BarChart2, msg: 'Analyze my knowledge base and give me learning insights' },
+];
+
+const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
+  const [messages, setMessages] = useState<AgentMsg[]>([
+    {
+      id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(),
+      content: 'Hello! I am the Neural AI Orchestrator.\n\nI coordinate a team of specialized sub-agents to help you capture knowledge, manage tasks, schedule study sessions, and recall anything from your Second Brain.\n\nWhat would you like to accomplish today?'
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'running' | 'done'>>({});
+  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [activePanel, setActivePanel] = useState<'agents' | 'history'>('agents');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const thinkingIdRef = useRef<string>('');
+
+  const agentList = [
+    { name: 'Orchestrator', role: 'Primary coordinator', color: '#00d4ff', tools: ['plan', 'delegate', 'synthesize'] },
+    { name: 'CaptureAgent', role: 'Captures YouTube, web, notes', color: '#f43f5e', tools: ['youtube', 'web', 'note'] },
+    { name: 'RecallAgent', role: 'Semantic knowledge search', color: '#8b5cf6', tools: ['search', 'filter'] },
+    { name: 'TaskAgent', role: 'Task creation & management', color: '#10b981', tools: ['create', 'list', 'complete'] },
+    { name: 'CalendarAgent', role: 'Event scheduling', color: '#f59e0b', tools: ['schedule', 'list'] },
+    { name: 'BriefingAgent', role: 'Daily briefings & study plans', color: '#06b6d4', tools: ['briefing', 'plan'] },
+    { name: 'AnalyticsAgent', role: 'Stats & learning insights', color: '#3b82f6', tools: ['stats', 'graph'] },
+  ];
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    fetchWorkflows();
+  }, []);
+
+  const fetchWorkflows = async () => {
+    try {
+      const data = await fetch('/workflows?limit=10').then(r => r.json());
+      setWorkflows(Array.isArray(data) ? data : []);
+    } catch { setWorkflows([]); }
+  };
+
+  const handleSend = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || isStreaming) return;
+
+    const userMsgId = `u-${Date.now()}`;
+    const thinkId = `t-${Date.now()}`;
+    thinkingIdRef.current = thinkId;
+
+    setMessages(prev => [...prev,
+      { id: userMsgId, role: 'user', type: 'text', content: msg, ts: new Date().toISOString() },
+      { id: thinkId, role: 'assistant', type: 'thinking', content: '', ts: new Date().toISOString(), steps: [] }
+    ]);
+    setInput('');
+    setIsStreaming(true);
+    setAgentStatuses({ Orchestrator: 'running' });
+
+    try {
+      const response = await fetch('/agent/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, session_id: 'agent-hub' })
+      });
+
+      if (!response.body) throw new Error('No response body');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+        for (const chunk of lines) {
+          const line = chunk.trim();
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              handleSSEEvent(event);
+            } catch { /* ignore malformed */ }
+          }
+        }
+      }
+    } catch (e: any) {
+      setMessages(prev => prev.map(m => m.id === thinkingIdRef.current
+        ? { ...m, type: 'text', content: `Error: ${e.message || 'Connection failed'}` }
+        : m
+      ));
+    } finally {
+      setIsStreaming(false);
+      setAgentStatuses({});
+      fetchWorkflows();
+    }
+  };
+
+  const handleSSEEvent = (event: any) => {
+    const thinkId = thinkingIdRef.current;
+    switch (event.type) {
+      case 'thinking':
+        setAgentStatuses(prev => ({ ...prev, Orchestrator: 'running' }));
+        break;
+
+      case 'agent_start':
+        setAgentStatuses(prev => ({ ...prev, [event.agent]: 'running', Orchestrator: 'running' }));
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, type: 'steps', steps: [...(m.steps || []), { step_id: event.step_id, agent: event.agent, tool: event.tool, name: event.name, status: 'running', input: event.input }] }
+          : m
+        ));
+        break;
+
+      case 'agent_complete':
+        setAgentStatuses(prev => ({ ...prev, [event.agent]: 'done' }));
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, steps: (m.steps || []).map(s => s.step_id === event.step_id ? { ...s, status: 'completed', output_summary: event.output_summary, duration_ms: event.duration_ms } : s) }
+          : m
+        ));
+        break;
+
+      case 'agent_error':
+        setAgentStatuses(prev => ({ ...prev, [event.agent]: 'idle' }));
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, steps: (m.steps || []).map(s => s.step_id === event.step_id ? { ...s, status: 'failed', error: event.error } : s) }
+          : m
+        ));
+        break;
+
+      case 'workflow_complete':
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== thinkId),
+          {
+            id: event.workflow_id,
+            role: 'assistant' as const,
+            type: 'text' as const,
+            content: event.reply,
+            steps: event.steps,
+            agents: event.agents_called,
+            workflow_id: event.workflow_id,
+            ts: event.timestamp || new Date().toISOString()
+          }
+        ]);
+        setAgentStatuses({});
+        break;
+
+      case 'error':
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, type: 'text', content: `Neural AI error: ${event.message}` }
+          : m
+        ));
+        break;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 130px)', minHeight: 0 }}>
+
+      {/* ── Left Panel: Agent Registry + History ── */}
+      <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }} className="hidden lg:flex">
+
+        {/* Panel Toggle */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, border: '1px solid rgba(255,255,255,0.06)' }}>
+          {(['agents', 'history'] as const).map(tab => (
+            <button key={tab} onClick={() => setActivePanel(tab)}
+              style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                background: activePanel === tab ? 'rgba(0,212,255,0.12)' : 'transparent',
+                color: activePanel === tab ? '#00d4ff' : '#6b7280', fontSize: 11, fontWeight: 600, textTransform: 'capitalize', transition: 'all 0.2s' }}>
+              {tab === 'agents' ? 'Agents' : 'History'}
+            </button>
+          ))}
+        </div>
+
+        {activePanel === 'agents' ? (
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ color: '#9ca3af', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Agent Registry</div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
+              {agentList.map(agent => {
+                const status = agentStatuses[agent.name] || 'idle';
+                return (
+                  <div key={agent.name} style={{ padding: '8px 10px', borderRadius: 10, marginBottom: 3,
+                    background: status === 'running' ? `${agent.color}10` : 'transparent',
+                    border: `1px solid ${status === 'running' ? agent.color + '35' : 'transparent'}`,
+                    transition: 'all 0.3s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ position: 'relative', width: 7, height: 7, flexShrink: 0 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: status === 'running' ? agent.color : status === 'done' ? '#10b981' : '#374151' }} />
+                        {status === 'running' && (
+                          <div style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: `1px solid ${agent.color}`, animation: 'ping 1s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.6 }} />
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: status === 'running' ? agent.color : '#9ca3af', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
+                        <div style={{ color: '#4b5563', fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.role}</div>
+                      </div>
+                    </div>
+                    {status === 'running' && (
+                      <div style={{ marginTop: 6, display: 'flex', gap: 3 }}>
+                        {[1,2,3].map(i => (
+                          <div key={i} style={{ height: 2, flex: 1, background: agent.color, borderRadius: 2, opacity: 0.6, animation: `pulse ${0.6 + i * 0.2}s ease-in-out infinite alternate` }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,212,255,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                <span style={{ color: '#6b7280', fontSize: 10 }}>{agentList.length} agents ready</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ color: '#9ca3af', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Workflow History</div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
+              {workflows.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#4b5563', fontSize: 11 }}>No workflows yet</div>
+              ) : workflows.map(wf => (
+                <div key={wf.id} style={{ padding: '8px 10px', borderRadius: 10, marginBottom: 4, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: wf.status === 'completed' ? '#10b981' : wf.status === 'failed' ? '#ef4444' : '#f59e0b', flexShrink: 0 }} />
+                    <span style={{ color: '#9ca3af', fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
+                  </div>
+                  <div style={{ color: '#4b5563', fontSize: 9.5 }}>{wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick navigate */}
+        <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14 }}>
+          <div style={{ color: '#4b5563', fontSize: 9.5, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>Quick Access</div>
+          {[
+            { label: 'Vault', view: 'vault' as View, color: '#f472b6' },
+            { label: 'Tasks', view: 'tasks' as View, color: '#10b981' },
+            { label: 'Calendar', view: 'calendar' as View, color: '#f59e0b' },
+          ].map(link => (
+            <button key={link.view} onClick={() => setView(link.view)}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', borderRadius: 7, border: 'none', background: 'transparent', color: link.color, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+              → {link.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Right Panel: Chat Interface ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
+          <div>
+            <h2 style={{ color: '#e2e8f0', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.3px' }}>
+              Agent Hub <span style={{ color: '#a78bfa', marginLeft: 4 }}>✦</span>
+            </h2>
+            <p style={{ color: '#4b5563', fontSize: 12, margin: '2px 0 0' }}>Multi-agent AI system · Real-time coordination · SSE streaming</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isStreaming && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: 'pulse 1s ease-in-out infinite' }} />
+                <span style={{ color: '#a78bfa', fontSize: 11, fontWeight: 500 }}>Agents active</span>
+              </div>
+            )}
+            <button onClick={() => { setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: 'Session cleared. How can I help you?' }]); setAgentStatuses({}); }}
+              style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#6b7280', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)', padding: 16, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom">
+          {messages.map(msg => (
+            <div key={msg.id} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
+
+              {/* Avatar */}
+              {msg.role === 'assistant' && (
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#00d4ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 16px rgba(167,139,250,0.3)' }}>
+                  <Brain size={16} color="white" />
+                </div>
+              )}
+
+              <div style={{ maxWidth: msg.role === 'user' ? '70%' : '85%', minWidth: 0 }}>
+
+                {/* Thinking indicator */}
+                {msg.type === 'thinking' && (msg.steps || []).length === 0 && (
+                  <div style={{ padding: '10px 14px', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[0,1,2].map(i => (
+                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />
+                      ))}
+                    </div>
+                    <span style={{ color: '#a78bfa', fontSize: 12 }}>Orchestrator is planning...</span>
+                  </div>
+                )}
+
+                {/* Step cards (during streaming) */}
+                {msg.type === 'steps' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(msg.steps || []).map(step => {
+                      const color = AGENT_COLORS[step.agent] || '#6b7280';
+                      return (
+                        <div key={step.step_id} style={{ padding: '10px 14px', background: `${color}08`, border: `1px solid ${color}25`, borderRadius: '4px 14px 14px 14px', transition: 'all 0.3s' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step.status !== 'running' ? 6 : 0 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: step.status === 'completed' ? '#10b981' : step.status === 'failed' ? '#ef4444' : color,
+                              ...(step.status === 'running' ? { animation: 'pulse 1s ease-in-out infinite', boxShadow: `0 0 8px ${color}` } : {}) }} />
+                            <span style={{ color, fontSize: 10.5, fontWeight: 700 }}>{step.agent}</span>
+                            <span style={{ color: '#4b5563', fontSize: 10 }}>›</span>
+                            <span style={{ color: '#9ca3af', fontSize: 10.5 }}>{step.name}</span>
+                            {step.status === 'running' && <span style={{ marginLeft: 'auto', color: '#4b5563', fontSize: 9.5 }}>Running...</span>}
+                            {step.status === 'completed' && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: 9.5 }}>✓ {step.duration_ms?.toFixed(0)}ms</span>}
+                            {step.status === 'failed' && <span style={{ marginLeft: 'auto', color: '#ef4444', fontSize: 9.5 }}>✗ Failed</span>}
+                          </div>
+                          {step.status === 'completed' && step.output_summary && (
+                            <div style={{ color: '#6b7280', fontSize: 11, paddingLeft: 14, borderLeft: `2px solid ${color}30`, marginTop: 4 }}>{step.output_summary}</div>
+                          )}
+                          {step.status === 'failed' && step.error && (
+                            <div style={{ color: '#ef4444', fontSize: 10.5, marginTop: 4 }}>{step.error}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Text message */}
+                {(msg.type === 'text' || msg.type === 'welcome') && (
+                  <div>
+                    <div style={{
+                      padding: '12px 16px', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
+                      background: msg.role === 'user'
+                        ? 'linear-gradient(135deg,rgba(0,212,255,0.15),rgba(167,139,250,0.15))'
+                        : msg.type === 'welcome' ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.04)',
+                      border: msg.role === 'user'
+                        ? '1px solid rgba(0,212,255,0.25)'
+                        : `1px solid ${msg.type === 'welcome' ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                    }}>
+                      <p style={{ color: '#e2e8f0', fontSize: 13, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                    </div>
+
+                    {/* Completed workflow steps summary */}
+                    {msg.steps && msg.steps.length > 0 && (
+                      <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {msg.steps.map(s => {
+                          const color = AGENT_COLORS[s.agent] || '#6b7280';
+                          return (
+                            <span key={s.step_id} style={{ padding: '2px 8px', background: `${color}12`, border: `1px solid ${color}25`, borderRadius: 20, color, fontSize: 9.5, fontWeight: 600 }}>
+                              {s.agent.replace('Agent', '')} · {s.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {msg.role === 'assistant' && msg.ts && (
+                      <div style={{ color: '#374151', fontSize: 9.5, marginTop: 4, paddingLeft: 2 }}>
+                        {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.agents && msg.agents.length > 0 && ` · ${msg.agents.length} agents`}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Quick Prompts */}
+        {messages.length <= 2 && !isStreaming && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, flexShrink: 0 }}>
+            {QUICK_PROMPTS.map(qp => (
+              <button key={qp.label} onClick={() => handleSend(qp.msg)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, color: '#9ca3af', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.3)'; e.currentTarget.style.color = '#a78bfa'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#9ca3af'; }}>
+                <qp.icon size={11} /> {qp.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div style={{ flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            placeholder="Ask Neural AI anything... (Enter to send, Shift+Enter for new line)"
+            disabled={isStreaming}
+            rows={1}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
+          />
+          <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
+            style={{ width: 36, height: 36, borderRadius: 10, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0,
+              background: input.trim() && !isStreaming ? 'linear-gradient(135deg,#a78bfa,#00d4ff)' : 'rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s',
+              boxShadow: input.trim() && !isStreaming ? '0 0 20px rgba(167,139,250,0.3)' : 'none' }}>
+            {isStreaming ? <Loader2 size={16} color="#6b7280" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} color={input.trim() ? 'white' : '#4b5563'} />}
+          </button>
+        </div>
+
+        <p style={{ color: '#374151', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
+          Powered by Neural AI · Multi-agent orchestration with real-time SSE streaming
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -2694,6 +3153,7 @@ export default function App() {
   }
 
   const commands = [
+    { icon: Cpu, label: 'Agent Hub — Multi-agent AI', view: 'agent' as View },
     { icon: Plus, label: 'Capture new memory', view: 'capture' as View },
     { icon: Search, label: 'Ask Neural Recall', view: 'recall' as View },
     { icon: CheckSquare, label: 'Manage tasks', view: 'tasks' as View },
@@ -2777,6 +3237,7 @@ export default function App() {
             <AnimatePresence mode="wait">
               <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
                 {view === 'dashboard' && <Dashboard setView={setView} />}
+                {view === 'agent' && <AgentHubView setView={setView} />}
                 {view === 'capture' && <CaptureView />}
                 {view === 'vault' && <VaultView setView={setView} />}
                 {view === 'recall' && <RecallView />}

@@ -1,21 +1,24 @@
 import os
 import time
+import json
 import datetime
 import logging
+import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Request, Body, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
-from app.coordinator import run_coordinator
+from app.coordinator import run_coordinator, run_coordinator_stream
 from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events
+from app.workflow_engine import list_workflows, get_workflow, AGENT_REGISTRY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recall-x247")
@@ -187,6 +190,56 @@ async def chat_endpoint(request: ChatRequest):
         agents_called=result["agents_called"]
     )
     return result
+
+
+@app.post("/agent/chat/stream")
+async def agent_chat_stream(request: ChatRequest):
+    """SSE streaming endpoint — yields agent events as they happen."""
+    async def event_generator():
+        try:
+            async for event in run_coordinator_stream(request.message, request.session_id):
+                yield event
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
+    )
+
+
+# --- Workflows ---
+
+@app.get("/workflows")
+async def list_workflows_endpoint(limit: int = 20):
+    """List recent multi-agent workflows with execution trace."""
+    return list_workflows(limit=limit)
+
+
+@app.get("/workflows/{workflow_id}")
+async def get_workflow_endpoint(workflow_id: str):
+    """Get a specific workflow with full step details."""
+    wf = get_workflow(workflow_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return wf.to_dict()
+
+
+# --- Agent Registry ---
+
+@app.get("/agents")
+async def list_agents_endpoint():
+    """List all registered sub-agents with their capabilities."""
+    return list(AGENT_REGISTRY.values())
 
 
 # --- Capture ---

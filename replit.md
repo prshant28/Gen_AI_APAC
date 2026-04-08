@@ -1,79 +1,107 @@
 # Recall X247 — AI-powered Second Brain v2.0
 
 ## Overview
-An AI-powered productivity assistant for Gen AI Academy APAC 2026 hackathon. Captures knowledge from YouTube, web, PDFs, and notes; allows semantic recall via natural language; manages tasks; generates flashcards; and schedules study sessions. Powered by OpenAI GPT.
+An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackathon. Implements a **full multi-agent AI system** — a primary Orchestrator coordinates specialized sub-agents via OpenAI function calling with real-time SSE streaming. Captures knowledge from YouTube, web, PDFs, and notes; allows semantic recall; manages tasks; generates flashcards; schedules study sessions; and delivers AI daily briefings.
 
-## Architecture
+**AI Provider:** OpenRouter (GEN_APAC_API_KEY) → GPT-4o-mini. Branding shown as "Neural AI".
 
-### Backend (Python / FastAPI)
-- **Entry point**: `main.py` — FastAPI app serving REST API on port 8000
-- **Framework**: FastAPI + Uvicorn
-- **AI/LLM**: OpenAI GPT-4o-mini via `openai` SDK (function calling / tool use)
-- **Database**: Google Cloud Firestore (async client) with in-memory fallback when credentials unavailable
-- **Key modules** in `app/`:
-  - `coordinator.py` — Multi-agent OpenAI function-calling orchestrator (replaces google-adk)
-  - `capture_agent.py` — Captures from YouTube, web, PDF, notes; generates flashcards, study plans, briefings
-  - `recall_agent.py` — 3-tier semantic recall; delete memories
-  - `task_agent.py` — Task creation, completion, deletion
-  - `calendar_agent.py` — Google Calendar integration + Firestore fallback
-  - `db.py` — Firestore client with full in-memory mock fallback
-  - `config.py` — Settings from env vars + `firebase-applet-config.json`
+## Multi-Agent Architecture
 
-### Frontend (React + TypeScript + Vite)
-- **Entry point**: `src/main.tsx`
-- **Framework**: React 19 + TypeScript
-- **Styling**: Tailwind CSS 4 + custom dark neural CSS (`src/index.css`)
-- **Build tool**: Vite (dev server on port 5000)
-- **Charts**: Recharts (LineChart, RadarChart, BarChart) on dashboard
-- **Key source**: `src/App.tsx` — full application UI (~2000 lines)
-- **Views**: Dashboard, Capture, Vault, Recall AI, Tasks, Flashcards, Calendar, Settings
-- **Design System**: Dark neural theme — `#05050f` background, Space Grotesk font, cyan/purple/pink/green glassmorphism, animated NeuralBackground canvas particles, ambient gradient blobs
+```
+User Request
+     ↓
+Orchestrator (Primary Agent) — app/coordinator.py
+     ↓ OpenAI function calling → dispatches tools
+     ├── CaptureAgent     → capture_knowledge (YouTube, web, PDF, note)
+     ├── RecallAgent      → recall_knowledge / list_memories
+     ├── TaskAgent        → create_task / list_tasks
+     ├── CalendarAgent    → schedule_event / list_schedule
+     ├── BriefingAgent    → get_daily_briefing / generate_study_plan
+     └── AnalyticsAgent   → get_knowledge_stats
+     ↓ SSE streaming (real-time events)
+     ↓ Workflow tracked in app/workflow_engine.py
+Frontend Agent Hub (/agent) — real-time chat UI
+```
 
-## Key Features
-1. **Multi-source Capture**: YouTube transcripts, web scraping, PDF upload, quick notes
-2. **OpenAI Analysis**: Summary, key points, tags, domain classification via GPT-4o-mini
-3. **3-Tier Recall**: tag search → domain classification → semantic scan via OpenAI
-4. **AI Flashcards**: Auto-generated Q&A from any saved memory
-5. **AI Study Plan**: 7-day personalized study plan based on saved knowledge
-6. **AI Daily Briefing**: Morning motivation based on recent activity
-7. **Multi-Agent Coordinator**: OpenAI function-calling with 6 tools
-8. **Task Management**: Create/complete/delete tasks with priority and due dates
-9. **Knowledge Vault**: Delete, filter by domain, view details, generate flashcards
-10. **Command Palette**: Cmd+K quick navigation
+### Workflow Engine (`app/workflow_engine.py`)
+- Each user request spawns a `Workflow` with named `WorkflowSteps`
+- Steps track: agent name, tool used, input/output, status, duration_ms
+- In-memory store with 50-workflow LRU eviction
+- `AGENT_REGISTRY` defines all 7 agents with roles, colors, and tools
 
-## API Endpoints
-- `POST /chat` — Multi-agent coordinator
-- `POST /capture` — Capture from URL or text
-- `POST /capture/upload` — PDF file upload
-- `GET /memories` — List memories (with domain filter)
-- `DELETE /memories/{id}` — Delete a memory
-- `GET /memories/{id}/flashcards` — Generate AI flashcards
-- `POST /study-plan` — Generate 7-day study plan
-- `GET /briefing` — AI daily briefing
-- `POST /tasks` — Create task
-- `GET /tasks` — List tasks (status filter)
-- `POST /tasks/{id}/complete` — Complete task
-- `DELETE /tasks/{id}` — Delete task
-- `GET /schedule` — List events
-- `POST /schedule` — Create event
-- `GET /stats` — Memory/task statistics
-- `GET /settings` — Configuration status
-- `GET /test-ai` — Test OpenAI connection
+### Coordinator (`app/coordinator.py`)
+- 10 MCP-style tools registered (function calling schema)
+- `run_coordinator()` — sync version for `/chat`
+- `run_coordinator_stream()` — async generator for SSE streaming at `/agent/chat/stream`
+- SSE event types: `workflow_start`, `thinking`, `agent_start`, `agent_complete`, `agent_error`, `workflow_complete`, `error`, `done`
 
-## Environment Variables / Secrets Required
-- `OPENAI_API_KEY` — Required for all AI features
-- `GEMINI_API_KEY` (optional, legacy)
-- `GOOGLE_API_KEY` (optional, for web search)
-- `GOOGLE_CSE_CX` (optional)
-- `GCP_PROJECT_ID` — Set to `balmy-vertex-478515-m4`
-- `GOOGLE_APPLICATION_CREDENTIALS` — Service account path (optional, falls back to in-memory DB)
+## Backend (Python / FastAPI) — `main.py`
 
-## Development Workflow
-- Run: `npm run dev` (runs both Vite on port 5000 and FastAPI on port 8000 concurrently)
-- Vite proxies API calls to FastAPI backend
-- In-memory database used when Firestore credentials unavailable
+| Endpoint | Method | Description |
+|---|---|---|
+| `/chat` | POST | Coordinator chat (sync) |
+| `/agent/chat/stream` | POST | SSE streaming chat |
+| `/workflows` | GET | Recent workflow history |
+| `/workflows/{id}` | GET | Single workflow with step trace |
+| `/agents` | GET | Agent registry |
+| `/capture` | POST | Capture knowledge |
+| `/capture/upload` | POST | Upload PDF |
+| `/memories` | GET/POST/DELETE | Knowledge vault CRUD |
+| `/recall` | POST | Semantic search |
+| `/tasks` | GET/POST | Task management |
+| `/schedule` | GET/POST | Calendar events |
+| `/briefing` | GET | AI daily briefing |
+| `/stats` | GET | System statistics |
 
-## Deployment
-- Build: `npm run build`
-- Run: `python main.py`
-- Serves built React app as static files from `/dist`
+### Key Files
+- `app/coordinator.py` — Multi-agent orchestrator with SSE streaming
+- `app/workflow_engine.py` — Workflow tracking + AGENT_REGISTRY
+- `app/capture_agent.py` — YouTube transcript, web scrape, PDF parse, AI analysis
+- `app/recall_agent.py` — 3-tier semantic recall (tag → domain → full text)
+- `app/task_agent.py` — Task CRUD operations
+- `app/calendar_agent.py` — Event scheduling
+- `app/db.py` — Firestore + in-memory mock fallback
+- `app/config.py` — GEN_APAC_API_KEY → OpenRouter config
+
+## Frontend (React + TypeScript + Vite)
+
+### Views (13 total)
+- **Dashboard** — Stats, charts, recent memories, daily briefing
+- **Agent Hub** (`/agent`) — Real-time multi-agent chat with SSE streaming, agent registry panel, workflow history
+- **Capture** — URL/text/PDF capture with YouTube embed preview
+- **Vault** — Knowledge grid with YouTube thumbnails, detail modal with YouTube embed
+- **Neural Recall** — Semantic search with AI answers
+- **Tasks** — Task management with priority/due dates
+- **Flashcards** — AI-generated study cards
+- **Calendar** — Event scheduling
+- **Timeline** — Chronological memory view
+- **Mind Graph** — Knowledge graph visualization
+- **Analytics** — Learning velocity, domain radar, streak tracking
+- **Workspace** — Kanban project board with linked memories
+- **Settings** — API configuration and testing
+
+### Key Architecture
+- `src/App.tsx` — ~3200 lines, all views, SSE streaming, YouTube helpers
+- `src/index.css` — Dark neural theme, responsive breakpoints, animations
+- **Design System:** `#05050f` bg, Space Grotesk, cyan/purple glassmorphism
+- **Animations:** NeuralBackground canvas particles, ambient blobs, agent status pulsing
+- **YouTube:** `getYouTubeId()`, `YouTubeEmbed`, `YouTubeThumbnail` components
+- **Responsive:** `.responsive-content` class, mobile hamburger menu, sm: breakpoints
+
+## Development Setup
+
+```bash
+npm run dev  # Starts both FastAPI (port 8000) and Vite (port 5000)
+```
+
+Vite proxies `/api/*`, `/chat`, `/agent/*`, `/workflows`, etc. to FastAPI port 8000.
+
+## Required Secrets
+- `GEN_APAC_API_KEY` — OpenRouter API key (maps to OPENAI_API_KEY internally)
+- Optional: `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CSE_CX`
+- Optional: Firebase/Firestore credentials (`service_account.json`)
+
+## Database
+- Uses **in-memory MockFirestoreClient** (data resets on restart) when no Firestore credentials
+- Collections: `memories`, `tasks`, `events`, `interaction_logs`, `flashcards`
+- Full Firestore async client available when `GOOGLE_APPLICATION_CREDENTIALS` is set

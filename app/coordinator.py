@@ -1,24 +1,34 @@
+"""
+Orchestrator — Primary multi-agent coordinator for Recall X247.
+Routes user requests to specialized sub-agents using OpenAI function calling.
+Tracks execution as Workflows with named Steps for full auditability.
+"""
+
 import json
 import asyncio
-from typing import List, Dict, Any
+import datetime
+from typing import List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 from app.config import settings
-from app.capture_agent import capture
-from app.task_agent import create_task, list_tasks
+from app.capture_agent import capture, generate_daily_briefing, generate_flashcards, generate_study_plan
+from app.task_agent import create_task, list_tasks, get_tasks_summary
 from app.calendar_agent import create_event, list_upcoming_events
-from app.recall_agent import recall
+from app.recall_agent import recall, list_memories, get_stats
+from app.workflow_engine import create_workflow, Workflow, AGENT_REGISTRY
+
+# ─── Tool Definitions (MCP-style) ─────────────────────────────────────────────
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "capture_knowledge",
-            "description": "Save and summarize content from YouTube URLs, web articles, or typed notes. Use when user shares a URL or wants to save information.",
+            "description": "CaptureAgent: Save and summarize content from YouTube URLs, web articles, or typed notes. Automatically detects source type from URL.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "source_type": {"type": "string", "enum": ["youtube", "web", "note"], "description": "Type of content source"},
-                    "url": {"type": "string", "description": "URL for youtube or web sources"},
+                    "url": {"type": "string", "description": "Full URL for youtube or web sources"},
                     "content": {"type": "string", "description": "Text content for notes"}
                 },
                 "required": ["source_type"]
@@ -29,7 +39,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "recall_knowledge",
-            "description": "Search and answer questions from saved memories in the Second Brain. Use when user asks a question about saved knowledge.",
+            "description": "RecallAgent: Search and answer questions from saved memories in the knowledge base. Use when user asks about saved knowledge.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -42,15 +52,29 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "list_memories",
+            "description": "RecallAgent: List memories from the knowledge vault, optionally filtered by domain.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Optional domain filter (AI, Technology, Science, Business, Health, etc.)"},
+                    "limit": {"type": "integer", "description": "Number of memories to return", "default": 10}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_task",
-            "description": "Create a new task or to-do item. Use when user mentions needing to do something or wants a reminder.",
+            "description": "TaskAgent: Create a new task or to-do item. Use when user mentions needing to do something.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "Task title or description"},
                     "due_date": {"type": "string", "description": "Due date in YYYY-MM-DD format"},
-                    "priority": {"type": "string", "enum": ["low", "medium", "high"], "description": "Task priority level"},
-                    "linked_memory_id": {"type": "string", "description": "Optional ID of a related memory"}
+                    "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+                    "linked_memory_id": {"type": "string", "description": "Optional related memory ID"}
                 },
                 "required": ["title"]
             }
@@ -60,7 +84,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_tasks",
-            "description": "Show the user's current task list.",
+            "description": "TaskAgent: Show the user's current task list.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -73,14 +97,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "schedule_event",
-            "description": "Schedule a study session or calendar event. Use when user wants to book time or set a study session.",
+            "description": "CalendarAgent: Schedule a study session or calendar event.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "Event title"},
-                    "date": {"type": "string", "description": "Date in YYYY-MM-DD format"},
-                    "time": {"type": "string", "description": "Time in HH:MM format (24h)"},
-                    "duration_minutes": {"type": "integer", "description": "Duration in minutes", "default": 60}
+                    "title": {"type": "string"},
+                    "date": {"type": "string", "description": "YYYY-MM-DD"},
+                    "time": {"type": "string", "description": "HH:MM 24h"},
+                    "duration_minutes": {"type": "integer", "default": 60}
                 },
                 "required": ["title", "date", "time"]
             }
@@ -90,33 +114,98 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_schedule",
-            "description": "Show upcoming calendar events and study sessions.",
+            "description": "CalendarAgent: Show upcoming calendar events.",
             "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_daily_briefing",
+            "description": "BriefingAgent: Generate a personalized AI daily briefing with learning summary and recommendations.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_knowledge_stats",
+            "description": "AnalyticsAgent: Get statistics about the knowledge base including memory count, domains, and learning velocity.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_study_plan",
+            "description": "BriefingAgent: Create a personalized multi-day study plan for a topic.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "Topic to study"},
+                    "days": {"type": "integer", "description": "Number of days", "default": 7}
+                },
+                "required": ["topic"]
+            }
         }
     }
 ]
 
-SYSTEM_PROMPT = """You are Recall X247, an AI-powered Second Brain assistant powered by OpenAI GPT.
+# ─── Tool → Agent mapping ─────────────────────────────────────────────────────
 
-You help users:
-1. CAPTURE knowledge from YouTube videos, web articles, and typed notes
-2. RECALL information from their saved knowledge base
-3. CREATE and manage tasks linked to their learning
-4. SCHEDULE study sessions and review events
+TOOL_AGENT_MAP = {
+    "capture_knowledge": "CaptureAgent",
+    "recall_knowledge": "RecallAgent",
+    "list_memories": "RecallAgent",
+    "create_task": "TaskAgent",
+    "list_tasks": "TaskAgent",
+    "schedule_event": "CalendarAgent",
+    "list_schedule": "CalendarAgent",
+    "get_daily_briefing": "BriefingAgent",
+    "get_knowledge_stats": "AnalyticsAgent",
+    "generate_study_plan": "BriefingAgent"
+}
 
-WORKFLOW RULES:
-- URL with youtube.com/youtu.be → use capture_knowledge with source_type "youtube"
-- Other URLs → use capture_knowledge with source_type "web"
-- User asks a question about saved content → use recall_knowledge
-- User says "create task", "remind me", "todo" → use create_task
-- User says "schedule", "book time", "study session" → use schedule_event
-- COMPLEX: "Save this AND create a task" → capture first, then create_task with the memory
-- COMPLEX: "Save and schedule review" → capture first, then schedule_event
+TOOL_DISPLAY_NAMES = {
+    "capture_knowledge": "Capturing knowledge",
+    "recall_knowledge": "Searching memories",
+    "list_memories": "Listing memories",
+    "create_task": "Creating task",
+    "list_tasks": "Fetching tasks",
+    "schedule_event": "Scheduling event",
+    "list_schedule": "Fetching schedule",
+    "get_daily_briefing": "Generating briefing",
+    "get_knowledge_stats": "Analyzing stats",
+    "generate_study_plan": "Creating study plan"
+}
 
-After completing actions, always summarize what was done with ✅.
-Be helpful, concise, and proactive in suggesting follow-up actions.
-Today's date: {today}"""
+# ─── System Prompt ────────────────────────────────────────────────────────────
 
+SYSTEM_PROMPT = """You are Recall X247 Neural AI — an AI-powered Second Brain orchestrator.
+You coordinate specialized sub-agents to help users manage knowledge, tasks, and learning.
+
+SUB-AGENTS YOU COORDINATE:
+- CaptureAgent: Captures knowledge from YouTube, web, PDFs, notes → use capture_knowledge
+- RecallAgent: Searches saved memories semantically → use recall_knowledge or list_memories
+- TaskAgent: Creates and manages tasks → use create_task or list_tasks
+- CalendarAgent: Schedules events and study sessions → use schedule_event or list_schedule
+- BriefingAgent: Generates briefings and study plans → use get_daily_briefing or generate_study_plan
+- AnalyticsAgent: Provides stats and insights → use get_knowledge_stats
+
+ROUTING RULES:
+- YouTube/web URL → CaptureAgent (capture_knowledge)
+- Question about saved content → RecallAgent (recall_knowledge)
+- "create task", "remind me", "todo" → TaskAgent (create_task)
+- "schedule", "book time", "study session" → CalendarAgent (schedule_event)
+- "briefing", "daily summary" → BriefingAgent (get_daily_briefing)
+- COMPLEX workflows: chain multiple agents (e.g., capture THEN create_task)
+
+Today: {today}
+
+Always confirm completed actions with ✅ and suggest useful follow-up actions."""
+
+
+# ─── Tool Executor ────────────────────────────────────────────────────────────
 
 async def run_tool(name: str, args: dict) -> Any:
     if name == "capture_knowledge":
@@ -128,6 +217,8 @@ async def run_tool(name: str, args: dict) -> Any:
         )
     elif name == "recall_knowledge":
         return await recall(query=args.get("query", ""))
+    elif name == "list_memories":
+        return await list_memories(domain=args.get("domain", ""), limit=args.get("limit", 10))
     elif name == "create_task":
         return await create_task(
             title=args["title"],
@@ -146,34 +237,50 @@ async def run_tool(name: str, args: dict) -> Any:
         )
     elif name == "list_schedule":
         return await list_upcoming_events(days=7)
+    elif name == "get_daily_briefing":
+        return await generate_daily_briefing()
+    elif name == "get_knowledge_stats":
+        return await get_stats()
+    elif name == "generate_study_plan":
+        return await generate_study_plan(
+            topic=args.get("topic", ""),
+            days=args.get("days", 7)
+        )
     return {"error": f"Unknown tool: {name}"}
 
+
+# ─── Coordinator (sync) ───────────────────────────────────────────────────────
 
 async def run_coordinator(message: str, session_id: str) -> dict:
     if not settings.OPENAI_API_KEY:
         return {
-            "reply": "AI Service is not configured. Please set OPENAI_API_KEY in the Secrets panel.",
+            "reply": "Neural AI is not configured. Please set GEN_APAC_API_KEY in the Secrets panel.",
             "agents_called": [],
             "session_id": session_id,
             "error": "Unauthorized"
         }
 
-    import datetime
+    workflow = create_workflow(
+        name="Chat Request",
+        description=message[:80],
+        user_message=message,
+        session_id=session_id
+    )
+
     client = AsyncOpenAI(
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.openai_base_url,
         default_headers=settings.openai_extra_headers
     )
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
         {"role": "user", "content": message}
     ]
 
-    agents_called = []
     reply = ""
-
     try:
-        for _ in range(5):
+        for _ in range(6):
             response = await client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
                 messages=messages,
@@ -193,11 +300,24 @@ async def run_coordinator(message: str, session_id: str) -> dict:
             for tc in msg.tool_calls:
                 tool_name = tc.function.name
                 tool_args = json.loads(tc.function.arguments)
+                agent_name = TOOL_AGENT_MAP.get(tool_name, "Orchestrator")
+                display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
 
-                if tool_name not in agents_called:
-                    agents_called.append(tool_name)
+                step = workflow.add_step(
+                    name=display_name,
+                    agent=agent_name,
+                    tool=tool_name,
+                    input_data=tool_args
+                )
+                step.start()
 
-                result = await run_tool(tool_name, tool_args)
+                try:
+                    result = await run_tool(tool_name, tool_args)
+                    step.complete(result)
+                except Exception as e:
+                    step.fail(str(e))
+                    result = {"error": str(e)}
+
                 tool_results.append({
                     "tool_call_id": tc.id,
                     "role": "tool",
@@ -209,12 +329,160 @@ async def run_coordinator(message: str, session_id: str) -> dict:
         if not reply:
             reply = "I've completed the requested actions. Let me know if you need anything else!"
 
+        workflow.complete(reply)
+
     except Exception as e:
         print(f"Coordinator Error: {e}")
         reply = f"I encountered an error: {str(e)}"
+        workflow.fail(str(e))
 
     return {
         "reply": reply,
-        "agents_called": agents_called,
-        "session_id": session_id
+        "agents_called": workflow.agents_called,
+        "session_id": session_id,
+        "workflow_id": workflow.id
     }
+
+
+# ─── Streaming Coordinator (SSE) ──────────────────────────────────────────────
+
+async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerator[str, None]:
+    """
+    Streaming version of the coordinator.
+    Yields SSE-formatted events as each agent step executes.
+    """
+
+    def sse(event_type: str, data: dict) -> str:
+        return f"data: {json.dumps({'type': event_type, **data})}\n\n"
+
+    if not settings.OPENAI_API_KEY:
+        yield sse("error", {"message": "Neural AI not configured. Set GEN_APAC_API_KEY in Secrets."})
+        return
+
+    workflow = create_workflow(
+        name="Chat Stream",
+        description=message[:80],
+        user_message=message,
+        session_id=session_id
+    )
+
+    yield sse("workflow_start", {
+        "workflow_id": workflow.id,
+        "message": message,
+        "timestamp": workflow.created_at
+    })
+
+    client = AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.openai_base_url,
+        default_headers=settings.openai_extra_headers
+    )
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
+        {"role": "user", "content": message}
+    ]
+
+    reply = ""
+    try:
+        for iteration in range(6):
+            yield sse("thinking", {"iteration": iteration})
+
+            response = await client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0.3
+            )
+
+            msg = response.choices[0].message
+            messages.append(msg)
+
+            if not msg.tool_calls:
+                reply = msg.content or ""
+                break
+
+            for tc in msg.tool_calls:
+                tool_name = tc.function.name
+                tool_args = json.loads(tc.function.arguments)
+                agent_name = TOOL_AGENT_MAP.get(tool_name, "Orchestrator")
+                display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+
+                step = workflow.add_step(
+                    name=display_name,
+                    agent=agent_name,
+                    tool=tool_name,
+                    input_data=tool_args
+                )
+                step.start()
+
+                yield sse("agent_start", {
+                    "step_id": step.id,
+                    "agent": agent_name,
+                    "tool": tool_name,
+                    "name": display_name,
+                    "input": tool_args
+                })
+
+                try:
+                    result = await run_tool(tool_name, tool_args)
+                    step.complete(result)
+                    yield sse("agent_complete", {
+                        "step_id": step.id,
+                        "agent": agent_name,
+                        "tool": tool_name,
+                        "name": display_name,
+                        "output_summary": _summarize_output(result),
+                        "duration_ms": round(step.duration_ms, 1)
+                    })
+                except Exception as e:
+                    step.fail(str(e))
+                    result = {"error": str(e)}
+                    yield sse("agent_error", {
+                        "step_id": step.id,
+                        "agent": agent_name,
+                        "error": str(e)
+                    })
+
+                messages.append({
+                    "tool_call_id": tc.id,
+                    "role": "tool",
+                    "content": json.dumps(result, default=str)
+                })
+
+        if not reply:
+            reply = "All tasks completed successfully! Let me know if you need anything else."
+
+        workflow.complete(reply)
+
+        yield sse("workflow_complete", {
+            "workflow_id": workflow.id,
+            "reply": reply,
+            "agents_called": workflow.agents_called,
+            "steps": [s.to_dict() for s in workflow.steps],
+            "timestamp": workflow.completed_at
+        })
+
+    except Exception as e:
+        print(f"Coordinator Stream Error: {e}")
+        workflow.fail(str(e))
+        yield sse("error", {"message": str(e), "workflow_id": workflow.id})
+
+
+def _summarize_output(result: Any) -> str:
+    """Create a short human-readable summary of a tool result."""
+    if isinstance(result, dict):
+        if "error" in result:
+            return f"Error: {result['error']}"
+        if "title" in result:
+            return f"'{result['title']}'"
+        if "answer" in result:
+            return result["answer"][:120] + "..." if len(result.get("answer", "")) > 120 else result.get("answer", "")
+        if "reply" in result:
+            return result["reply"][:120]
+        keys = list(result.keys())
+        return f"Returned {len(keys)} fields: {', '.join(keys[:4])}"
+    if isinstance(result, list):
+        return f"{len(result)} items returned"
+    return str(result)[:100]
