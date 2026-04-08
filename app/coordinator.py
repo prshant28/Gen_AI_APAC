@@ -1,131 +1,216 @@
-import os
+import json
 import asyncio
 from typing import List, Dict, Any
-from google.adk.agents import LlmAgent
-from google.adk.tools import FunctionTool
-from google.adk.sessions import InMemorySessionService
-from google.adk.runners import Runner
-from google.genai import types as genai_types
-
+from openai import AsyncOpenAI
 from app.config import settings
 from app.capture_agent import capture
 from app.task_agent import create_task, list_tasks
 from app.calendar_agent import create_event, list_upcoming_events
 from app.recall_agent import recall
 
-# 1. Define Tool Wrappers
-async def capture_knowledge_tool(source_type: str, url: str = "", content: str = "") -> dict:
-    """Save content from YouTube URLs, web articles, or notes."""
-    return await capture(source_type=source_type, url=url, content=content)
-
-async def create_task_tool(title: str, due_date: str = "", priority: str = "medium", linked_memory_id: str = "") -> dict:
-    """Create a new task (optionally linked to a memory)."""
-    return await create_task(title=title, due_date=due_date, priority=priority, linked_memory_id=linked_memory_id)
-
-async def schedule_event_tool(title: str, date: str, time: str, duration_minutes: int = 60, linked_task_id: str = "") -> dict:
-    """Schedule a study session or event on the calendar."""
-    return await create_event(title=title, date=date, time=time, duration_minutes=duration_minutes, linked_task_id=linked_task_id)
-
-async def recall_knowledge_tool(query: str) -> dict:
-    """Search and answer questions from saved knowledge."""
-    return await recall(query=query)
-
-async def list_tasks_tool(status: str = "pending") -> List[dict]:
-    """Show pending or completed tasks."""
-    return await list_tasks(status=status)
-
-async def list_schedule_tool() -> List[dict]:
-    """Show upcoming calendar events."""
-    return await list_upcoming_events()
-
-# 2. Create FunctionTool instances
-tools = [
-    FunctionTool(capture_knowledge_tool),
-    FunctionTool(create_task_tool),
-    FunctionTool(schedule_event_tool),
-    FunctionTool(recall_knowledge_tool),
-    FunctionTool(list_tasks_tool),
-    FunctionTool(list_schedule_tool),
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "capture_knowledge",
+            "description": "Save and summarize content from YouTube URLs, web articles, or typed notes. Use when user shares a URL or wants to save information.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_type": {"type": "string", "enum": ["youtube", "web", "note"], "description": "Type of content source"},
+                    "url": {"type": "string", "description": "URL for youtube or web sources"},
+                    "content": {"type": "string", "description": "Text content for notes"}
+                },
+                "required": ["source_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recall_knowledge",
+            "description": "Search and answer questions from saved memories in the Second Brain. Use when user asks a question about saved knowledge.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The question or topic to search for"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_task",
+            "description": "Create a new task or to-do item. Use when user mentions needing to do something or wants a reminder.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Task title or description"},
+                    "due_date": {"type": "string", "description": "Due date in YYYY-MM-DD format"},
+                    "priority": {"type": "string", "enum": ["low", "medium", "high"], "description": "Task priority level"},
+                    "linked_memory_id": {"type": "string", "description": "Optional ID of a related memory"}
+                },
+                "required": ["title"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_tasks",
+            "description": "Show the user's current task list.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "enum": ["pending", "completed"], "default": "pending"}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "schedule_event",
+            "description": "Schedule a study session or calendar event. Use when user wants to book time or set a study session.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Event title"},
+                    "date": {"type": "string", "description": "Date in YYYY-MM-DD format"},
+                    "time": {"type": "string", "description": "Time in HH:MM format (24h)"},
+                    "duration_minutes": {"type": "integer", "description": "Duration in minutes", "default": 60}
+                },
+                "required": ["title", "date", "time"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_schedule",
+            "description": "Show upcoming calendar events and study sessions.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    }
 ]
 
-# 3. Define the LLM Agent
-system_instruction = """You are Recall X247, an AI-powered second brain and productivity assistant.
-You help users capture knowledge, manage tasks, and schedule their time.
+SYSTEM_PROMPT = """You are Recall X247, an AI-powered Second Brain assistant powered by OpenAI GPT.
 
-You have access to these tools:
-- capture_knowledge_tool: Save content from YouTube URLs, web articles, or notes
-- recall_knowledge_tool: Search and answer questions from saved knowledge  
-- create_task_tool: Create a new task (optionally linked to a memory)
-- list_tasks_tool: Show pending or completed tasks
-- schedule_event_tool: Schedule a study session or event on the calendar
-- list_schedule_tool: Show upcoming calendar events
+You help users:
+1. CAPTURE knowledge from YouTube videos, web articles, and typed notes
+2. RECALL information from their saved knowledge base
+3. CREATE and manage tasks linked to their learning
+4. SCHEDULE study sessions and review events
 
-MULTI-STEP WORKFLOW RULES:
-1. If user shares a URL + asks to "remember" or "save" → use capture_knowledge_tool
-2. If user asks a question about something they've learned → use recall_knowledge_tool
-3. If user says "create a task" or "remind me to" → use create_task_tool
-4. If user says "schedule" or "book time" → use schedule_event_tool
-5. COMPLEX: "Save this AND create a review task" → capture THEN create_task (linked)
-6. COMPLEX: "Save this AND schedule study time" → capture THEN schedule_event
-7. Always confirm what was done at the end: "✅ Done! I [summary of actions]"
+WORKFLOW RULES:
+- URL with youtube.com/youtu.be → use capture_knowledge with source_type "youtube"
+- Other URLs → use capture_knowledge with source_type "web"
+- User asks a question about saved content → use recall_knowledge
+- User says "create task", "remind me", "todo" → use create_task
+- User says "schedule", "book time", "study session" → use schedule_event
+- COMPLEX: "Save this AND create a task" → capture first, then create_task with the memory
+- COMPLEX: "Save and schedule review" → capture first, then schedule_event
 
-Never make up information. Only answer recall questions from saved memories.
-If no relevant memory is found, say so clearly and offer to capture new info.
-"""
+After completing actions, always summarize what was done with ✅.
+Be helpful, concise, and proactive in suggesting follow-up actions.
+Today's date: {today}"""
 
-agent = LlmAgent(
-    name="recall_x247",
-    model=settings.GEMINI_MODEL,
-    instruction=system_instruction,
-    tools=tools,
-)
 
-# 4. Set up Runner and Session Service
-session_service = InMemorySessionService()
-runner = Runner(
-    app_name="recall-x247",
-    agent=agent,
-    session_service=session_service,
-)
+async def run_tool(name: str, args: dict) -> Any:
+    if name == "capture_knowledge":
+        return await capture(
+            source_type=args.get("source_type", "note"),
+            url=args.get("url", ""),
+            content=args.get("content", ""),
+            user_id="demo_user"
+        )
+    elif name == "recall_knowledge":
+        return await recall(query=args.get("query", ""))
+    elif name == "create_task":
+        return await create_task(
+            title=args["title"],
+            due_date=args.get("due_date", ""),
+            priority=args.get("priority", "medium"),
+            linked_memory_id=args.get("linked_memory_id", "")
+        )
+    elif name == "list_tasks":
+        return await list_tasks(status=args.get("status", "pending"))
+    elif name == "schedule_event":
+        return await create_event(
+            title=args["title"],
+            date=args["date"],
+            time=args["time"],
+            duration_minutes=args.get("duration_minutes", 60)
+        )
+    elif name == "list_schedule":
+        return await list_upcoming_events(days=7)
+    return {"error": f"Unknown tool: {name}"}
+
 
 async def run_coordinator(message: str, session_id: str) -> dict:
-    """
-    Main coordinator function that processes user messages using the ADK Runner.
-    Tracks tool calls by monitoring the event stream.
-    """
-    # Check for API key
-    if not settings.GEMINI_API_KEY:
+    if not settings.OPENAI_API_KEY:
         return {
-            "reply": "AI Service is not configured. Please set GEMINI_API_KEY in the environment or Settings menu.",
+            "reply": "AI Service is not configured. Please set OPENAI_API_KEY in the Secrets panel.",
             "agents_called": [],
             "session_id": session_id,
             "error": "Unauthorized"
         }
 
+    import datetime
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
+        {"role": "user", "content": message}
+    ]
+
     agents_called = []
     reply = ""
 
     try:
-        # Run the agent and iterate through events
-        async for event in runner.run(message, session_id=session_id):
-            # Track tool calls (author is usually the tool name in ADK events)
-            if event.author and event.author != "assistant" and event.author != "user":
-                if event.author not in agents_called:
-                    agents_called.append(event.author)
-            
-            # Collect the final response
-            if event.content:
-                reply = event.content
+        for _ in range(5):
+            response = await client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0.3
+            )
 
-        return {
-            "reply": reply,
-            "agents_called": agents_called,
-            "session_id": session_id
-        }
+            msg = response.choices[0].message
+            messages.append(msg)
+
+            if not msg.tool_calls:
+                reply = msg.content or ""
+                break
+
+            tool_results = []
+            for tc in msg.tool_calls:
+                tool_name = tc.function.name
+                tool_args = json.loads(tc.function.arguments)
+
+                if tool_name not in agents_called:
+                    agents_called.append(tool_name)
+
+                result = await run_tool(tool_name, tool_args)
+                tool_results.append({
+                    "tool_call_id": tc.id,
+                    "role": "tool",
+                    "content": json.dumps(result, default=str)
+                })
+
+            messages.extend(tool_results)
+
+        if not reply:
+            reply = "I've completed the requested actions. Let me know if you need anything else!"
+
     except Exception as e:
         print(f"Coordinator Error: {e}")
-        return {
-            "reply": f"I encountered an error: {str(e)}",
-            "agents_called": agents_called,
-            "session_id": session_id
-        }
+        reply = f"I encountered an error: {str(e)}"
+
+    return {
+        "reply": reply,
+        "agents_called": agents_called,
+        "session_id": session_id
+    }
