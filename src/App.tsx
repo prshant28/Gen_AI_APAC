@@ -170,7 +170,7 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
         {NAV_GROUPS.map(group => (
           <div key={group.label} style={{ marginBottom: 4 }}>
             {!isCollapsed && (
-              <div style={{ padding: '10px 12px 4px', color: '#374151', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
+              <div style={{ padding: '10px 12px 4px', color: '#6b7280', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
             )}
             {group.items.map(({ id, label, icon: Icon, color }) => {
               const active = currentView === id;
@@ -395,7 +395,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                         <span style={{ fontSize: 9, color: clr, background: `${clr}18`, padding: '2px 7px', borderRadius: 20, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mem.source_type}</span>
-                        <span style={{ fontSize: 10, color: '#374151' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
+                        <span style={{ fontSize: 10, color: '#6b7280' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   );
@@ -403,8 +403,8 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
               </div>
             ) : (
               <div style={{ padding: '36px 0', textAlign: 'center' }}>
-                <Brain size={36} color="#1f2937" style={{ margin: '0 auto 12px' }} />
-                <p style={{ color: '#374151', fontSize: 13 }}>No memories yet</p>
+                <Brain size={36} color="#4b5563" style={{ margin: '0 auto 12px' }} />
+                <p style={{ color: '#6b7280', fontSize: 13 }}>No memories yet</p>
                 <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#00d4ff', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Capture your first memory →</button>
               </div>
             )}
@@ -424,14 +424,14 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                   <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
                       <span style={{ color: '#d1d5db', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
-                      <span style={{ color: '#374151', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{ color: '#6b7280', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <p style={{ color: '#4b5563', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: '#374151', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: '#6b7280', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
             )}
           </motion.div>
         </div>
@@ -461,7 +461,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                 })}
               </div>
             ) : (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: '#374151', fontSize: 12 }}>Start capturing to see domains</div>
+              <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 12 }}>Start capturing to see domains</div>
             )}
           </motion.div>
 
@@ -471,7 +471,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
               <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={domains.slice(0, 6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fill: '#374151', fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 8 }} axisLine={false} tickLine={false} />
                   <YAxis tick={false} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
@@ -1379,7 +1379,7 @@ const TasksModule = () => {
         </div>
         <button
           onClick={() => setShowNewTask(true)}
-          className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all active:scale-95 flex items-center gap-2"
+          className="rs-btn rs-btn-primary active:scale-95 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />New Task
         </button>
@@ -1953,7 +1953,7 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
       {/* Search + Filters */}
       <div style={{ ...card, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search size={14} color="#374151" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={14} color="#6b7280" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
             style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
         </div>
@@ -1965,19 +1965,19 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
             </button>
           ))}
         </div>
-        <div style={{ color: '#374151', fontSize: 12 }}>{filtered.length} memories</div>
+        <div style={{ color: '#6b7280', fontSize: 12 }}>{filtered.length} memories</div>
       </div>
 
       {/* Timeline */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <Loader2 size={28} color="#00d4ff" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: '#374151', fontSize: 13 }}>Loading timeline...</p>
+          <p style={{ color: '#6b7280', fontSize: 13 }}>Loading timeline...</p>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ ...card, padding: '60px 0', textAlign: 'center' }}>
-          <GitBranch size={40} color="#1f2937" style={{ margin: '0 auto 12px' }} />
-          <p style={{ color: '#374151', fontSize: 14 }}>No memories match this filter</p>
+          <GitBranch size={40} color="#4b5563" style={{ margin: '0 auto 12px' }} />
+          <p style={{ color: '#6b7280', fontSize: 14 }}>No memories match this filter</p>
           <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#f472b6', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Start capturing →</button>
         </div>
       ) : (
@@ -1988,7 +1988,7 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
             <motion.div key={date} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: gi * 0.05 }} style={{ display: 'flex', gap: 0, marginBottom: 28 }}>
               {/* Date label */}
               <div style={{ width: 100, flexShrink: 0, paddingRight: 16, paddingTop: 8, textAlign: 'right' }}>
-                <span style={{ color: '#374151', fontSize: 11, lineHeight: 1.4 }}>{date.split(',')[0]}<br /><span style={{ color: '#1f2937', fontSize: 10 }}>{date.split(',').slice(1).join(',').trim()}</span></span>
+                <span style={{ color: '#6b7280', fontSize: 11, lineHeight: 1.4 }}>{date.split(',')[0]}<br /><span style={{ color: '#4b5563', fontSize: 10 }}>{date.split(',').slice(1).join(',').trim()}</span></span>
               </div>
               {/* Dot */}
               <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 10 }}>
@@ -2011,8 +2011,8 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
                         <div style={{ color: '#4b5563', fontSize: 11, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.summary}</div>
                         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 7px', borderRadius: 20, fontWeight: 500, textTransform: 'uppercase' }}>{m.source_type}</span>
-                          <span style={{ fontSize: 9, color: '#374151', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>{m.domain}</span>
-                          {m.tags.slice(0, 2).map(t => <span key={t} style={{ fontSize: 9, color: '#374151', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>#{t}</span>)}
+                          <span style={{ fontSize: 9, color: '#6b7280', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>{m.domain}</span>
+                          {m.tags.slice(0, 2).map(t => <span key={t} style={{ fontSize: 9, color: '#6b7280', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>#{t}</span>)}
                         </div>
                       </div>
                     </div>
@@ -2180,8 +2180,8 @@ const KnowledgeGraphView = () => {
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
           {memories.length === 0 && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-              <Network size={40} color="#1f2937" />
-              <p style={{ color: '#374151', fontSize: 13 }}>No memories to graph yet</p>
+              <Network size={40} color="#4b5563" />
+              <p style={{ color: '#6b7280', fontSize: 13 }}>No memories to graph yet</p>
             </div>
           )}
           <div style={{ position: 'absolute', bottom: 14, left: 14, display: 'flex', gap: 6 }}>
@@ -2204,7 +2204,7 @@ const KnowledgeGraphView = () => {
                 <span style={{ color: '#9ca3af', fontSize: 12, flex: 1 }}>{d.name}</span>
                 <span style={{ color: COLORS[i % COLORS.length], fontSize: 11, fontWeight: 600 }}>{d.value}</span>
               </div>
-            )) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>Capture memories to see graph</p>}
+            )) : <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>Capture memories to see graph</p>}
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
@@ -2314,7 +2314,7 @@ const AnalyticsView = () => {
             style={{ ...card, padding: '18px 20px', border: `1px solid ${k.color}25` }}>
             <div style={{ fontSize: 32, fontWeight: 700, color: k.color, lineHeight: 1, marginBottom: 4 }}>{k.value}</div>
             <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500 }}>{k.label}</div>
-            <div style={{ color: '#374151', fontSize: 11, marginTop: 2 }}>{k.sub}</div>
+            <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>{k.sub}</div>
           </motion.div>
         ))}
       </div>
@@ -2326,8 +2326,8 @@ const AnalyticsView = () => {
           <div style={{ color: '#4b5563', fontSize: 11, marginBottom: 14 }}>Day-of-week distribution</div>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={actData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <XAxis dataKey="day" tick={{ fill: '#374151', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#374151', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
               <Bar dataKey="captures" fill="#00d4ff" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
             </BarChart>
@@ -2353,7 +2353,7 @@ const AnalyticsView = () => {
                 </div>
               ))}
             </div>
-          ) : <p style={{ color: '#374151', fontSize: 12 }}>Capture memories to see distribution</p>}
+          ) : <p style={{ color: '#6b7280', fontSize: 12 }}>Capture memories to see distribution</p>}
         </motion.div>
       </div>
 
@@ -2364,7 +2364,7 @@ const AnalyticsView = () => {
           {domains.length > 0 ? (
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={domains.slice(0, 8)} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                <XAxis type="number" tick={{ fill: '#374151', fontSize: 9 }} axisLine={false} tickLine={false} />
+                <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={false} tickLine={false} width={80} />
                 <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]}>
@@ -2372,7 +2372,7 @@ const AnalyticsView = () => {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          ) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>No domain data yet</p>}
+          ) : <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>No domain data yet</p>}
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...card, padding: '18px 20px' }}>
@@ -2385,12 +2385,12 @@ const AnalyticsView = () => {
                 return (
                   <div key={t.name} style={{ padding: '5px 11px', background: `${clr}12`, border: `1px solid ${clr}30`, borderRadius: 20, cursor: 'default' }}>
                     <span style={{ color: clr, fontSize: size, fontWeight: 500 }}>#{t.name}</span>
-                    <span style={{ color: '#374151', fontSize: 9, marginLeft: 4 }}>×{t.value}</span>
+                    <span style={{ color: '#6b7280', fontSize: 9, marginLeft: 4 }}>×{t.value}</span>
                   </div>
                 );
               })}
             </div>
-          ) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>No tags yet — add tags when capturing</p>}
+          ) : <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>No tags yet — add tags when capturing</p>}
         </motion.div>
       </div>
     </div>
@@ -2473,9 +2473,9 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
                 <span style={{ color: activeProject === p.id ? '#e2e8f0' : '#9ca3af', fontSize: 13, fontWeight: activeProject === p.id ? 600 : 400 }}>{p.name}</span>
               </div>
               <div style={{ display: 'flex', gap: 6, marginLeft: 16 }}>
-                <span style={{ color: '#374151', fontSize: 10 }}>{p.tasks.length} tasks</span>
-                <span style={{ color: '#374151', fontSize: 10 }}>·</span>
-                <span style={{ color: '#374151', fontSize: 10 }}>{p.tasks.filter(t => t.done).length} done</span>
+                <span style={{ color: '#6b7280', fontSize: 10 }}>{p.tasks.length} tasks</span>
+                <span style={{ color: '#6b7280', fontSize: 10 }}>·</span>
+                <span style={{ color: '#6b7280', fontSize: 10 }}>{p.tasks.filter(t => t.done).length} done</span>
               </div>
             </motion.button>
           ))}
@@ -2529,10 +2529,10 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'background 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)'}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : '#374151'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : '#6b7280'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
                       {t.done && <CheckCheck size={10} color="#fff" />}
                     </div>
-                    <span style={{ color: t.done ? '#374151' : '#9ca3af', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>{t.text}</span>
+                    <span style={{ color: t.done ? '#6b7280' : '#9ca3af', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>{t.text}</span>
                   </div>
                 ))}
                 {showNewTask && (
@@ -2542,7 +2542,7 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
                       style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#e2e8f0', fontSize: 12, padding: '5px 9px', outline: 'none', fontFamily: 'inherit' }} />
                   </div>
                 )}
-                {project.tasks.length === 0 && !showNewTask && <p style={{ color: '#374151', fontSize: 12, margin: '4px 0 0', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>}
+                {project.tasks.length === 0 && !showNewTask && <p style={{ color: '#6b7280', fontSize: 12, margin: '4px 0 0', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>}
               </div>
             </motion.div>
 
@@ -2562,12 +2562,12 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: clr, marginTop: 4, flexShrink: 0 }} />
                       <div>
                         <div style={{ color: '#d1d5db', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{m.title}</div>
-                        <div style={{ color: '#374151', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
+                        <div style={{ color: '#6b7280', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
                       </div>
                     </div>
                   );
                 })}
-                {projectMemories.length === 0 && <p style={{ color: '#374151', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No related memories yet</p>}
+                {projectMemories.length === 0 && <p style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No related memories yet</p>}
               </div>
             </motion.div>
           </div>
@@ -2674,7 +2674,7 @@ export default function App() {
               <Menu size={16} />
             </button>
             <div style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
-              <Search size={14} color="#374151" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <Search size={14} color="#6b7280" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
               <input readOnly onFocus={() => setShowCommandPalette(true)}
                 placeholder="Search memories, tasks, anything... (⌘K)"
                 style={{ width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, color: '#9ca3af', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -2732,7 +2732,7 @@ export default function App() {
                 <div style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: 6, color: '#4b5563', fontSize: 10, fontWeight: 700 }}>ESC</div>
               </div>
               <div style={{ padding: '6px', maxHeight: '55vh', overflowY: 'auto' }} className="scroll-custom">
-                <div style={{ padding: '8px 10px 4px', color: '#374151', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Quick Navigation</div>
+                <div style={{ padding: '8px 10px 4px', color: '#6b7280', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Quick Navigation</div>
                 {commands.map((item) => (
                   <button key={item.label} onClick={() => { setView(item.view); setShowCommandPalette(false); }}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s', fontFamily: 'inherit' }}
@@ -2747,10 +2747,10 @@ export default function App() {
                 ))}
               </div>
               <div style={{ padding: '10px 18px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#374151', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
+                <span style={{ color: '#6b7280', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Brain size={12} color="#00d4ff" />
-                  <span style={{ color: '#374151', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Recall X247</span>
+                  <span style={{ color: '#6b7280', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Recall X247</span>
                 </div>
               </div>
             </motion.div>
