@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-2.0-flash"
     GEMINI_API_KEY: Optional[str] = None
     GOOGLE_CALENDAR_ID: Optional[str] = None
+    GOOGLE_SA_KEY_PATH: Optional[str] = None
+    GOOGLE_CSE_CX: Optional[str] = None
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

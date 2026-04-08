@@ -40,12 +40,12 @@ async def list_schedule_tool() -> List[dict]:
 
 # 2. Create FunctionTool instances
 tools = [
-    FunctionTool.from_function(capture_knowledge_tool),
-    FunctionTool.from_function(create_task_tool),
-    FunctionTool.from_function(schedule_event_tool),
-    FunctionTool.from_function(recall_knowledge_tool),
-    FunctionTool.from_function(list_tasks_tool),
-    FunctionTool.from_function(list_schedule_tool),
+    FunctionTool(capture_knowledge_tool),
+    FunctionTool(create_task_tool),
+    FunctionTool(schedule_event_tool),
+    FunctionTool(recall_knowledge_tool),
+    FunctionTool(list_tasks_tool),
+    FunctionTool(list_schedule_tool),
 ]
 
 # 3. Define the LLM Agent
@@ -74,8 +74,9 @@ If no relevant memory is found, say so clearly and offer to capture new info.
 """
 
 agent = LlmAgent(
+    name="recall_x247",
     model=settings.GEMINI_MODEL,
-    system_instruction=system_instruction,
+    instruction=system_instruction,
     tools=tools,
 )
 

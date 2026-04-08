@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"PORT=8000 python3 main.py\" \"vite\"",
+    "dev": "concurrently \"python main.py\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "start": "python3 main.py"
+    "start": "python main.py"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
