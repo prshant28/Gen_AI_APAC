@@ -25,6 +25,5 @@ RUN npm run build
 
 ENV PYTHONUNBUFFERED=1
 
-# Cloud Run provides the PORT environment variable.
-# main.py will read it and listen on the correct port.
-CMD ["python3", "main.py"]
+# Cloud Run provides PORT; default to 8080 if not set.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
