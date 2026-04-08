@@ -1602,7 +1602,8 @@ const SettingsView = () => {
               </div>
 
               {[
-                { label: 'OpenAI API Key', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
+                { label: 'GEN_APAC_API_KEY (Primary)', value: settings?.gen_apac_api_key_set, key: 'GEN_APAC_API_KEY' },
+                { label: 'OpenAI API Key (Fallback)', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
                 { label: 'Google Gemini Key', value: settings?.gemini_api_key_set, key: 'GEMINI_API_KEY' },
                 { label: 'Google Calendar', value: settings?.google_calendar_configured, key: 'GOOGLE_CALENDAR_ID' },
               ].map(item => (
@@ -1624,9 +1625,9 @@ const SettingsView = () => {
           <div className="pt-4 border-t border-slate-50">
             <button
               onClick={handleTestAI}
-              disabled={isTesting || !settings?.openai_api_key_set}
+              disabled={isTesting || !(settings?.gen_apac_api_key_set || settings?.openai_api_key_set)}
               className={cn("w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-                settings?.openai_api_key_set ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                (settings?.gen_apac_api_key_set || settings?.openai_api_key_set) ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400 cursor-not-allowed"
               )}
             >
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}

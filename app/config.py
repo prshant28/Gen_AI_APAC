@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     GOOGLE_CALENDAR_ID: Optional[str] = None
     GOOGLE_SA_KEY_PATH: Optional[str] = None
     GOOGLE_CSE_CX: Optional[str] = None
+    GEN_APAC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
 
@@ -36,7 +37,13 @@ class Settings(BaseSettings):
             self.FIREBASE_DATABASE_ID = os.getenv("FIREBASE_DATABASE_ID", "(default)")
         if not self.GEMINI_API_KEY:
             self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY"))
-        if not self.OPENAI_API_KEY:
+
+        # GEN_APAC_API_KEY is the primary key — used as the OpenAI key throughout the app
+        gen_apac = os.getenv("GEN_APAC_API_KEY")
+        if gen_apac:
+            self.GEN_APAC_API_KEY = gen_apac
+            self.OPENAI_API_KEY = gen_apac
+        elif not self.OPENAI_API_KEY:
             self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
     @property

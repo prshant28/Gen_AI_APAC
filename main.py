@@ -134,6 +134,7 @@ async def health():
 @app.get("/settings")
 async def settings_endpoint():
     return {
+        "gen_apac_api_key_set": bool(settings.GEN_APAC_API_KEY),
         "openai_api_key_set": bool(settings.OPENAI_API_KEY),
         "openai_model": settings.OPENAI_MODEL,
         "gemini_api_key_set": bool(settings.GEMINI_API_KEY),
