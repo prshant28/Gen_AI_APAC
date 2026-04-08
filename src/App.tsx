@@ -158,9 +158,9 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
 
       {/* Status badge */}
       {!isCollapsed && (
-        <div style={{ margin: '8px 10px 4px', padding: '5px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        <div style={{ margin: '8px 10px 4px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
-          <span style={{ color: '#059669', fontSize: 11, fontWeight: 600 }}>System Ready</span>
+          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 600 }}>System Ready</span>
         </div>
       )}
 
@@ -271,33 +271,33 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   };
 
   return (
-    <div style={{ color: '#0f172a' }}>
+    <div style={{ color: 'var(--text-1)' }}>
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ color: '#94a3b8', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
+              <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
             </div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
-              Welcome back, <span style={{ color: '#6366f1' }}>Prashant</span>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+              Welcome back, <span style={{ color: 'var(--primary)' }}>Prashant</span>
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{today}</p>
+            <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{today}</p>
           </div>
 
           {/* Briefing card */}
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid #c7d2fe' }}>
+            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid var(--primary-border)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Sparkles size={15} color="#6366f1" />
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sparkles size={15} color="var(--primary)" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
+                <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
                 {briefingLoading
-                  ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#c7d2fe', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
-                  : <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
+                  ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', opacity: 0.4, animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
+                  : <p style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
                 }
               </div>
             </div>
@@ -312,13 +312,13 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
             style={{ ...S.card, padding: '18px 20px', cursor: 'default' }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <s.icon size={18} color={s.color} />
               </div>
-              <span style={{ fontSize: 10, color: s.color, background: s.bg, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{s.trend}</span>
+              <span style={{ fontSize: 10, color: s.color, background: `${s.color}18`, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{s.trend}</span>
             </div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: '#0f172a', lineHeight: 1, marginBottom: 4, letterSpacing: '-0.5px' }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{s.label}</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 4, letterSpacing: '-0.5px' }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{s.label}</div>
           </motion.div>
         ))}
       </div>
@@ -330,8 +330,8 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
           style={{ ...S.card, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
-              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
-              <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#10b981', fontSize: 11, fontWeight: 500 }}>
               <Activity size={12} /> <span>Live</span>
@@ -341,7 +341,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
             <LineChart data={activityData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} cursor={{ stroke: 'rgba(99,102,241,0.15)' }} />
+              <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }} cursor={{ stroke: 'rgba(99,102,241,0.15)' }} />
               <Line type="monotone" dataKey="captures" stroke="#6366f1" strokeWidth={2.5} dot={{ fill: '#6366f1', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: '#6366f1' }} />
             </LineChart>
           </ResponsiveContainer>
@@ -350,11 +350,11 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
         {/* Radar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
           style={{ ...S.card, padding: '18px 20px' }}>
-          <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
-          <div style={{ color: '#94a3b8', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
+          <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
+          <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
           <ResponsiveContainer width="100%" height={170}>
             <RadarChart data={radarData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-              <PolarGrid stroke="#e2e8f0" />
+              <PolarGrid stroke="var(--border)" />
               <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} />
               <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} strokeWidth={2} dot={{ r: 2, fill: '#6366f1' }} />
@@ -369,7 +369,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
         <div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ ...S.card, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
               <button onClick={() => setView('vault')} style={{ color: '#6366f1', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
                 View all <ArrowUpRight size={11} />
               </button>
@@ -380,16 +380,16 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                   const Icon = SRC_ICON[mem.source_type] ?? Brain;
                   const clr = SRC_CLR[mem.source_type] ?? '#6366f1';
                   return (
-                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', transition: 'all 0.15s', cursor: 'default' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#c7d2fe'; (e.currentTarget as HTMLDivElement).style.background = '#eef2ff'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e2e8f0'; (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
+                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', transition: 'all 0.15s', cursor: 'default' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--primary-bg)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'; }}
                     >
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: `${clr}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Icon size={14} color={clr} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: '#0f172a', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.title}</div>
-                        <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.summary}</div>
+                        <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.title}</div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mem.summary}</div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                         <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mem.source_type}</span>
@@ -411,7 +411,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
           {/* AI Interactions */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
               <button onClick={() => setView('recall')} style={{ color: '#9333ea', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
                 Open Recall <ArrowUpRight size={11} />
               </button>
@@ -419,12 +419,12 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
             {logs.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {logs.map((log, i) => (
-                  <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: '#faf5ff', border: '1px solid #e9d5ff' }}>
+                  <div key={i} style={{ padding: '9px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                      <span style={{ color: '#1e293b', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
-                      <span style={{ color: '#94a3b8', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.user_message}</span>
+                      <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 10, flexShrink: 0 }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <p style={{ color: '#64748b', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
+                    <p style={{ color: 'var(--text-2)', fontSize: 11, margin: 0, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{log.reply}"</p>
                   </div>
                 ))}
               </div>
@@ -438,7 +438,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Knowledge Domains */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.42 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
             {domains.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {domains.slice(0, 5).map((d: any, i: number) => {
@@ -447,10 +447,10 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
                   return (
                     <div key={d.name}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ color: '#64748b', fontSize: 12 }}>{d.name}</span>
+                        <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{d.name}</span>
                         <span style={{ color: clr, fontSize: 11, fontWeight: 600 }}>{d.value}</span>
                       </div>
-                      <div style={{ height: 4, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: 4, background: 'var(--surface-3)', borderRadius: 4, overflow: 'hidden' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: 0.5 + i * 0.1 }}
                           style={{ height: '100%', borderRadius: 4, background: clr }} />
                       </div>
@@ -466,12 +466,12 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
           {/* Domain bar chart */}
           {domains.length > 0 && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.47 }} style={{ ...S.card, padding: '18px 20px' }}>
-              <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={domains.slice(0, 6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 8 }} axisLine={false} tickLine={false} />
                   <YAxis tick={false} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+                  <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {domains.slice(0, 6).map((_: any, i: number) => <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />)}
                   </Bar>
@@ -482,16 +482,16 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
 
           {/* Quick Actions */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: '#0f172a', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {[
                 { label: 'Capture Knowledge', icon: Plus, view: 'capture' as View, color: '#ffffff', bg: '#6366f1', isAccent: true },
-                { label: 'Ask Recall AI', icon: Bot, view: 'recall' as View, color: '#9333ea', bg: '#faf5ff' },
-                { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: '#ec4899', bg: '#fdf2f8' },
-                { label: 'Manage Tasks', icon: CheckSquare, view: 'tasks' as View, color: '#10b981', bg: '#ecfdf5' },
+                { label: 'Ask Recall AI', icon: Bot, view: 'recall' as View, color: '#9333ea', bg: `rgba(147,51,234,0.08)` },
+                { label: 'Study Flashcards', icon: FlipHorizontal, view: 'flashcards' as View, color: '#ec4899', bg: `rgba(236,72,153,0.08)` },
+                { label: 'Manage Tasks', icon: CheckSquare, view: 'tasks' as View, color: '#10b981', bg: `rgba(16,185,129,0.08)` },
               ].map((a) => (
                 <button key={a.label} onClick={() => setView(a.view)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : '#e2e8f0'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
                 >
@@ -2856,10 +2856,10 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                 );
               })}
             </div>
-            <div style={{ padding: '9px 14px', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+            <div style={{ padding: '9px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-                <span style={{ color: '#64748b', fontSize: 10 }}>{agentList.length} agents ready</span>
+                <span style={{ color: 'var(--text-2)', fontSize: 10 }}>{agentList.length} agents ready</span>
               </div>
             </div>
           </div>
@@ -2908,16 +2908,16 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
           <div>
-            <h2 style={{ color: '#0f172a', fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>
-              Agent Hub <span style={{ color: '#6366f1', marginLeft: 4 }}>✦</span>
+            <h2 style={{ color: 'var(--text-1)', fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>
+              Agent Hub <span style={{ color: 'var(--primary)', marginLeft: 4 }}>✦</span>
             </h2>
-            <p style={{ color: '#94a3b8', fontSize: 12, margin: '2px 0 0' }}>Multi-agent AI system · Real-time coordination · SSE streaming</p>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Multi-agent AI system · Real-time coordination · SSE streaming</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isStreaming && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: 'pulse 1s ease-in-out infinite' }} />
-                <span style={{ color: '#6366f1', fontSize: 11, fontWeight: 600 }}>Agents active</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1s ease-in-out infinite' }} />
+                <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }}>Agents active</span>
               </div>
             )}
             <button onClick={() => { setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: 'Session cleared. How can I help you?' }]); setAgentStatuses({}); }}
@@ -2943,13 +2943,13 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
 
                 {/* Thinking indicator */}
                 {msg.type === 'thinking' && (msg.steps || []).length === 0 && (
-                  <div style={{ padding: '10px 14px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ padding: '10px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {[0,1,2].map(i => (
-                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />
+                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />
                       ))}
                     </div>
-                    <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 500 }}>Orchestrator is planning...</span>
+                    <span style={{ color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}>Orchestrator is planning...</span>
                   </div>
                 )}
 
@@ -2964,14 +2964,14 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: step.status === 'completed' ? '#10b981' : step.status === 'failed' ? '#ef4444' : color,
                               ...(step.status === 'running' ? { animation: 'pulse 1s ease-in-out infinite' } : {}) }} />
                             <span style={{ color, fontSize: 10.5, fontWeight: 700 }}>{step.agent}</span>
-                            <span style={{ color: '#cbd5e1', fontSize: 10 }}>›</span>
-                            <span style={{ color: '#64748b', fontSize: 10.5 }}>{step.name}</span>
-                            {step.status === 'running' && <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: 9.5 }}>Running...</span>}
+                            <span style={{ color: 'var(--text-3)', fontSize: 10 }}>›</span>
+                            <span style={{ color: 'var(--text-2)', fontSize: 10.5 }}>{step.name}</span>
+                            {step.status === 'running' && <span style={{ marginLeft: 'auto', color: 'var(--text-3)', fontSize: 9.5 }}>Running...</span>}
                             {step.status === 'completed' && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: 9.5 }}>✓ {step.duration_ms?.toFixed(0)}ms</span>}
                             {step.status === 'failed' && <span style={{ marginLeft: 'auto', color: '#ef4444', fontSize: 9.5 }}>✗ Failed</span>}
                           </div>
                           {step.status === 'completed' && step.output_summary && (
-                            <div style={{ color: '#64748b', fontSize: 11, paddingLeft: 14, borderLeft: `2px solid ${color}30`, marginTop: 4 }}>{step.output_summary}</div>
+                            <div style={{ color: 'var(--text-2)', fontSize: 11, paddingLeft: 14, borderLeft: `2px solid ${color}40`, marginTop: 4 }}>{step.output_summary}</div>
                           )}
                           {step.status === 'failed' && step.error && (
                             <div style={{ color: '#ef4444', fontSize: 10.5, marginTop: 4 }}>{step.error}</div>
@@ -3031,9 +3031,9 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, flexShrink: 0 }}>
             {QUICK_PROMPTS.map(qp => (
               <button key={qp.label} onClick={() => handleSend(qp.msg)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 20, color: '#64748b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.15s', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#c7d2fe'; e.currentTarget.style.color = '#6366f1'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.15s', boxShadow: 'var(--shadow-sm)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary-bg)'; e.currentTarget.style.borderColor = 'var(--primary-border)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-2)'; }}>
                 <qp.icon size={11} /> {qp.label}
               </button>
             ))}
