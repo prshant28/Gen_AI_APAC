@@ -22,6 +22,54 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// ─── YouTube helpers ───────────────────────────────────────────────────────────
+
+const getYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url?.match(p);
+    if (m) return m[1];
+  }
+  return null;
+};
+
+const YouTubeEmbed = ({ url }: { url: string }) => {
+  const id = getYouTubeId(url);
+  if (!id) return null;
+  return (
+    <div style={{ borderRadius: 12, overflow: 'hidden', background: '#000', width: '100%', position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+      <iframe
+        src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`}
+        title="YouTube video"
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'block' }}
+      />
+    </div>
+  );
+};
+
+const YouTubeThumbnail = ({ url, onClick }: { url: string; onClick?: () => void }) => {
+  const id = getYouTubeId(url);
+  if (!id) return null;
+  return (
+    <div onClick={onClick} style={{ position: 'relative', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#000', cursor: onClick ? 'pointer' : 'default' }}>
+      <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="YouTube thumbnail"
+        style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block', opacity: 0.85 }} />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(239,68,68,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(239,68,68,0.5)' }}>
+          <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+      <div style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', background: 'rgba(239,68,68,0.9)', borderRadius: 4, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '1px' }}>YOUTUBE</div>
+    </div>
+  );
+};
+
 type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings' | 'timeline' | 'graph' | 'workspace' | 'analytics';
 
 interface Memory {
@@ -516,6 +564,7 @@ const CaptureView = () => {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [preview, setPreview] = useState<Memory | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -567,6 +616,8 @@ const CaptureView = () => {
       }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      if (!data.source_url && activeTab === 'url') data.source_url = input;
+      setPreviewUrl(activeTab === 'url' ? input : '');
       setPreview(data);
     } catch (err: any) {
       alert(err.message || 'Failed to analyze content.');
@@ -736,7 +787,14 @@ const CaptureView = () => {
             </button>
           </div>
 
-          <div className="p-8 space-y-8">
+          {/* YouTube embed */}
+          {preview.source_type === 'youtube' && (previewUrl || preview.source_url) && (
+            <div className="p-4 pb-0">
+              <YouTubeEmbed url={previewUrl || preview.source_url!} />
+            </div>
+          )}
+
+          <div className="p-6 sm:p-8 space-y-6 sm:space-y-8">
             <section className="space-y-3">
               <h4 className="font-bold text-slate-900 flex items-center gap-2"><Brain className="w-4 h-4 text-indigo-500" />Summary</h4>
               <p className="text-slate-600 leading-relaxed">{preview.summary}</p>
@@ -744,7 +802,7 @@ const CaptureView = () => {
 
             <section className="space-y-3">
               <h4 className="font-bold text-slate-900 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" />Key Insights</h4>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {preview.key_points.map((point, i) => (
                   <li key={i} className="flex gap-3 p-3 bg-slate-50 rounded-xl text-sm text-slate-700 border border-slate-100">
                     <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
@@ -763,7 +821,15 @@ const CaptureView = () => {
               </div>
             </section>
 
-            <div className="flex gap-4 pt-4 border-t border-slate-100">
+            {preview.source_url && (
+              <div className="pt-2">
+                <a href={preview.source_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5" />View Original Source
+                </a>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
               <button onClick={() => setPreview(null)} className="flex-1 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors">Discard</button>
               <button
                 onClick={handleSave}
@@ -869,47 +935,54 @@ const VaultView = ({ setView }: { setView: (v: View) => void }) => {
               layout
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+              className="bg-white rounded-3xl border border-slate-100 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden"
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
-                  {sourceIcon(memory.source_type)}
+              {/* YouTube thumbnail at top of card */}
+              {memory.source_type === 'youtube' && memory.source_url && getYouTubeId(memory.source_url) && (
+                <YouTubeThumbnail url={memory.source_url} onClick={() => setSelectedMemory(memory)} />
+              )}
+
+              <div className="p-5 flex flex-col flex-1">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors shrink-0">
+                    {sourceIcon(memory.source_type)}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{memory.domain}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setFlashcardsMemory(memory); }}
+                      title="Generate Flashcards"
+                      className="p-1.5 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors text-slate-300"
+                    >
+                      <FlipHorizontal className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(memory.id); }}
+                      disabled={deletingId === memory.id}
+                      title="Delete memory"
+                      className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors text-slate-300"
+                    >
+                      {deletingId === memory.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{memory.domain}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFlashcardsMemory(memory); }}
-                    title="Generate Flashcards"
-                    className="p-1.5 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors text-slate-300"
-                  >
-                    <FlipHorizontal className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(memory.id); }}
-                    disabled={deletingId === memory.id}
-                    title="Delete memory"
-                    className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors text-slate-300"
-                  >
-                    {deletingId === memory.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  </button>
+
+                <h4 onClick={() => setSelectedMemory(memory)} className="font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors cursor-pointer">{memory.title}</h4>
+                <p className="text-sm text-slate-500 line-clamp-3 mb-4 flex-1">{memory.summary}</p>
+
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {memory.tags.slice(0, 3).map(tag => (
+                    <span key={tag} className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-bold">#{tag}</span>
+                  ))}
+                  {memory.tags.length > 3 && <span className="text-[10px] text-slate-400 font-bold self-center">+{memory.tags.length - 3}</span>}
                 </div>
-              </div>
 
-              <h4 onClick={() => setSelectedMemory(memory)} className="font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors cursor-pointer">{memory.title}</h4>
-              <p className="text-sm text-slate-500 line-clamp-3 mb-4 flex-1">{memory.summary}</p>
-
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {memory.tags.slice(0, 3).map(tag => (
-                  <span key={tag} className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-bold">#{tag}</span>
-                ))}
-                {memory.tags.length > 3 && <span className="text-[10px] text-slate-400 font-bold self-center">+{memory.tags.length - 3}</span>}
-              </div>
-
-              <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />{new Date(memory.created_at).toLocaleDateString()}
-                </span>
-                <button onClick={() => setSelectedMemory(memory)} className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700">View details →</button>
+                <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />{new Date(memory.created_at).toLocaleDateString()}
+                  </span>
+                  <button onClick={() => setSelectedMemory(memory)} className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700">View details →</button>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -945,14 +1018,19 @@ const VaultView = ({ setView }: { setView: (v: View) => void }) => {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <div className="p-8 space-y-8 overflow-y-auto">
+              <div className="p-5 sm:p-8 space-y-6 overflow-y-auto">
+                {/* YouTube embed in detail modal */}
+                {selectedMemory.source_type === 'youtube' && selectedMemory.source_url && (
+                  <YouTubeEmbed url={selectedMemory.source_url} />
+                )}
+
                 <section className="space-y-3">
                   <h4 className="font-bold text-slate-900 flex items-center gap-2"><Brain className="w-4 h-4 text-indigo-500" />Summary</h4>
                   <p className="text-slate-600 leading-relaxed">{selectedMemory.summary}</p>
                 </section>
                 <section className="space-y-3">
                   <h4 className="font-bold text-slate-900 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" />Key Insights</h4>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selectedMemory.key_points.map((point, i) => (
                       <li key={i} className="flex gap-3 p-3 bg-slate-50 rounded-xl text-sm text-slate-700 border border-slate-100">
                         <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
@@ -970,7 +1048,7 @@ const VaultView = ({ setView }: { setView: (v: View) => void }) => {
                   </div>
                 </section>
                 {selectedMemory.source_url && (
-                  <section className="pt-6 border-t border-slate-100 flex gap-3">
+                  <section className="pt-4 border-t border-slate-100 flex flex-wrap gap-4">
                     <a href={selectedMemory.source_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700">
                       <ExternalLink className="w-4 h-4" />View Original Source
                     </a>
@@ -2673,7 +2751,7 @@ export default function App() {
               style={{ padding: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
               <Menu size={16} />
             </button>
-            <div style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
+            <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
               <Search size={14} color="#6b7280" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
               <input readOnly onFocus={() => setShowCommandPalette(true)}
                 placeholder="Search memories, tasks, anything... (⌘K)"
@@ -2694,7 +2772,7 @@ export default function App() {
         </header>
 
         {/* Page content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }} className="scroll-custom">
+        <div style={{ flex: 1, overflowY: 'auto' }} className="scroll-custom responsive-content">
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <AnimatePresence mode="wait">
               <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>

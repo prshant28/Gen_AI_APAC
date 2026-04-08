@@ -377,3 +377,53 @@ input:focus, textarea:focus, select:focus {
 *::-webkit-scrollbar { width: 5px; height: 5px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.15); border-radius: 3px; }
+
+/* ── Responsive Layout ─────────────────────────────────────────────────────── */
+.responsive-content {
+  padding: 16px 16px;
+}
+
+@media (min-width: 640px) {
+  .responsive-content {
+    padding: 20px 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-content {
+    padding: 24px 28px;
+  }
+}
+
+/* Responsive header search — hide on tiny screens */
+@media (max-width: 420px) {
+  .header-search { display: none !important; }
+}
+
+/* Capture view card responsive */
+@media (max-width: 640px) {
+  .capture-card { max-width: 100% !important; }
+}
+
+/* Vault modal responsive width */
+@media (max-width: 640px) {
+  .vault-modal { width: calc(100vw - 16px) !important; margin: 8px !important; }
+}
+
+/* YouTube iframe responsive fix */
+.yt-embed-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.yt-embed-wrapper iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+}
