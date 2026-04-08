@@ -5,7 +5,10 @@ import {
   ChevronRight, CheckCircle2, X, Save, Sparkles, AlertCircle, Settings, Shield,
   AlertTriangle, Zap, Trash2, BookOpen, Target, TrendingUp, RotateCcw, ChevronLeft,
   GraduationCap, Lightbulb, FlipHorizontal, Award, Bell, Download, Upload,
-  ArrowUpRight, Database, Bot, Network, Star, Activity, Menu
+  ArrowUpRight, Database, Bot, Network, Star, Activity, Menu, GitBranch,
+  BarChart2, Workflow, Timer, Layers, Filter, Hash, ChevronDown, CheckCheck,
+  Cpu, Boxes, Map, LayoutGrid, SlidersHorizontal, PieChart, CalendarDays, Kanban,
+  FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -19,7 +22,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings';
+type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings' | 'timeline' | 'graph' | 'workspace' | 'analytics';
 
 interface Memory {
   id: string;
@@ -94,16 +97,41 @@ const NeuralBackground = () => {
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-const NAV_ITEMS = [
-  { id: 'dashboard',  label: 'Dashboard',  icon: LayoutDashboard, color: '#00d4ff' },
-  { id: 'capture',    label: 'Capture',    icon: Plus,            color: '#8b5cf6' },
-  { id: 'vault',      label: 'Vault',      icon: Database,        color: '#f472b6' },
-  { id: 'recall',     label: 'Recall AI',  icon: Bot,             color: '#00d4ff' },
-  { id: 'tasks',      label: 'Tasks',      icon: CheckSquare,     color: '#10b981' },
-  { id: 'flashcards', label: 'Flashcards', icon: FlipHorizontal,  color: '#f59e0b' },
-  { id: 'calendar',   label: 'Calendar',   icon: CalendarIcon,    color: '#f472b6' },
-  { id: 'settings',   label: 'Settings',   icon: Settings,        color: '#6b7280' },
+const NAV_GROUPS = [
+  {
+    label: 'Core',
+    items: [
+      { id: 'dashboard',  label: 'Dashboard',   icon: LayoutDashboard, color: '#00d4ff' },
+      { id: 'capture',    label: 'Capture',      icon: Plus,            color: '#8b5cf6' },
+      { id: 'vault',      label: 'Vault',        icon: Database,        color: '#f472b6' },
+      { id: 'recall',     label: 'Neural Recall',icon: Bot,             color: '#00d4ff' },
+    ]
+  },
+  {
+    label: 'Explore',
+    items: [
+      { id: 'timeline',   label: 'Timeline',     icon: GitBranch,       color: '#f472b6' },
+      { id: 'graph',      label: 'Mind Graph',   icon: Network,         color: '#8b5cf6' },
+      { id: 'analytics',  label: 'Analytics',    icon: BarChart2,       color: '#10b981' },
+      { id: 'workspace',  label: 'Workspace',    icon: Kanban,          color: '#f59e0b' },
+    ]
+  },
+  {
+    label: 'Learn',
+    items: [
+      { id: 'tasks',      label: 'Tasks',        icon: CheckSquare,     color: '#10b981' },
+      { id: 'flashcards', label: 'Flashcards',   icon: FlipHorizontal,  color: '#f59e0b' },
+      { id: 'calendar',   label: 'Calendar',     icon: CalendarIcon,    color: '#f472b6' },
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { id: 'settings',   label: 'Settings',     icon: Settings,        color: '#6b7280' },
+    ]
+  },
 ];
+const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
 const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
@@ -131,34 +159,44 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
 
       {/* Status badge */}
       {!isCollapsed && (
-        <div style={{ margin: '10px 12px', padding: '7px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        <div style={{ margin: '8px 12px 4px', padding: '6px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', flexShrink: 0 }} />
-          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 500 }}>Neural Engine Active</span>
+          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 500 }}>System Ready</span>
         </div>
       )}
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
-        {NAV_ITEMS.map(({ id, label, icon: Icon, color }) => {
-          const active = currentView === id;
-          return (
-            <button key={id} onClick={() => setView(id as View)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: isCollapsed ? '12px' : '10px 12px',
-                borderRadius: 10, border: `1px solid ${active ? color + '35' : 'transparent'}`,
-                background: active ? `${color}15` : 'transparent',
-                cursor: 'pointer', transition: 'all 0.2s ease',
-                boxShadow: active ? `0 0 20px ${color}10` : 'none',
-                position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0,
-              }}
-            >
-              {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: color, borderRadius: '0 3px 3px 0', boxShadow: `0 0 10px ${color}` }} />}
-              <Icon size={17} color={active ? color : '#555577'} style={{ filter: active ? `drop-shadow(0 0 5px ${color})` : 'none', transition: 'all 0.2s', flexShrink: 0 }} />
-              {!isCollapsed && <span style={{ color: active ? '#e2e8f0' : '#6b7280', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
-            </button>
-          );
-        })}
+      {/* Grouped Nav */}
+      <nav style={{ flex: 1, padding: '4px 8px 4px', overflowY: 'auto', overflowX: 'hidden' }} className="scroll-custom">
+        {NAV_GROUPS.map(group => (
+          <div key={group.label} style={{ marginBottom: 4 }}>
+            {!isCollapsed && (
+              <div style={{ padding: '10px 12px 4px', color: '#374151', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
+            )}
+            {group.items.map(({ id, label, icon: Icon, color }) => {
+              const active = currentView === id;
+              return (
+                <button key={id} onClick={() => setView(id as View)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: isCollapsed ? '11px' : '9px 12px',
+                    borderRadius: 9, border: `1px solid ${active ? color + '35' : 'transparent'}`,
+                    background: active ? `${color}15` : 'transparent',
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                    boxShadow: active ? `0 0 20px ${color}08` : 'none',
+                    position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    flexShrink: 0, width: '100%', marginBottom: 1,
+                  }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                >
+                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 2.5, background: color, borderRadius: '0 3px 3px 0', boxShadow: `0 0 8px ${color}` }} />}
+                  <Icon size={16} color={active ? color : '#4b5563'} style={{ filter: active ? `drop-shadow(0 0 5px ${color})` : 'none', transition: 'all 0.2s', flexShrink: 0 }} />
+                  {!isCollapsed && <span style={{ color: active ? '#e2e8f0' : '#6b7280', fontSize: 12.5, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* User */}
@@ -673,7 +711,7 @@ const CaptureView = () => {
               {isProcessing ? (
                 <><Loader2 className="w-5 h-5 animate-spin" />AI is analyzing...</>
               ) : (
-                <><Sparkles className="w-5 h-5 text-indigo-400" />Process with OpenAI</>
+                <><Sparkles className="w-5 h-5 text-indigo-400" />Process with Neural AI</>
               )}
             </button>
           </div>
@@ -687,7 +725,7 @@ const CaptureView = () => {
           <div className="bg-gradient-to-r from-slate-900 to-indigo-900 p-8 text-white flex justify-between items-start">
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-1 bg-indigo-500 rounded text-[10px] font-bold uppercase tracking-widest">Analyzed by OpenAI</span>
+                <span className="px-2 py-1 bg-indigo-500 rounded text-[10px] font-bold uppercase tracking-widest">Neural Analysis</span>
                 <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest">{preview.domain}</span>
                 <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest">{preview.source_type}</span>
               </div>
@@ -997,7 +1035,7 @@ const FlashcardGeneratorModal = ({ memory, onClose }: { memory: Memory; onClose:
           {loading ? (
             <div className="flex flex-col items-center gap-4 py-12">
               <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-              <p className="text-slate-500 font-medium">Generating flashcards with OpenAI...</p>
+              <p className="text-slate-500 font-medium">Generating flashcards with Neural AI...</p>
             </div>
           ) : flashcards.length > 0 ? (
             <div className="space-y-6">
@@ -1069,7 +1107,7 @@ const FlashcardsView = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
         <h2 className="text-3xl font-bold text-slate-900">AI Flashcards</h2>
-        <p className="text-slate-500 mt-1">Select any memory to generate interactive flashcards powered by OpenAI.</p>
+        <p className="text-slate-500 mt-1">Select any memory to generate interactive flashcards powered by Neural AI.</p>
       </header>
 
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
@@ -1078,7 +1116,7 @@ const FlashcardsView = () => {
         </div>
         <div>
           <h3 className="font-bold text-amber-900">How it works</h3>
-          <p className="text-sm text-amber-700 mt-1">OpenAI generates 5 Q&A flashcards from any saved memory. Click on a memory card below to start studying. Flip each card to reveal the answer.</p>
+          <p className="text-sm text-amber-700 mt-1">Neural AI generates 5 Q&A flashcards from any saved memory. Click on a memory card below to start studying. Flip each card to reveal the answer.</p>
         </div>
       </div>
 
@@ -1177,7 +1215,7 @@ const RecallView = () => {
     <div className="max-w-4xl mx-auto h-[calc(100vh-10rem)] flex flex-col animate-in slide-in-from-bottom-4 duration-500">
       <header className="text-center mb-6">
         <h2 className="text-3xl font-bold text-slate-900">Recall AI</h2>
-        <p className="text-slate-500 mt-2">Powered by OpenAI GPT — ask anything about your saved knowledge.</p>
+        <p className="text-slate-500 mt-2">Powered by Neural AI — ask anything about your saved knowledge.</p>
       </header>
 
       <div className="flex-1 bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col">
@@ -1643,7 +1681,7 @@ const CalendarModule = () => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white flex justify-between items-center shrink-0">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">OpenAI Powered</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">Neural AI Powered</p>
                   <h3 className="text-xl font-bold mt-1">7-Day Study Plan Generator</h3>
                 </div>
                 <button onClick={() => setShowStudyPlan(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5" /></button>
@@ -1754,14 +1792,14 @@ const SettingsView = () => {
           ) : (
             <div className="space-y-4">
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Active AI Provider</p>
-                <p className="text-lg font-bold text-indigo-900">{settings?.use_openrouter ? 'OpenRouter' : settings?.ai_provider === 'openai' ? 'OpenAI GPT' : 'Google Gemini'}</p>
-                <p className="text-xs text-indigo-500">{settings?.openai_model || settings?.gemini_model}</p>
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Active AI Engine</p>
+                <p className="text-lg font-bold text-indigo-900">Neural AI</p>
+                <p className="text-xs text-indigo-500">GPT-class language model · Active</p>
               </div>
 
               {[
                 { label: 'GEN_APAC_API_KEY (Primary)', value: settings?.gen_apac_api_key_set, key: 'GEN_APAC_API_KEY' },
-                { label: 'OpenAI API Key (Fallback)', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
+                { label: 'Secondary API Key', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
                 { label: 'Google Gemini Key', value: settings?.gemini_api_key_set, key: 'GEMINI_API_KEY' },
                 { label: 'Google Calendar', value: settings?.google_calendar_configured, key: 'GOOGLE_CALENDAR_ID' },
               ].map(item => (
@@ -1789,7 +1827,7 @@ const SettingsView = () => {
               )}
             >
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              {settings?.use_openrouter ? 'Test OpenRouter Connection' : 'Test OpenAI Connection'}
+              Test Neural AI Connection
             </button>
             {testResult && (
               <motion.div
@@ -1813,7 +1851,7 @@ const SettingsView = () => {
               {[
                 { label: 'Backend Server', value: 'HEALTHY', color: 'text-emerald-600', pulse: true },
                 { label: 'Firestore Database', value: 'CONNECTED', color: 'text-emerald-600' },
-                { label: 'AI Provider', value: settings?.use_openrouter ? `OpenRouter (${settings?.openai_model})` : settings?.ai_provider === 'openai' ? 'OpenAI GPT-4o Mini' : 'Gemini Flash', color: 'text-indigo-600' },
+                { label: 'AI Engine', value: 'Neural AI · Active', color: 'text-indigo-600' },
                 { label: 'App Version', value: 'v2.0.0 HACKATHON', color: 'text-slate-400' },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
@@ -1831,7 +1869,7 @@ const SettingsView = () => {
             <h3 className="font-bold text-lg mb-2">🏆 Hackathon Features</h3>
             <ul className="space-y-2 text-sm text-indigo-100">
               {[
-                'Multi-agent AI orchestration (OpenAI)',
+                'Multi-agent Neural AI orchestration',
                 'YouTube transcript extraction',
                 'Web scraping & summarization',
                 'PDF knowledge capture',
@@ -1848,6 +1886,690 @@ const SettingsView = () => {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Memory Timeline View ─────────────────────────────────────────────────────
+
+const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [filter, setFilter] = useState<'all' | 'youtube' | 'web' | 'pdf' | 'note'>('all');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/memories?limit=50').then(r => r.ok ? r.json() : []).then(m => { setMemories(m); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const filtered = memories.filter(m =>
+    (filter === 'all' || m.source_type === filter) &&
+    (search === '' || m.title.toLowerCase().includes(search.toLowerCase()) || m.summary.toLowerCase().includes(search.toLowerCase()) || m.domain.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const grouped: Record<string, Memory[]> = {};
+  filtered.forEach(m => {
+    const d = new Date(m.created_at);
+    const key = isNaN(d.getTime()) ? 'Unknown Date' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    (grouped[key] = grouped[key] || []).push(m);
+  });
+
+  const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
+  const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
+  const filters = [
+    { id: 'all', label: 'All', color: '#00d4ff' },
+    { id: 'youtube', label: 'YouTube', color: '#ef4444' },
+    { id: 'web', label: 'Web', color: '#00d4ff' },
+    { id: 'pdf', label: 'PDF', color: '#f59e0b' },
+    { id: 'note', label: 'Notes', color: '#10b981' },
+  ];
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+
+  return (
+    <div>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <GitBranch size={17} color="#f472b6" />
+          </div>
+          <div>
+            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Memory Timeline</h1>
+            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Chronological view of your captured knowledge</p>
+          </div>
+          <div style={{ marginLeft: 'auto' }}>
+            <button onClick={() => setView('capture')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: 'linear-gradient(135deg,#f472b6,#c026a1)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px rgba(244,114,182,0.3)', fontFamily: 'inherit' }}>
+              <Plus size={14} /> Add Memory
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Search + Filters */}
+      <div style={{ ...card, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search size={14} color="#374151" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
+            style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {filters.map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id as any)}
+              style={{ padding: '5px 12px', borderRadius: 20, border: `1px solid ${filter === f.id ? f.color + '60' : 'rgba(255,255,255,0.08)'}`, background: filter === f.id ? `${f.color}18` : 'transparent', color: filter === f.id ? f.color : '#6b7280', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ color: '#374151', fontSize: 12 }}>{filtered.length} memories</div>
+      </div>
+
+      {/* Timeline */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Loader2 size={28} color="#00d4ff" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ color: '#374151', fontSize: 13 }}>Loading timeline...</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ ...card, padding: '60px 0', textAlign: 'center' }}>
+          <GitBranch size={40} color="#1f2937" style={{ margin: '0 auto 12px' }} />
+          <p style={{ color: '#374151', fontSize: 14 }}>No memories match this filter</p>
+          <button onClick={() => setView('capture')} style={{ marginTop: 10, color: '#f472b6', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Start capturing →</button>
+        </div>
+      ) : (
+        <div style={{ position: 'relative' }}>
+          {/* Vertical timeline line */}
+          <div style={{ position: 'absolute', left: 100, top: 0, bottom: 0, width: 1, background: 'linear-gradient(180deg, rgba(244,114,182,0.4) 0%, rgba(139,92,246,0.2) 100%)', pointerEvents: 'none' }} />
+          {Object.entries(grouped).map(([date, items], gi) => (
+            <motion.div key={date} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: gi * 0.05 }} style={{ display: 'flex', gap: 0, marginBottom: 28 }}>
+              {/* Date label */}
+              <div style={{ width: 100, flexShrink: 0, paddingRight: 16, paddingTop: 8, textAlign: 'right' }}>
+                <span style={{ color: '#374151', fontSize: 11, lineHeight: 1.4 }}>{date.split(',')[0]}<br /><span style={{ color: '#1f2937', fontSize: 10 }}>{date.split(',').slice(1).join(',').trim()}</span></span>
+              </div>
+              {/* Dot */}
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 10 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f472b6', boxShadow: '0 0 12px rgba(244,114,182,0.6)', flexShrink: 0 }} />
+              </div>
+              {/* Cards */}
+              <div style={{ flex: 1, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {items.map(m => {
+                  const Icon = SRC_ICON[m.source_type] ?? Brain;
+                  const clr = SRC_CLR[m.source_type] ?? '#00d4ff';
+                  return (
+                    <div key={m.id} style={{ ...card, padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-start', transition: 'all 0.2s', cursor: 'default' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = `${clr}30`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${clr}15`, border: `1px solid ${clr}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={14} color={clr} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</div>
+                        <div style={{ color: '#4b5563', fontSize: 11, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.summary}</div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 7px', borderRadius: 20, fontWeight: 500, textTransform: 'uppercase' }}>{m.source_type}</span>
+                          <span style={{ fontSize: 9, color: '#374151', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>{m.domain}</span>
+                          {m.tags.slice(0, 2).map(t => <span key={t} style={{ fontSize: 9, color: '#374151', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: 20 }}>#{t}</span>)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Knowledge Graph View ─────────────────────────────────────────────────────
+
+const KnowledgeGraphView = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const nodesRef = useRef<any[]>([]);
+  const animRef = useRef<number>(0);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/memories?limit=30').then(r => r.ok ? r.json() : []),
+      fetch('/stats').then(r => r.ok ? r.json() : null),
+    ]).then(([m, s]) => { setMemories(m); setStats(s); });
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || memories.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const W = canvas.offsetWidth; const H = canvas.offsetHeight;
+    canvas.width = W; canvas.height = H;
+
+    const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+    const domains = [...new Set(memories.map(m => m.domain || 'General'))];
+
+    // Central node
+    const nodes: any[] = [{ id: 'center', label: 'Recall X247', x: W / 2, y: H / 2, r: 28, color: '#00d4ff', type: 'center', vx: 0, vy: 0, fixed: true }];
+
+    // Domain nodes
+    domains.forEach((d, i) => {
+      const angle = (i / domains.length) * Math.PI * 2 - Math.PI / 2;
+      const dist = Math.min(W, H) * 0.28;
+      nodes.push({ id: `domain:${d}`, label: d, x: W / 2 + Math.cos(angle) * dist, y: H / 2 + Math.sin(angle) * dist, r: 18, color: COLORS[i % COLORS.length], type: 'domain', vx: 0, vy: 0 });
+    });
+
+    // Memory nodes (sample up to 20)
+    memories.slice(0, 20).forEach((m, i) => {
+      const domIdx = domains.indexOf(m.domain || 'General');
+      const parent = nodes.find(n => n.id === `domain:${m.domain || 'General'}`);
+      const angle = (i / memories.slice(0, 20).length) * Math.PI * 2;
+      const dist = 60;
+      const px = parent ? parent.x : W / 2;
+      const py = parent ? parent.y : H / 2;
+      nodes.push({ id: `mem:${m.id}`, label: m.title.slice(0, 18), x: px + Math.cos(angle) * dist + (Math.random() - 0.5) * 20, y: py + Math.sin(angle) * dist + (Math.random() - 0.5) * 20, r: 8, color: COLORS[domIdx % COLORS.length], type: 'memory', domainId: `domain:${m.domain || 'General'}`, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5 });
+    });
+
+    nodesRef.current = nodes;
+    let frame = 0;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      frame++;
+
+      // Update node positions (light physics)
+      nodes.forEach(n => {
+        if (n.fixed) return;
+        // Attract to parent
+        const parent = n.domainId ? nodes.find(p => p.id === n.domainId) : nodes[0];
+        if (parent) {
+          const dx = parent.x - n.x; const dy = parent.y - n.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const target = n.type === 'domain' ? Math.min(W, H) * 0.28 : 70;
+          const force = (dist - target) * 0.002;
+          n.vx += dx / dist * force; n.vy += dy / dist * force;
+        }
+        // Repel from other nodes
+        nodes.forEach(o => {
+          if (o.id === n.id) return;
+          const dx = n.x - o.x; const dy = n.y - o.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 60 && dist > 0) { n.vx += dx / dist * 0.3; n.vy += dy / dist * 0.3; }
+        });
+        n.vx *= 0.85; n.vy *= 0.85;
+        n.x += n.vx; n.y += n.vy;
+        n.x = Math.max(n.r + 10, Math.min(W - n.r - 10, n.x));
+        n.y = Math.max(n.r + 10, Math.min(H - n.r - 10, n.y));
+      });
+
+      // Draw edges
+      nodes.forEach(n => {
+        if (n.type === 'center') return;
+        const parent = n.domainId ? nodes.find(p => p.id === n.domainId) : nodes[0];
+        if (!parent) return;
+        ctx.beginPath();
+        ctx.strokeStyle = n.type === 'domain' ? `${n.color}50` : `${n.color}25`;
+        ctx.lineWidth = n.type === 'domain' ? 1.5 : 0.8;
+        ctx.moveTo(parent.x, parent.y);
+        ctx.lineTo(n.x, n.y);
+        ctx.stroke();
+      });
+
+      // Draw nodes
+      nodes.forEach(n => {
+        const pulse = n.type === 'center' ? Math.sin(frame * 0.04) * 3 + n.r : n.r;
+        // Outer glow
+        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, pulse * 2.5);
+        grad.addColorStop(0, `${n.color}35`);
+        grad.addColorStop(1, 'transparent');
+        ctx.beginPath(); ctx.arc(n.x, n.y, pulse * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = grad; ctx.fill();
+        // Node body
+        ctx.beginPath(); ctx.arc(n.x, n.y, pulse, 0, Math.PI * 2);
+        ctx.fillStyle = `${n.color}25`; ctx.fill();
+        ctx.strokeStyle = n.color; ctx.lineWidth = n.type === 'center' ? 2 : 1.5;
+        ctx.stroke();
+        // Label
+        if (n.type !== 'memory' || n.r > 6) {
+          ctx.fillStyle = n.type === 'center' ? '#00d4ff' : '#9ca3af';
+          ctx.font = `${n.type === 'center' ? '700 11px' : '500 9px'} 'Space Grotesk', sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(n.label, n.x, n.y + pulse + 12);
+        }
+        if (n.type === 'center') {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = "600 9px 'Space Grotesk', sans-serif";
+          ctx.textAlign = 'center';
+          ctx.fillText(n.label, n.x, n.y + 4);
+        }
+      });
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(animRef.current);
+  }, [memories]);
+
+  const domains = stats?.knowledge_domains ?? [];
+  const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+
+  return (
+    <div>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Network size={17} color="#8b5cf6" />
+          </div>
+          <div>
+            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Mind Graph</h1>
+            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Visual map of your knowledge connections</p>
+          </div>
+        </div>
+      </motion.div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16 }}>
+        {/* Graph canvas */}
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 16, overflow: 'hidden', height: 520, position: 'relative' }}>
+          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+          {memories.length === 0 && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <Network size={40} color="#1f2937" />
+              <p style={{ color: '#374151', fontSize: 13 }}>No memories to graph yet</p>
+            </div>
+          )}
+          <div style={{ position: 'absolute', bottom: 14, left: 14, display: 'flex', gap: 6 }}>
+            {memories.length > 0 && (
+              <div style={{ padding: '5px 10px', background: 'rgba(5,5,15,0.8)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#4b5563', fontSize: 10 }}>
+                {memories.length} memories · {[...new Set(memories.map(m => m.domain))].length} domains
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Sidebar stats */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Domain Nodes</div>
+            {domains.length > 0 ? domains.map((d: any, i: number) => (
+              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[i % COLORS.length], boxShadow: `0 0 6px ${COLORS[i % COLORS.length]}`, flexShrink: 0 }} />
+                <span style={{ color: '#9ca3af', fontSize: 12, flex: 1 }}>{d.name}</span>
+                <span style={{ color: COLORS[i % COLORS.length], fontSize: 11, fontWeight: 600 }}>{d.value}</span>
+              </div>
+            )) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>Capture memories to see graph</p>}
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Legend</div>
+            {[
+              { label: 'Central Hub', color: '#00d4ff', size: 12 },
+              { label: 'Domain Node', color: '#8b5cf6', size: 9 },
+              { label: 'Memory Node', color: '#6b7280', size: 6 },
+            ].map(l => (
+              <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: l.size, height: l.size, borderRadius: '50%', background: l.color, boxShadow: `0 0 6px ${l.color}80`, flexShrink: 0 }} />
+                <span style={{ color: '#6b7280', fontSize: 11 }}>{l.label}</span>
+              </div>
+            ))}
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Stats</div>
+            {[
+              { label: 'Total Nodes', value: memories.length + ([...new Set(memories.map(m => m.domain))].length || 0) + 1 },
+              { label: 'Total Edges', value: memories.length + ([...new Set(memories.map(m => m.domain))].length || 0) },
+              { label: 'Domains', value: [...new Set(memories.map(m => m.domain))].length || 0 },
+            ].map(s => (
+              <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ color: '#4b5563', fontSize: 11 }}>{s.label}</span>
+                <span style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 600 }}>{s.value}</span>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Analytics View ───────────────────────────────────────────────────────────
+
+const AnalyticsView = () => {
+  const [stats, setStats] = useState<any>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/stats').then(r => r.ok ? r.json() : null),
+      fetch('/memories?limit=50').then(r => r.ok ? r.json() : []),
+      fetch('/logs?limit=20').then(r => r.ok ? r.json() : []),
+      fetch('/tasks?limit=50').then(r => r.ok ? r.json() : []),
+    ]).then(([s, m, l, t]) => { if (s) setStats(s); setMemories(m); setLogs(l); setTasks(t); });
+  }, []);
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+  const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b'];
+  const domains = stats?.knowledge_domains ?? [];
+
+  // Source distribution
+  const srcCounts = { youtube: 0, web: 0, pdf: 0, note: 0 };
+  memories.forEach(m => { if (m.source_type in srcCounts) (srcCounts as any)[m.source_type]++; });
+  const srcData = [
+    { name: 'YouTube', value: srcCounts.youtube, color: '#ef4444' },
+    { name: 'Web', value: srcCounts.web, color: '#00d4ff' },
+    { name: 'PDF', value: srcCounts.pdf, color: '#f59e0b' },
+    { name: 'Notes', value: srcCounts.note, color: '#10b981' },
+  ].filter(s => s.value > 0);
+
+  // Tags frequency
+  const tagFreq: Record<string, number> = {};
+  memories.forEach(m => m.tags.forEach(t => { tagFreq[t] = (tagFreq[t] || 0) + 1; }));
+  const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, value]) => ({ name, value }));
+
+  // Activity by day (from timestamps)
+  const actMap: Record<string, number> = {};
+  memories.forEach(m => {
+    const d = new Date(m.created_at);
+    if (!isNaN(d.getTime())) { const k = d.toLocaleDateString('en-US', { weekday: 'short' }); actMap[k] = (actMap[k] || 0) + 1; }
+  });
+  const actData = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => ({ day: d, captures: actMap[d] || 0 }));
+
+  const kpis = [
+    { label: 'Total Memories', value: memories.length, sub: 'All time', color: '#00d4ff' },
+    { label: 'Avg per Domain', value: domains.length > 0 ? (memories.length / domains.length).toFixed(1) : 0, sub: 'Memories/domain', color: '#8b5cf6' },
+    { label: 'AI Sessions', value: logs.length, sub: 'Queries answered', color: '#f472b6' },
+    { label: 'Tasks Created', value: tasks.length, sub: 'Total tasks', color: '#10b981' },
+  ];
+
+  return (
+    <div>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BarChart2 size={17} color="#10b981" />
+          </div>
+          <div>
+            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Analytics</h1>
+            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Deep insights into your knowledge patterns</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 18 }}>
+        {kpis.map((k, i) => (
+          <motion.div key={k.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+            style={{ ...card, padding: '18px 20px', border: `1px solid ${k.color}25` }}>
+            <div style={{ fontSize: 32, fontWeight: 700, color: k.color, lineHeight: 1, marginBottom: 4 }}>{k.value}</div>
+            <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500 }}>{k.label}</div>
+            <div style={{ color: '#374151', fontSize: 11, marginTop: 2 }}>{k.sub}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+        {/* Activity by day */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ ...card, padding: '18px 20px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Captures by Day</div>
+          <div style={{ color: '#4b5563', fontSize: 11, marginBottom: 14 }}>Day-of-week distribution</div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={actData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fill: '#374151', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#374151', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
+              <Bar dataKey="captures" fill="#00d4ff" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Source distribution */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} style={{ ...card, padding: '18px 20px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Source Distribution</div>
+          <div style={{ color: '#4b5563', fontSize: 11, marginBottom: 12 }}>Where knowledge comes from</div>
+          {srcData.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+              {srcData.map(s => (
+                <div key={s.name}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: '#9ca3af', fontSize: 12 }}>{s.name}</span>
+                    <span style={{ color: s.color, fontSize: 11, fontWeight: 600 }}>{s.value} ({Math.round(s.value / memories.length * 100)}%)</span>
+                  </div>
+                  <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 4 }}>
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${(s.value / memories.length) * 100}%` }} transition={{ duration: 0.7, delay: 0.5 }}
+                      style={{ height: '100%', borderRadius: 4, background: s.color, boxShadow: `0 0 8px ${s.color}60` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p style={{ color: '#374151', fontSize: 12 }}>Capture memories to see distribution</p>}
+        </motion.div>
+      </div>
+
+      {/* Domain distribution + Top tags */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ ...card, padding: '18px 20px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Knowledge Domains</div>
+          {domains.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={domains.slice(0, 8)} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                <XAxis type="number" tick={{ fill: '#374151', fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={false} tickLine={false} width={80} />
+                <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {domains.slice(0, 8).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>No domain data yet</p>}
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...card, padding: '18px 20px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Top Tags</div>
+          {topTags.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {topTags.map((t, i) => {
+                const clr = COLORS[i % COLORS.length];
+                const size = Math.max(11, Math.min(16, 10 + t.value * 1.5));
+                return (
+                  <div key={t.name} style={{ padding: '5px 11px', background: `${clr}12`, border: `1px solid ${clr}30`, borderRadius: 20, cursor: 'default' }}>
+                    <span style={{ color: clr, fontSize: size, fontWeight: 500 }}>#{t.name}</span>
+                    <span style={{ color: '#374151', fontSize: 9, marginLeft: 4 }}>×{t.value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <p style={{ color: '#374151', fontSize: 12, margin: 0 }}>No tags yet — add tags when capturing</p>}
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Workspace View ───────────────────────────────────────────────────────────
+
+interface WorkspaceProject {
+  id: string;
+  name: string;
+  color: string;
+  description: string;
+  memoryIds: string[];
+  tasks: { id: string; text: string; done: boolean }[];
+}
+
+const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
+  const [projects, setProjects] = useState<WorkspaceProject[]>([
+    { id: '1', name: 'AI/ML Research', color: '#00d4ff', description: 'Deep learning, neural networks, and AI research notes', memoryIds: [], tasks: [{ id: 't1', text: 'Study transformer architecture', done: false }, { id: 't2', text: 'Summarize GPT-4 paper', done: true }] },
+    { id: '2', name: 'Business Strategy', color: '#8b5cf6', description: 'Market research, strategy frameworks, and growth ideas', memoryIds: [], tasks: [{ id: 't3', text: 'Porter\'s Five Forces analysis', done: false }] },
+    { id: '3', name: 'Personal Growth', color: '#10b981', description: 'Productivity, habits, and self-improvement captures', memoryIds: [], tasks: [] },
+  ]);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [activeProject, setActiveProject] = useState<string>(projects[0].id);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [showNewTask, setShowNewTask] = useState(false);
+
+  useEffect(() => {
+    fetch('/memories?limit=30').then(r => r.ok ? r.json() : []).then(setMemories);
+  }, []);
+
+  const project = projects.find(p => p.id === activeProject)!;
+
+  const addProject = () => {
+    if (!newProjectName.trim()) return;
+    const colors = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+    setProjects(prev => [...prev, { id: Date.now().toString(), name: newProjectName.trim(), color: colors[prev.length % colors.length], description: '', memoryIds: [], tasks: [] }]);
+    setNewProjectName(''); setShowNewProject(false);
+  };
+
+  const toggleTask = (taskId: string) => {
+    setProjects(prev => prev.map(p => p.id === activeProject ? { ...p, tasks: p.tasks.map(t => t.id === taskId ? { ...t, done: !t.done } : t) } : p));
+  };
+
+  const addTask = () => {
+    if (!newTaskText.trim()) return;
+    setProjects(prev => prev.map(p => p.id === activeProject ? { ...p, tasks: [...p.tasks, { id: Date.now().toString(), text: newTaskText.trim(), done: false }] } : p));
+    setNewTaskText(''); setShowNewTask(false);
+  };
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+  const projectMemories = memories.filter(m => m.domain.toLowerCase().includes(project.name.toLowerCase().split('/')[0].trim().toLowerCase()) || project.memoryIds.includes(m.id));
+
+  return (
+    <div>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Kanban size={17} color="#f59e0b" />
+          </div>
+          <div>
+            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Workspace</h1>
+            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Organize knowledge into projects</p>
+          </div>
+        </div>
+      </motion.div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 16 }}>
+        {/* Projects sidebar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {projects.map((p, i) => (
+            <motion.button key={p.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+              onClick={() => setActiveProject(p.id)}
+              style={{ ...card, padding: '12px 14px', cursor: 'pointer', border: `1px solid ${activeProject === p.id ? p.color + '40' : 'rgba(255,255,255,0.07)'}`, background: activeProject === p.id ? `${p.color}10` : 'rgba(255,255,255,0.03)', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, boxShadow: activeProject === p.id ? `0 0 8px ${p.color}` : 'none', flexShrink: 0 }} />
+                <span style={{ color: activeProject === p.id ? '#e2e8f0' : '#9ca3af', fontSize: 13, fontWeight: activeProject === p.id ? 600 : 400 }}>{p.name}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginLeft: 16 }}>
+                <span style={{ color: '#374151', fontSize: 10 }}>{p.tasks.length} tasks</span>
+                <span style={{ color: '#374151', fontSize: 10 }}>·</span>
+                <span style={{ color: '#374151', fontSize: 10 }}>{p.tasks.filter(t => t.done).length} done</span>
+              </div>
+            </motion.button>
+          ))}
+          {showNewProject ? (
+            <div style={{ ...card, padding: '10px 12px' }}>
+              <input autoFocus value={newProjectName} onChange={e => setNewProjectName(e.target.value)} onKeyDown={e => e.key === 'Enter' && addProject()} placeholder="Project name..."
+                style={{ width: '100%', background: 'none', border: 'none', color: '#e2e8f0', fontSize: 12, outline: 'none', fontFamily: 'inherit', marginBottom: 8 }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={addProject} style={{ flex: 1, padding: '5px 0', background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.3)', borderRadius: 7, color: '#00d4ff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+                <button onClick={() => setShowNewProject(false)} style={{ flex: 1, padding: '5px 0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 7, color: '#6b7280', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowNewProject(true)}
+              style={{ padding: '10px 14px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 14, color: '#4b5563', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', transition: 'all 0.2s' }}
+              onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(0,212,255,0.25)'; (e.currentTarget).style.color = '#00d4ff'; }}
+              onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#4b5563'; }}>
+              <PlusCircle size={13} /> New Project
+            </button>
+          )}
+        </div>
+
+        {/* Project content */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Project header */}
+          <motion.div key={activeProject} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            style={{ ...card, padding: '16px 20px', border: `1px solid ${project.color}25` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: project.color, boxShadow: `0 0 12px ${project.color}` }} />
+              <h2 style={{ color: '#f1f5f9', fontSize: 18, fontWeight: 700, margin: 0 }}>{project.name}</h2>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+                <span style={{ color: '#4b5563', fontSize: 11 }}>{project.tasks.filter(t => !t.done).length} pending tasks</span>
+                <span style={{ color: project.color, fontSize: 11, fontWeight: 600 }}>{Math.round(project.tasks.length > 0 ? (project.tasks.filter(t => t.done).length / project.tasks.length) * 100 : 0)}% complete</span>
+              </div>
+            </div>
+            {project.description && <p style={{ color: '#6b7280', fontSize: 12, margin: '8px 0 0 20px' }}>{project.description}</p>}
+          </motion.div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {/* Tasks */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ ...card, padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>Tasks</div>
+                <button onClick={() => setShowNewTask(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
+                  <PlusCircle size={12} /> Add
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {project.tasks.map(t => (
+                  <div key={t.id} onClick={() => toggleTask(t.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)'}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : '#374151'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                      {t.done && <CheckCheck size={10} color="#fff" />}
+                    </div>
+                    <span style={{ color: t.done ? '#374151' : '#9ca3af', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>{t.text}</span>
+                  </div>
+                ))}
+                {showNewTask && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    <input autoFocus value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setShowNewTask(false); }}
+                      placeholder="New task..."
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#e2e8f0', fontSize: 12, padding: '5px 9px', outline: 'none', fontFamily: 'inherit' }} />
+                  </div>
+                )}
+                {project.tasks.length === 0 && !showNewTask && <p style={{ color: '#374151', fontSize: 12, margin: '4px 0 0', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>}
+              </div>
+            </motion.div>
+
+            {/* Related memories */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} style={{ ...card, padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>Related Memories</div>
+                <button onClick={() => setView('capture')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
+                  <Plus size={12} /> Capture
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {projectMemories.slice(0, 4).map(m => {
+                  const clr = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' }[m.source_type] ?? '#6b7280';
+                  return (
+                    <div key={m.id} style={{ display: 'flex', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', alignItems: 'flex-start' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: clr, marginTop: 4, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ color: '#d1d5db', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{m.title}</div>
+                        <div style={{ color: '#374151', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {projectMemories.length === 0 && <p style={{ color: '#374151', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No related memories yet</p>}
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -1895,11 +2617,15 @@ export default function App() {
 
   const commands = [
     { icon: Plus, label: 'Capture new memory', view: 'capture' as View },
-    { icon: Search, label: 'Ask Recall AI', view: 'recall' as View },
+    { icon: Search, label: 'Ask Neural Recall', view: 'recall' as View },
     { icon: CheckSquare, label: 'Manage tasks', view: 'tasks' as View },
-    { icon: Brain, label: 'Open Knowledge Vault', view: 'vault' as View },
+    { icon: Database, label: 'Open Knowledge Vault', view: 'vault' as View },
     { icon: FlipHorizontal, label: 'Study Flashcards', view: 'flashcards' as View },
     { icon: CalendarIcon, label: 'View Schedule', view: 'calendar' as View },
+    { icon: GitBranch, label: 'Memory Timeline', view: 'timeline' as View },
+    { icon: Network, label: 'Mind Graph', view: 'graph' as View },
+    { icon: BarChart2, label: 'Analytics', view: 'analytics' as View },
+    { icon: Kanban, label: 'Workspace', view: 'workspace' as View },
   ];
 
   return (
@@ -1957,8 +2683,8 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 20 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }} />
-              <span style={{ color: '#00d4ff', fontSize: 11, fontWeight: 500 }}>{appSettings?.use_openrouter ? 'OpenRouter Active' : 'OpenAI Active'}</span>
+              <Cpu size={11} color="#00d4ff" />
+              <span style={{ color: '#00d4ff', fontSize: 11, fontWeight: 500 }}>Neural AI</span>
             </div>
             <button onClick={() => setView('capture')}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: 'linear-gradient(135deg,#00d4ff,#0099cc)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px rgba(0,212,255,0.3)', fontFamily: 'inherit' }}>
@@ -1980,6 +2706,10 @@ export default function App() {
                 {view === 'flashcards' && <FlashcardsView />}
                 {view === 'calendar' && <CalendarModule />}
                 {view === 'settings' && <SettingsView />}
+                {view === 'timeline' && <MemoryTimelineView setView={setView} />}
+                {view === 'graph' && <KnowledgeGraphView />}
+                {view === 'analytics' && <AnalyticsView />}
+                {view === 'workspace' && <WorkspaceView setView={setView} />}
               </motion.div>
             </AnimatePresence>
           </div>
