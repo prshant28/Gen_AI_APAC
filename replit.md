@@ -5,6 +5,12 @@ An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackatho
 
 **AI Provider:** OpenRouter (GEN_APAC_API_KEY) → GPT-4o-mini. Branding shown as "Neural AI".
 
+## UI/UX
+- **Light/Dark theme toggle** — Moon/Sun button in header, persisted in localStorage, applies `data-theme="dark"` to `<html>` element. CSS custom properties drive all theme colors.
+- **Responsive** — Stat cards 2-col on mobile → 4-col on desktop; Agent Hub hides left panel on mobile; header collapses search + Capture text on small screens; `responsive-content` class handles padding. 
+- **Design system** — CSS custom properties: `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--border`, `--text-1`, `--text-2`, `--text-3`, `--primary`, `--primary-bg`, `--primary-dark`, `--primary-border`.
+- **CI/CD** — `.github/workflows/deploy.yml` auto-deploys to Google Cloud Run on push to `main`.
+
 ## Multi-Agent Architecture
 
 ```

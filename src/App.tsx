@@ -8,7 +8,8 @@ import {
   ArrowUpRight, Database, Bot, Network, Star, Activity, Menu, GitBranch,
   BarChart2, Workflow, Timer, Layers, Filter, Hash, ChevronDown, CheckCheck,
   Cpu, Boxes, Map, LayoutGrid, SlidersHorizontal, PieChart, CalendarDays, Kanban,
-  FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square
+  FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square,
+  Moon, Sun
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -138,19 +139,19 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
   const w = isCollapsed ? 64 : 224;
   return (
     <div style={{
-      width: w, minWidth: w, height: '100vh', background: '#ffffff',
-      borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column',
+      width: w, minWidth: w, height: '100vh', background: 'var(--surface)',
+      borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
       position: 'relative', zIndex: 50, transition: 'width 0.25s ease', flexShrink: 0,
     }}>
       {/* Logo */}
-      <div style={{ padding: '16px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ padding: '16px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
           <Brain size={20} color="white" />
         </div>
         {!isCollapsed && (
           <div style={{ overflow: 'hidden' }}>
-            <div style={{ color: '#0f172a', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
-            <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
+            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
+            <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
           </div>
         )}
       </div>
@@ -168,7 +169,7 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
         {NAV_GROUPS.map(group => (
           <div key={group.label} style={{ marginBottom: 2 }}>
             {!isCollapsed && (
-              <div style={{ padding: '10px 8px 3px', color: '#94a3b8', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
+              <div style={{ padding: '10px 8px 3px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
             )}
             {group.items.map(({ id, label, icon: Icon, color }) => {
               const active = currentView === id;
@@ -178,17 +179,17 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
                     display: 'flex', alignItems: 'center', gap: 9,
                     padding: isCollapsed ? '10px' : '8px 10px',
                     borderRadius: 8, border: 'none',
-                    background: active ? '#eef2ff' : 'transparent',
+                    background: active ? 'var(--primary-bg)' : 'transparent',
                     cursor: 'pointer', transition: 'all 0.15s',
                     position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
                     flexShrink: 0, width: '100%', marginBottom: 1,
                   }}
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: '#6366f1', borderRadius: '0 3px 3px 0' }} />}
-                  <Icon size={15} color={active ? '#6366f1' : '#94a3b8'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
-                  {!isCollapsed && <span style={{ color: active ? '#4f46e5' : '#64748b', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
+                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
+                  <Icon size={15} color={active ? 'var(--primary)' : 'var(--text-3)'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
+                  {!isCollapsed && <span style={{ color: active ? 'var(--primary-dark)' : 'var(--text-2)', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
                 </button>
               );
             })}
@@ -197,13 +198,13 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
       </nav>
 
       {/* User */}
-      <div style={{ padding: '8px 8px 12px', borderTop: '1px solid #f1f5f9', flexShrink: 0 }}>
+      <div style={{ padding: '8px 8px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '6px' : '6px 8px', borderRadius: 8, justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
           <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700 }}>P</div>
           {!isCollapsed && (
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: '#0f172a', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
-              <div style={{ color: '#94a3b8', fontSize: 10 }}>Pro Neural Plan</div>
+              <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Pro Neural Plan</div>
             </div>
           )}
         </div>
@@ -211,7 +212,7 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
 
       {/* Collapse toggle */}
       <button onClick={() => setIsCollapsed(!isCollapsed)}
-        style={{ position: 'absolute', right: -11, top: 76, width: 22, height: 22, borderRadius: '50%', background: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6366f1', zIndex: 60, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+        style={{ position: 'absolute', right: -11, top: 76, width: 22, height: 22, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)', zIndex: 60, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
       >
         <ChevronRight size={12} style={{ transform: isCollapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.25s' }} />
       </button>
@@ -266,7 +267,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   ];
 
   const S = { // shared card styles
-    card: { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', transition: 'all 0.2s' } as React.CSSProperties,
+    card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s' } as React.CSSProperties,
   };
 
   return (
@@ -305,7 +306,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
       </motion.div>
 
       {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 22 }}>
+      <div className="stat-cards-grid">
         {statCards.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
             style={{ ...S.card, padding: '18px 20px', cursor: 'default' }}
@@ -2801,27 +2802,27 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
   };
 
   return (
-    <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 130px)', minHeight: 0 }}>
+    <div className="agent-hub-layout">
 
       {/* ── Left Panel: Agent Registry + History ── */}
-      <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }} className="hidden lg:flex">
+      <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }} className="agent-hub-left hidden lg:flex">
 
         {/* Panel Toggle */}
-        <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
           {(['agents', 'history'] as const).map(tab => (
             <button key={tab} onClick={() => setActivePanel(tab)}
               style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                background: activePanel === tab ? '#ffffff' : 'transparent',
-                color: activePanel === tab ? '#6366f1' : '#94a3b8', fontSize: 11, fontWeight: 600, textTransform: 'capitalize', transition: 'all 0.2s',
-                boxShadow: activePanel === tab ? '0 1px 3px rgba(0,0,0,0.07)' : 'none' }}>
+                background: activePanel === tab ? 'var(--surface)' : 'transparent',
+                color: activePanel === tab ? 'var(--primary)' : 'var(--text-3)', fontSize: 11, fontWeight: 600, textTransform: 'capitalize', transition: 'all 0.2s',
+                boxShadow: activePanel === tab ? 'var(--shadow-sm)' : 'none' }}>
               {tab === 'agents' ? 'Agents' : 'History'}
             </button>
           ))}
         </div>
 
         {activePanel === 'agents' ? (
-          <div style={{ flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Agent Registry</div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
@@ -2863,20 +2864,20 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
             </div>
           </div>
         ) : (
-          <div style={{ flex: 1, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Workflow History</div>
+          <div style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ padding: '11px 14px 8px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 700, textTransform: 'uppercase' }}>Workflow History</div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }} className="scroll-custom">
               {workflows.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 11 }}>No workflows yet</div>
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-3)', fontSize: 11 }}>No workflows yet</div>
               ) : workflows.map(wf => (
-                <div key={wf.id} style={{ padding: '8px 10px', borderRadius: 9, marginBottom: 4, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div key={wf.id} style={{ padding: '8px 10px', borderRadius: 9, marginBottom: 4, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: wf.status === 'completed' ? '#10b981' : wf.status === 'failed' ? '#ef4444' : '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ color: '#1e293b', fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
+                    <span style={{ color: 'var(--text-1)', fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: 9.5 }}>{wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 9.5 }}>{wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps</div>
                 </div>
               ))}
             </div>
@@ -2884,8 +2885,8 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         )}
 
         {/* Quick navigate */}
-        <div style={{ padding: '10px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ color: '#94a3b8', fontSize: 9.5, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>Quick Access</div>
+        <div style={{ padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ color: 'var(--text-3)', fontSize: 9.5, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>Quick Access</div>
           {[
             { label: 'Vault', view: 'vault' as View, color: '#ec4899' },
             { label: 'Tasks', view: 'tasks' as View, color: '#10b981' },
@@ -2893,7 +2894,7 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
           ].map(link => (
             <button key={link.view} onClick={() => setView(link.view)}
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', borderRadius: 7, border: 'none', background: 'transparent', color: link.color, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, transition: 'background 0.12s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
               → {link.label}
             </button>
@@ -2920,14 +2921,14 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
               </div>
             )}
             <button onClick={() => { setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: 'Session cleared. How can I help you?' }]); setAgentStatuses({}); }}
-              style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, color: '#64748b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '6px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               Clear
             </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 16, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom agent-messages">
+        <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)', padding: 16, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom agent-messages">
           {messages.map(msg => (
             <div key={msg.id} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
 
@@ -3040,23 +3041,23 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         )}
 
         {/* Input */}
-        <div style={{ flexShrink: 0, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 13, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: 'var(--shadow-sm)' }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Ask Neural AI anything... (Enter to send, Shift+Enter for new line)"
             disabled={isStreaming}
             rows={1}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#0f172a', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
           />
           <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
             style={{ width: 34, height: 34, borderRadius: 9, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0,
-              background: input.trim() && !isStreaming ? '#6366f1' : '#f1f5f9',
+              background: input.trim() && !isStreaming ? 'var(--primary)' : 'var(--surface-3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
               boxShadow: input.trim() && !isStreaming ? '0 2px 8px rgba(99,102,241,0.3)' : 'none' }}>
-            {isStreaming ? <Loader2 size={15} color="#94a3b8" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} color={input.trim() ? 'white' : '#94a3b8'} />}
+            {isStreaming ? <Loader2 size={15} color="var(--text-3)" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} color={input.trim() ? 'white' : 'var(--text-3)'} />}
           </button>
         </div>
 
-        <p style={{ color: '#cbd5e1', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
+        <p style={{ color: 'var(--text-3)', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
           Powered by Neural AI · Multi-agent orchestration with real-time SSE streaming
         </p>
       </div>
@@ -3073,6 +3074,17 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [appSettings, setAppSettings] = useState<any>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('recall-theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('recall-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     fetch('/settings').then(r => r.ok ? r.json() : null).then(setAppSettings).catch(() => {});
@@ -3116,7 +3128,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#f5f6fa', color: '#0f172a', overflow: 'hidden', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       {/* Desktop Sidebar */}
       <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
@@ -3145,35 +3157,39 @@ export default function App() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0 }}>
         {/* Header */}
         <header style={{
-          background: '#ffffff',
-          borderBottom: '1px solid #e2e8f0',
-          padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0,
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+          padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0, gap: 10,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden"
-              style={{ padding: 7, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              style={{ padding: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <Menu size={16} />
             </button>
             <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 440 }}>
-              <Search size={13} color="#94a3b8" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input readOnly onFocus={() => setShowCommandPalette(true)}
-                placeholder="Search memories, tasks, anything... (⌘K)"
-                style={{ width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 8, paddingBottom: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, color: '#94a3b8', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                placeholder="Search memories, tasks... (⌘K)"
+                style={{ width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-3)', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               />
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20 }}>
-              <Cpu size={11} color="#6366f1" />
-              <span style={{ color: '#6366f1', fontSize: 11, fontWeight: 600 }}>Neural AI</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+            {/* Theme Toggle */}
+            <button onClick={toggleTheme} className="theme-toggle" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
+              <Cpu size={11} color="var(--primary)" />
+              <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="hidden sm:inline">Neural AI</span>
             </div>
             <button onClick={() => setView('capture')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#6366f1', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3)', fontFamily: 'inherit', transition: 'all 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#6366f1')}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--primary)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.25)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-dark)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--primary)')}
             >
-              <Plus size={14} /> Capture
+              <Plus size={14} /> <span className="hidden sm:inline">Capture</span>
             </button>
           </div>
         </header>
@@ -3210,33 +3226,33 @@ export default function App() {
               onClick={() => setShowCommandPalette(false)}
               style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} />
             <motion.div initial={{ opacity: 0, scale: 0.96, y: -16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: -16 }}
-              style={{ position: 'relative', width: '100%', maxWidth: 540, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.14)' }}>
-              <div style={{ padding: '13px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Search size={15} color="#6366f1" />
+              style={{ position: 'relative', width: '100%', maxWidth: 540, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Search size={15} color="var(--primary)" />
                 <input autoFocus type="text" placeholder="Type a command or navigate..."
-                  style={{ flex: 1, background: 'none', border: 'none', color: '#0f172a', fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
-                <div style={{ padding: '3px 8px', background: '#f1f5f9', borderRadius: 6, color: '#94a3b8', fontSize: 10, fontWeight: 700 }}>ESC</div>
+                  style={{ flex: 1, background: 'none', border: 'none', color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+                <div style={{ padding: '3px 8px', background: 'var(--surface-3)', borderRadius: 6, color: 'var(--text-3)', fontSize: 10, fontWeight: 700 }}>ESC</div>
               </div>
               <div style={{ padding: '6px', maxHeight: '55vh', overflowY: 'auto' }} className="scroll-custom">
-                <div style={{ padding: '8px 10px 4px', color: '#94a3b8', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Quick Navigation</div>
+                <div style={{ padding: '8px 10px 4px', color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Quick Navigation</div>
                 {commands.map((item) => (
                   <button key={item.label} onClick={() => { setView(item.view); setShowCommandPalette(false); }}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <item.icon size={14} color="#6366f1" />
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <item.icon size={14} color="var(--primary)" />
                     </div>
-                    <span style={{ color: '#374151', fontSize: 13 }}>{item.label}</span>
+                    <span style={{ color: 'var(--text-1)', fontSize: 13 }}>{item.label}</span>
                   </button>
                 ))}
               </div>
-              <div style={{ padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
+              <div style={{ padding: '10px 16px', background: 'var(--surface-2)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>↑↓ Navigate · Enter to select · Esc to close</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Brain size={11} color="#6366f1" />
-                  <span style={{ color: '#94a3b8', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase' }}>Recall X247</span>
+                  <Brain size={11} color="var(--primary)" />
+                  <span style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase' }}>Recall X247</span>
                 </div>
               </div>
             </motion.div>
