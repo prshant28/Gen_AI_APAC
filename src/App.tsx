@@ -3124,12 +3124,12 @@ const TESTIMONIALS = [
   {
     quote: 'Recall X247 turned our research chaos into a searchable, actionable knowledge system in days.',
     author: 'Priya Nair',
-    role: 'Product Lead, KnowledgeOps',
+    role: 'Product Lead, Knowledge Ops',
   },
   {
     quote: 'The multi-agent workflow is like having a premium AI operations team for every project.',
     author: 'Daniel Kim',
-    role: 'Founder, SprintForge',
+    role: 'Founder, Sprint Forge',
   },
   {
     quote: 'From capture to task to calendar, everything is finally connected and frictionless.',
