@@ -47,10 +47,10 @@ class Settings(BaseSettings):
                 "GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY")
             )
 
-        # GEN_API_KEY is an OpenRouter key — takes priority
-        gen_apac = os.getenv("GEN_APAC_API_KEY") or os.getenv("GEN_API_KEY")
+        # GEN_APAC_API_KEY is an OpenRouter key — takes priority
+        gen_apac = os.getenv("GEN_APAC_API_KEY")
         if gen_apac:
-            self.GEN_API_KEY = gen_apac
+            self.GEN_APAC_API_KEY = gen_apac
             self.OPENAI_API_KEY = gen_apac
             self.USE_OPENROUTER = True
             self.OPENAI_MODEL = "openai/gpt-4o-mini"
