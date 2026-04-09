@@ -3204,13 +3204,13 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   const [activeTestimonial, setActiveTestimonial] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setActiveTestimonial(v => (v + 1) % TESTIMONIALS.length);
+    const testimonialInterval = setInterval(() => {
+      setActiveTestimonial(prevIndex => (prevIndex + 1) % TESTIMONIALS.length);
     }, 5000);
-    return () => clearInterval(t);
+    return () => clearInterval(testimonialInterval);
   }, []);
 
-  const switchMode = (m: AuthMode) => { setMode(m); setError(''); setSuccess(''); };
+  const switchMode = (newMode: AuthMode) => { setMode(newMode); setError(''); setSuccess(''); };
 
   const friendlyError = (code: string) => ({
     'auth/user-not-found': 'No account found with this email.',
@@ -3311,15 +3311,15 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         {/* Premium KPI bar */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
-          {PREMIUM_STATS.map((s) => (
-            <div key={s.label} style={{
+          {PREMIUM_STATS.map((stat) => (
+            <div key={stat.label} style={{
               padding: '10px 9px', borderRadius: 12,
               background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.72)',
               border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.14)'}`,
               backdropFilter: 'blur(8px)',
             }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', marginBottom: 2 }}>{s.value}</div>
-              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', lineHeight: 1.3 }}>{s.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', marginBottom: 2 }}>{stat.value}</div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', lineHeight: 1.3 }}>{stat.label}</div>
             </div>
           ))}
         </motion.div>
@@ -3462,10 +3462,10 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           {/* Tabs */}
           {mode !== 'forgot' && (
             <div style={{ display: 'flex', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(99,102,241,0.06)', borderRadius: 12, padding: 3, marginBottom: 20, position: 'relative' }}>
-              {(['signin', 'signup'] as AuthMode[]).map(m => (
-                <button key={m} onClick={() => switchMode(m)}
-                  style={{ flex: 1, padding: '8px 0', fontSize: 12.5, fontWeight: mode === m ? 700 : 500, color: mode === m ? '#6366f1' : isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.5)', background: mode === m ? (isDark ? 'rgba(99,102,241,0.18)' : 'white') : 'transparent', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', boxShadow: mode === m ? (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(99,102,241,0.12)') : 'none' }}>
-                  {m === 'signin' ? 'Sign In' : 'Create Account'}
+              {(['signin', 'signup'] as AuthMode[]).map(authMode => (
+                <button key={authMode} onClick={() => switchMode(authMode)}
+                  style={{ flex: 1, padding: '8px 0', fontSize: 12.5, fontWeight: mode === authMode ? 700 : 500, color: mode === authMode ? '#6366f1' : isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.5)', background: mode === authMode ? (isDark ? 'rgba(99,102,241,0.18)' : 'white') : 'transparent', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', boxShadow: mode === authMode ? (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(99,102,241,0.12)') : 'none' }}>
+                  {authMode === 'signin' ? 'Sign In' : 'Create Account'}
                 </button>
               ))}
             </div>
