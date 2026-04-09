@@ -9,6 +9,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
+  signInAnonymously,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
@@ -54,5 +55,6 @@ export const signInWithEmail = (email: string, password: string) =>
 export const resetPassword = (email: string) =>
   sendPasswordResetEmail(auth, email);
 
+export const signInAsGuest = () => signInAnonymously(auth);
 export const signIn = signInWithGoogle;
 export const signOut = () => auth.signOut();

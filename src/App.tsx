@@ -20,6 +20,7 @@ import {
   resetPassword,
   checkRedirectResult,
   signOut as firebaseSignOut,
+  signInAsGuest,
 } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -1860,8 +1861,8 @@ const SettingsView = () => {
               </div>
 
               {[
-                { label: 'GEN_APAC_API_KEY (Primary)', value: settings?.gen_apac_api_key_set, key: 'GEN_APAC_API_KEY' },
-                { label: 'Secondary API Key', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
+                { label: 'OpenAI API Key', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
+                { label: 'OpenRouter / GEN APAC Key', value: settings?.gen_apac_api_key_set, key: 'GEN_APAC_API_KEY' },
                 { label: 'Google Gemini Key', value: settings?.gemini_api_key_set, key: 'GEMINI_API_KEY' },
                 { label: 'Google Calendar', value: settings?.google_calendar_configured, key: 'GOOGLE_CALENDAR_ID' },
               ].map(item => (
@@ -1883,9 +1884,9 @@ const SettingsView = () => {
           <div className="pt-4 border-t border-slate-50">
             <button
               onClick={handleTestAI}
-              disabled={isTesting || !(settings?.gen_apac_api_key_set || settings?.openai_api_key_set)}
+              disabled={isTesting || !(settings?.openai_api_key_set || settings?.gen_apac_api_key_set)}
               className={cn("w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-                (settings?.gen_apac_api_key_set || settings?.openai_api_key_set) ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                (settings?.openai_api_key_set || settings?.gen_apac_api_key_set) ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400 cursor-not-allowed"
               )}
             >
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
@@ -3190,12 +3191,13 @@ const AuthInput = ({ label, type, value, onChange, placeholder, autoComplete, ic
   </div>
 );
 
-const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEmailSignUp, onResetPassword }: {
+const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEmailSignUp, onResetPassword, onAnonymousSignIn }: {
   isDark: boolean; toggleTheme: () => void;
   onGoogleSignIn: () => Promise<any>;
   onEmailSignIn: (email: string, password: string) => Promise<any>;
   onEmailSignUp: (email: string, password: string, name: string) => Promise<any>;
   onResetPassword: (email: string) => Promise<void>;
+  onAnonymousSignIn: () => Promise<any>;
 }) => {
   const [mode, setMode] = useState<AuthMode>('signin');
   const [name, setName] = useState('');
@@ -3204,6 +3206,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [anonLoading, setAnonLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
@@ -3238,6 +3241,13 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     try { await onGoogleSignIn(); }
     catch (e: any) { setError(friendlyError(e.code ?? '')); }
     finally { setGoogleLoading(false); }
+  };
+
+  const handleAnonymous = async () => {
+    setError(''); setAnonLoading(true);
+    try { await onAnonymousSignIn(); }
+    catch (e: any) { setError(friendlyError(e.code ?? '')); }
+    finally { setAnonLoading(false); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -3556,8 +3566,27 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
             </motion.button>
           </form>
 
+          {/* Continue as Guest */}
+          <motion.button
+            type="button"
+            onClick={handleAnonymous}
+            disabled={anonLoading || loading || googleLoading}
+            whileHover={{ opacity: 0.8 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              marginTop: 10, width: '100%', background: 'none', border: `1px dashed ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(99,102,241,0.2)'}`,
+              borderRadius: 11, padding: '9px 14px', cursor: anonLoading ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              color: isDark ? 'rgba(160,160,190,0.6)' : 'rgba(80,70,130,0.55)', fontSize: 12.5, fontWeight: 600,
+              fontFamily: 'inherit', transition: 'all 0.18s',
+            }}>
+            {anonLoading
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Entering as guest...</>
+              : <><UserIcon size={13} /> Continue as Guest</>}
+          </motion.button>
+
           {/* Privacy note */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 12 }}>
             <Shield size={10} color={isDark ? 'rgba(160,160,190,0.4)' : 'rgba(99,102,241,0.35)'} />
             <p style={{ color: isDark ? 'rgba(160,160,190,0.4)' : 'rgba(99,102,241,0.4)', fontSize: 10.5, margin: 0, lineHeight: 1.5 }}>
               Private & secure — your data is never shared
@@ -3652,6 +3681,7 @@ export default function App() {
         onEmailSignIn={signInWithEmail}
         onEmailSignUp={signUpWithEmail}
         onResetPassword={resetPassword}
+        onAnonymousSignIn={signInAsGuest}
       />
     );
   }
