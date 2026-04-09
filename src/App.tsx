@@ -3138,6 +3138,12 @@ const TESTIMONIALS = [
   },
 ];
 
+const TESTIMONIAL_ROTATION_INTERVAL_MS = 5000;
+const TESTIMONIAL_DOT_WIDTH_ACTIVE = 18;
+const TESTIMONIAL_DOT_WIDTH_INACTIVE = 6;
+const PREMIUM_STAT_VALUE_FONT_SIZE = 13;
+const PREMIUM_STAT_LABEL_FONT_SIZE = 9.5;
+
 const PARTICLES = Array.from({ length: 22 }, (_, i) => ({
   id: i,
   x: Math.random() * 100, y: Math.random() * 100,
@@ -3206,7 +3212,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   useEffect(() => {
     const testimonialInterval = setInterval(() => {
       setActiveTestimonial(prevIndex => (prevIndex + 1) % TESTIMONIALS.length);
-    }, 5000);
+    }, TESTIMONIAL_ROTATION_INTERVAL_MS);
     return () => clearInterval(testimonialInterval);
   }, []);
 
@@ -3318,8 +3324,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
               border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.14)'}`,
               backdropFilter: 'blur(8px)',
             }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', marginBottom: 2 }}>{stat.value}</div>
-              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', lineHeight: 1.3 }}>{stat.label}</div>
+              <div style={{ fontSize: PREMIUM_STAT_VALUE_FONT_SIZE, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', marginBottom: 2 }}>{stat.value}</div>
+              <div style={{ fontSize: PREMIUM_STAT_LABEL_FONT_SIZE, color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', lineHeight: 1.3 }}>{stat.label}</div>
             </div>
           ))}
         </motion.div>
@@ -3383,7 +3389,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
                 key={i}
                 onClick={() => setActiveTestimonial(i)}
                 style={{
-                  width: i === activeTestimonial ? 18 : 6,
+                  width: i === activeTestimonial ? TESTIMONIAL_DOT_WIDTH_ACTIVE : TESTIMONIAL_DOT_WIDTH_INACTIVE,
                   height: 6,
                   borderRadius: 999,
                   border: 'none',
