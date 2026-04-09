@@ -3210,7 +3210,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     return () => clearInterval(testimonialInterval);
   }, []);
 
-  const switchMode = (newMode: AuthMode) => { setMode(newMode); setError(''); setSuccess(''); };
+  const switchMode = (targetMode: AuthMode) => { setMode(targetMode); setError(''); setSuccess(''); };
 
   const friendlyError = (code: string) => ({
     'auth/user-not-found': 'No account found with this email.',
@@ -3462,10 +3462,10 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           {/* Tabs */}
           {mode !== 'forgot' && (
             <div style={{ display: 'flex', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(99,102,241,0.06)', borderRadius: 12, padding: 3, marginBottom: 20, position: 'relative' }}>
-              {(['signin', 'signup'] as AuthMode[]).map(authMode => (
-                <button key={authMode} onClick={() => switchMode(authMode)}
-                  style={{ flex: 1, padding: '8px 0', fontSize: 12.5, fontWeight: mode === authMode ? 700 : 500, color: mode === authMode ? '#6366f1' : isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.5)', background: mode === authMode ? (isDark ? 'rgba(99,102,241,0.18)' : 'white') : 'transparent', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', boxShadow: mode === authMode ? (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(99,102,241,0.12)') : 'none' }}>
-                  {authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              {(['signin', 'signup'] as AuthMode[]).map(tabMode => (
+                <button key={tabMode} onClick={() => switchMode(tabMode)}
+                  style={{ flex: 1, padding: '8px 0', fontSize: 12.5, fontWeight: mode === tabMode ? 700 : 500, color: mode === tabMode ? '#6366f1' : isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.5)', background: mode === tabMode ? (isDark ? 'rgba(99,102,241,0.18)' : 'white') : 'transparent', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', boxShadow: mode === tabMode ? (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(99,102,241,0.12)') : 'none' }}>
+                  {tabMode === 'signin' ? 'Sign In' : 'Create Account'}
                 </button>
               ))}
             </div>
