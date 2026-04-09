@@ -13,7 +13,11 @@ import {
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
-const app = initializeApp(firebaseConfig);
+const resolvedConfig = {
+  ...firebaseConfig,
+  apiKey: process.env.GOOGLE_API_KEY || firebaseConfig.apiKey,
+};
+const app = initializeApp(resolvedConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();

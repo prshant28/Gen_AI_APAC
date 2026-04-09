@@ -3229,6 +3229,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     'auth/popup-blocked': 'Pop-up blocked — allow pop-ups or use email sign-in.',
     'auth/unauthorized-domain': 'Domain not authorized. Please use email sign-in.',
     'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/operation-not-allowed': 'Email/password sign-in is not enabled. Please use Google sign-in.',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Firebase API key is invalid. Please check your configuration.',
   } as Record<string, string>)[code] ?? 'Something went wrong. Please try again.';
 
   const handleGoogle = async () => {

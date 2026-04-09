@@ -10,8 +10,8 @@ export default defineConfig(({mode}) => {
     base: isGitHubPages ? '/Gen_AI_APAC/' : '/',
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GOOGLE_API_KEY': JSON.stringify(env.GOOGLE_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY),
+      'process.env.GOOGLE_API_KEY': JSON.stringify(env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY),
     },
     resolve: {
       alias: {
