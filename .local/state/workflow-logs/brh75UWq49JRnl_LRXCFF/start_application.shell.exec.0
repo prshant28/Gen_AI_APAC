@@ -1,0 +1,162 @@
+
+> react-example@0.0.0 dev
+> concurrently "python main.py" "vite"
+
+[1G[0K[0m[1][0m 
+[0m[1][0m   [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m1518[22m[2m[0m ms[22m
+[0m[1][0m 
+[0m[1][0m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5000[22m/[39m
+[0m[1][0m   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.31.82.226:[1m5000[22m/[39m
+[0m[0][0m /home/runner/workspace/main.py:110: DeprecationWarning: 
+[0m[0][0m         on_event is deprecated, use lifespan event handlers instead.
+[0m[0][0m 
+[0m[0][0m         Read more about it in the
+[0m[0][0m         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+[0m[0][0m         
+[0m[0][0m   @app.on_event("startup")
+[0m[0][0m INFO:     Started server process [111]
+[0m[0][0m INFO:     Waiting for application startup.
+[0m[0][0m INFO:recall-x247:Recall X247 v2.0 started. Using OpenAI: True. GCP Project: balmy-vertex-478515-m4
+[0m[0][0m INFO:recall-x247:Startup complete.
+[0m[0][0m INFO:     Application startup complete.
+[0m[0][0m INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.80ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.34ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.24ms
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.78ms
+[0m[0][0m Warning: GOOGLE_APPLICATION_CREDENTIALS=./service_account.json not found. Using in-memory DB.
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.87ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.57ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.48ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.32ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[1][0m [2m3:29:41 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/security-scan/dependencyAudit.json[22m
+[0m[1][0m [2m3:29:41 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/security-scan/maliciousFile.json[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.31ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.46ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.59ms
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.50ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.31ms
+[0m[0][0m INFO:     10.84.0.8:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.33ms
+[0m[0][0m INFO:     10.84.3.11:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.25ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.21ms
+[0m[0][0m INFO:     10.84.0.8:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[1][0m [2m4:33:57 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/toolchain.json[22m
+[0m[1][0m [2m4:33:57 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest[22m
+[0m[1][0m [2m4:33:57 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest.json[22m
+[0m[1][0m [2m4:34:00 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.replit[22m
+[0m[1][0m [2m4:34:01 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest[22m
+[0m[1][0m [2m4:34:01 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest.json[22m
+[0m[1][0m [2m4:34:01 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/toolchain.json[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.28ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:34:02 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.replit[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.29ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:34:03 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/toolchain.json[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.38ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.31ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.43ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.45ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.33ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.30ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.73ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.42ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.29ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:34:06 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest[22m
+[0m[1][0m [2m4:34:06 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest.json[22m
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.40ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.33ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.37ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.34ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.39ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.30ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.33ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.37ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.29ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.27ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.36ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.43ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.21ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.45ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.36ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.57ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.30ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.33ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.30ms
+[0m[0][0m INFO:     10.84.10.53:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 0.40ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 0.34ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.27ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[1][0m [2m4:39:25 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[1][0m [2m4:39:32 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[1][0m [2m4:39:52 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[1][0m [2m4:40:27 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[1][0m [2m4:40:29 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33mfirebase/auth, firebase/app, firebase/firestore[32m[39m
+[0m[1][0m [2m4:40:29 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[0m[1][0m [2m4:41:13 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.38ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.28ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:41:23 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.28ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.36ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:41:29 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.32ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.30ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[1][0m [2m4:42:16 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.28ms
+[0m[0][0m INFO:     10.84.2.77:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /settings - 200 - 0.35ms
+[0m[0][0m INFO:     10.84.1.54:0 - "GET /settings HTTP/1.1" 200 OK
+[0m[0][0m [0mpython main.py exited with code SIGHUP[0m
+[0m[1][0m [0mvite exited with code SIGHUP[0m

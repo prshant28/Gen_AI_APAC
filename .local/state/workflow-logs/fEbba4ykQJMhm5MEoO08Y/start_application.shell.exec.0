@@ -1,0 +1,26 @@
+
+> react-example@0.0.0 dev
+> concurrently "python main.py" "vite"
+
+[1G[0K[0m[1][0m Port 5000 is in use, trying another one...
+[0m[1][0m 
+[0m[1][0m   [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m335[22m[2m[0m ms[22m
+[0m[1][0m 
+[0m[1][0m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5001[22m/[39m
+[0m[1][0m   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.31.82.226:[1m5001[22m/[39m
+[0m[0][0m /home/runner/workspace/main.py:110: DeprecationWarning: 
+[0m[0][0m         on_event is deprecated, use lifespan event handlers instead.
+[0m[0][0m 
+[0m[0][0m         Read more about it in the
+[0m[0][0m         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+[0m[0][0m         
+[0m[0][0m   @app.on_event("startup")
+[0m[0][0m INFO:     Started server process [1762]
+[0m[0][0m INFO:     Waiting for application startup.
+[0m[0][0m INFO:recall-x247:Recall X247 v2.0 started. Using OpenAI: True. GCP Project: balmy-vertex-478515-m4
+[0m[0][0m INFO:recall-x247:Startup complete.
+[0m[0][0m INFO:     Application startup complete.
+[0m[0][0m ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+[0m[0][0m INFO:     Waiting for application shutdown.
+[0m[0][0m INFO:     Application shutdown complete.
+[0m[0][0m [0mpython main.py exited with code 1[0m
