@@ -9,7 +9,7 @@ import {
   BarChart2, Workflow, Timer, Layers, Filter, Hash, ChevronDown, CheckCheck,
   Cpu, Boxes, Map, LayoutGrid, SlidersHorizontal, PieChart, CalendarDays, Kanban,
   FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square,
-  Moon, Sun, LogOut
+  Moon, Sun, LogOut, Mail, Lock, LogIn, ArrowLeft, User as UserIcon
 } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -3103,33 +3103,59 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
-const AuthInput = ({ label, type, value, onChange, placeholder, autoComplete }: {
-  label: string; type: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; autoComplete?: string;
-}) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', letterSpacing: '0.2px' }}>{label}</label>
-    <input
-      type={type} value={value} onChange={e => onChange(e.target.value)}
-      placeholder={placeholder} autoComplete={autoComplete}
-      style={{
-        padding: '10px 13px', background: 'var(--surface-2)', border: '1.5px solid var(--border)',
-        borderRadius: 10, fontFamily: 'inherit', fontSize: 13.5, color: 'var(--text-1)',
-        outline: 'none', transition: 'border-color 0.15s',
-      }}
-      onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
-      onBlur={e => (e.target.style.borderColor = 'var(--border)')}
-    />
-  </div>
+const FEATURES = [
+  { icon: Brain,        color: '#6366f1', label: 'Semantic Recall',   desc: 'Find anything you\'ve ever captured instantly' },
+  { icon: Cpu,          color: '#9333ea', label: 'Multi-Agent AI',    desc: '7 specialized agents working in parallel' },
+  { icon: Sparkles,     color: '#ec4899', label: 'Daily Briefings',   desc: 'Personalized AI summaries every morning' },
+  { icon: CheckSquare,  color: '#10b981', label: 'Smart Tasks',       desc: 'AI-prioritized tasks and workspace' },
+  { icon: Database,     color: '#f59e0b', label: 'Knowledge Vault',   desc: 'Structured storage for everything you know' },
+  { icon: Network,      color: '#3b82f6', label: 'Mind Graph',        desc: 'Visual map of connected ideas' },
+];
+
+const PARTICLES = Array.from({ length: 22 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100, y: Math.random() * 100,
+  size: 2 + Math.random() * 3,
+  dur: 4 + Math.random() * 6,
+  delay: Math.random() * 4,
+  opacity: 0.15 + Math.random() * 0.3,
+}));
+
+const GoogleSVG = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
 );
 
-const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
-    <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-    <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
-    <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/>
-    <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
-  </svg>
+const AuthInput = ({ label, type, value, onChange, placeholder, autoComplete, icon: Icon }: {
+  label: string; type: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; autoComplete?: string; icon?: React.ElementType;
+}) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{label}</label>
+    <div style={{ position: 'relative' }}>
+      {Icon && (
+        <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-3)', display: 'flex' }}>
+          <Icon size={14} />
+        </div>
+      )}
+      <input
+        type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} autoComplete={autoComplete}
+        style={{
+          width: '100%', padding: Icon ? '11px 13px 11px 36px' : '11px 13px',
+          background: 'rgba(99,102,241,0.04)', border: '1.5px solid var(--border)',
+          borderRadius: 11, fontFamily: 'inherit', fontSize: 13.5, color: 'var(--text-1)',
+          outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box',
+        }}
+        onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.background = 'rgba(99,102,241,0.06)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)'; }}
+        onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.background = 'rgba(99,102,241,0.04)'; e.target.style.boxShadow = 'none'; }}
+      />
+    </div>
+  </div>
 );
 
 const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEmailSignUp, onResetPassword }: {
@@ -3148,23 +3174,22 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   const switchMode = (m: AuthMode) => { setMode(m); setError(''); setSuccess(''); };
 
-  const friendlyError = (code: string) => {
-    const map: Record<string, string> = {
-      'auth/user-not-found': 'No account found with this email.',
-      'auth/wrong-password': 'Incorrect password. Please try again.',
-      'auth/invalid-credential': 'Invalid email or password.',
-      'auth/email-already-in-use': 'An account with this email already exists.',
-      'auth/weak-password': 'Password must be at least 6 characters.',
-      'auth/invalid-email': 'Please enter a valid email address.',
-      'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
-      'auth/popup-blocked': 'Pop-up was blocked. Please allow pop-ups and try again, or use email sign-in.',
-      'auth/network-request-failed': 'Network error. Please check your connection.',
-    };
-    return map[code] ?? 'Something went wrong. Please try again.';
-  };
+  const friendlyError = (code: string) => ({
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/invalid-credential': 'Invalid email or password.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a moment.',
+    'auth/popup-blocked': 'Pop-up blocked — allow pop-ups or use email sign-in.',
+    'auth/unauthorized-domain': 'Domain not authorized. Please use email sign-in.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+  } as Record<string, string>)[code] ?? 'Something went wrong. Please try again.';
 
   const handleGoogle = async () => {
     setError(''); setGoogleLoading(true);
@@ -3178,7 +3203,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     if (mode === 'forgot') {
       if (!email) { setError('Enter your email address.'); return; }
       setLoading(true);
-      try { await onResetPassword(email); setSuccess('Password reset email sent! Check your inbox.'); }
+      try { await onResetPassword(email); setSuccess('Reset email sent! Check your inbox.'); }
       catch (e: any) { setError(friendlyError(e.code ?? '')); }
       finally { setLoading(false); }
       return;
@@ -3197,162 +3222,226 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     finally { setLoading(false); }
   };
 
-  const tabStyle = (active: boolean) => ({
-    flex: 1, padding: '9px 0', fontSize: 13, fontWeight: active ? 700 : 500,
-    color: active ? 'var(--primary)' : 'var(--text-3)',
-    background: active ? 'var(--primary-bg)' : 'transparent',
-    border: 'none', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-    transition: 'all 0.15s',
-  });
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: '-120px', right: '-80px', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-100px', left: '-60px', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(147,51,234,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+    <div style={{ minHeight: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
 
-      {/* Top bar */}
-      <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
-            <Brain size={18} color="white" />
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px' }}>Recall X247</div>
-            <div style={{ color: 'var(--primary)', fontSize: 8.5, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
-          </div>
-        </div>
-        <button onClick={toggleTheme} style={{ padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center' }}>
-          {isDark ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
+      {/* ── Animated particle field ──────────────────────────────── */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+        {PARTICLES.map(p => (
+          <motion.div key={p.id}
+            style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, borderRadius: '50%', background: p.id % 3 === 0 ? '#6366f1' : p.id % 3 === 1 ? '#9333ea' : '#ec4899', opacity: p.opacity }}
+            animate={{ y: [0, -18, 0], opacity: [p.opacity, p.opacity * 1.8, p.opacity] }}
+            transition={{ duration: p.dur, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        ))}
+        {/* Large ambient blobs */}
+        <motion.div animate={{ scale: [1, 1.12, 1], opacity: [0.07, 0.13, 0.07] }} transition={{ duration: 8, repeat: Infinity }}
+          style={{ position: 'absolute', top: '-15%', left: '-10%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }} />
+        <motion.div animate={{ scale: [1, 1.08, 1], opacity: [0.05, 0.1, 0.05] }} transition={{ duration: 10, repeat: Infinity, delay: 2 }}
+          style={{ position: 'absolute', bottom: '-20%', right: '-5%', width: 550, height: 550, borderRadius: '50%', background: 'radial-gradient(circle, #9333ea 0%, transparent 70%)' }} />
+        <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.04, 0.09, 0.04] }} transition={{ duration: 7, repeat: Infinity, delay: 4 }}
+          style={{ position: 'absolute', top: '40%', left: '30%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, #ec4899 0%, transparent 70%)' }} />
       </div>
 
-      {/* Center */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px 16px 32px' }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}
-          style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+      {/* ── Left panel — feature showcase ────────────────────────── */}
+      <div className="hidden lg:flex" style={{ flex: '0 0 420px', flexDirection: 'column', padding: '40px 44px', position: 'relative', zIndex: 1 }}>
 
-          {/* Logo */}
-          <motion.div animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 28px rgba(99,102,241,0.35)' }}>
-              <Brain size={34} color="white" />
-            </div>
-          </motion.div>
-
-          {/* Headline */}
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.4px', lineHeight: 1.2, fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
-              {mode === 'signup' ? 'Create Your Account' : mode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
-            </h1>
-            <p style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55, margin: 0 }}>
-              {mode === 'signup' ? 'Your AI-powered second brain awaits.' : mode === 'forgot' ? 'We\'ll send a reset link to your email.' : 'Sign in to your Neural OS.'}
-            </p>
+        {/* Logo */}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 56 }}>
+          <div style={{ position: 'relative' }}>
+            <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 3, repeat: Infinity }}
+              style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(99,102,241,0.45)' }}>
+              <Brain size={22} color="white" />
+            </motion.div>
+            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }}
+              style={{ position: 'absolute', inset: -3, borderRadius: 16, background: 'transparent', border: '1.5px solid rgba(99,102,241,0.4)', pointerEvents: 'none' }} />
           </div>
+          <div>
+            <div style={{ color: isDark ? '#f0f0ff' : '#1a1040', fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>Recall X247</div>
+            <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>Neural OS v2.0</div>
+          </div>
+        </motion.div>
 
-          {/* Auth card */}
-          <div style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '22px 22px', boxShadow: '0 8px 32px rgba(0,0,0,0.07)' }}>
+        {/* Hero text */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ marginBottom: 40 }}>
+          <h2 style={{ fontSize: 34, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 14px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
+            Your AI-Powered<br />
+            <span style={{ background: 'linear-gradient(135deg,#6366f1,#9333ea,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Second Brain</span>
+          </h2>
+          <p style={{ color: isDark ? 'rgba(200,200,230,0.65)' : 'rgba(50,40,90,0.6)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+            Capture knowledge, recall anything instantly, and let your multi-agent AI handle the rest. Built for the way your mind works.
+          </p>
+        </motion.div>
 
-            {/* Tabs (sign in / sign up) */}
-            {mode !== 'forgot' && (
-              <div style={{ display: 'flex', background: 'var(--surface-2)', borderRadius: 11, padding: 3, marginBottom: 18 }}>
-                <button style={tabStyle(mode === 'signin')} onClick={() => switchMode('signin')}>Sign In</button>
-                <button style={tabStyle(mode === 'signup')} onClick={() => switchMode('signup')}>Create Account</button>
+        {/* Feature grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {FEATURES.map((f, i) => (
+            <motion.div key={f.label}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.2 + i * 0.07 }}
+              onMouseEnter={() => setHoveredFeature(i)} onMouseLeave={() => setHoveredFeature(null)}
+              style={{
+                padding: '13px 14px', borderRadius: 14, cursor: 'default', transition: 'all 0.22s',
+                background: hoveredFeature === i ? `${f.color}15` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
+                border: `1px solid ${hoveredFeature === i ? f.color + '40' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.12)'}`,
+                backdropFilter: 'blur(8px)',
+                transform: hoveredFeature === i ? 'translateY(-2px)' : 'none',
+                boxShadow: hoveredFeature === i ? `0 8px 24px ${f.color}22` : 'none',
+              }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: `${f.color}20`, border: `1px solid ${f.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                <f.icon size={14} color={f.color} />
               </div>
-            )}
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 2 }}>{f.label}</div>
+              <div style={{ fontSize: 10, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.45 }}>{f.desc}</div>
+            </motion.div>
+          ))}
+        </div>
 
-            {/* Google button */}
-            {mode !== 'forgot' && (
-              <>
-                <button onClick={handleGoogle} disabled={googleLoading || loading}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '11px 16px', background: 'var(--surface-2)', border: '1.5px solid var(--border)', borderRadius: 11, cursor: googleLoading ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', transition: 'all 0.16s', marginBottom: 14 }}
-                  onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4285F4'; b.style.boxShadow = '0 2px 10px rgba(66,133,244,0.15)'; }}
-                  onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = 'var(--border)'; b.style.boxShadow = 'none'; }}
-                >
-                  {googleLoading ? <Loader2 size={17} style={{ animation: 'spin 1s linear infinite' }} color="#4285F4" /> : <GoogleIcon />}
-                  {googleLoading ? 'Connecting...' : 'Continue with Google'}
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  <span style={{ color: 'var(--text-3)', fontSize: 11, fontWeight: 500 }}>or</span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                </div>
-              </>
-            )}
-
-            {/* Email form */}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {mode === 'signup' && (
-                <AuthInput label="Full Name" type="text" value={name} onChange={setName} placeholder="Jane Smith" autoComplete="name" />
-              )}
-              <AuthInput label="Email Address" type="email" value={email} onChange={setEmail} placeholder="you@example.com" autoComplete="email" />
-              {mode !== 'forgot' && (
-                <AuthInput label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
-              )}
-              {mode === 'signup' && (
-                <AuthInput label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" autoComplete="new-password" />
-              )}
-
-              {/* Error / success */}
-              <AnimatePresence mode="wait">
-                {error && (
-                  <motion.div key="err" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9 }}>
-                    <AlertCircle size={13} color="#ef4444" />
-                    <span style={{ color: '#ef4444', fontSize: 12, lineHeight: 1.4 }}>{error}</span>
-                  </motion.div>
-                )}
-                {success && (
-                  <motion.div key="ok" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 9 }}>
-                    <CheckCircle2 size={13} color="#22c55e" />
-                    <span style={{ color: '#22c55e', fontSize: 12, lineHeight: 1.4 }}>{success}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Forgot password link */}
-              {mode === 'signin' && (
-                <button type="button" onClick={() => switchMode('forgot')}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right', padding: 0, marginTop: -4 }}>
-                  Forgot password?
-                </button>
-              )}
-              {mode === 'forgot' && (
-                <button type="button" onClick={() => switchMode('signin')}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', padding: 0 }}>
-                  ← Back to Sign In
-                </button>
-              )}
-
-              {/* Submit */}
-              <button type="submit" disabled={loading || googleLoading}
-                style={{ padding: '12px 16px', background: loading ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#9333ea)', border: 'none', borderRadius: 11, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: loading ? 'var(--text-3)' : 'white', transition: 'all 0.16s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: loading ? 'none' : '0 4px 16px rgba(99,102,241,0.35)', marginTop: 2 }}>
-                {loading
-                  ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
-                  : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Email'
-                }
-              </button>
-            </form>
-
-            <p style={{ color: 'var(--text-3)', fontSize: 10.5, textAlign: 'center', margin: '14px 0 0', lineHeight: 1.6 }}>
-              Your data is private and secure. We never share your information.
-            </p>
-          </div>
-
-          {/* Feature pills */}
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {[{ icon: Brain, label: 'Semantic Recall' }, { icon: Cpu, label: 'Multi-Agent AI' }, { icon: Sparkles, label: 'Daily Briefings' }, { icon: CheckSquare, label: 'Smart Tasks' }].map(f => (
-              <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
-                <f.icon size={10} color="var(--primary)" />
-                <span style={{ color: 'var(--primary)', fontSize: 10.5, fontWeight: 500 }}>{f.label}</span>
-              </div>
-            ))}
-          </div>
+        {/* Footer tag */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+          style={{ marginTop: 'auto', paddingTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+          <span style={{ fontSize: 11, color: isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.45)', letterSpacing: '0.3px' }}>Gen AI Academy APAC 2026 · Recall X247</span>
         </motion.div>
       </div>
 
-      <div style={{ padding: '10px 24px', textAlign: 'center', color: 'var(--text-3)', fontSize: 10.5 }}>
-        Gen AI Academy APAC 2026 · Recall X247 · Powered by Neural AI
+      {/* ── Right panel — auth form ───────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px', position: 'relative', zIndex: 1 }}>
+
+        {/* Mobile logo (hidden on lg) */}
+        <motion.div className="flex lg:hidden" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ alignItems: 'center', gap: 10, marginBottom: 28 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
+            <Brain size={18} color="white" />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: isDark ? '#f0f0ff' : '#1a1040', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>Recall X247</div>
+        </motion.div>
+
+        {/* Theme toggle (top-right) */}
+        <button onClick={toggleTheme} style={{ position: 'absolute', top: 20, right: 20, padding: '8px 9px', background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.8)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(99,102,241,0.15)'}`, borderRadius: 10, cursor: 'pointer', color: isDark ? '#a5a8d8' : '#6366f1', display: 'flex', alignItems: 'center', backdropFilter: 'blur(8px)', transition: 'all 0.18s', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+          {isDark ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+
+        {/* Card */}
+        <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+          style={{ width: '100%', maxWidth: 400, background: isDark ? 'rgba(16,18,30,0.85)' : 'rgba(255,255,255,0.92)', border: `1px solid ${isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.18)'}`, borderRadius: 22, padding: '28px 26px', backdropFilter: 'blur(24px)', boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)' : '0 24px 64px rgba(99,102,241,0.12), 0 0 0 1px rgba(99,102,241,0.08)' }}>
+
+          {/* Headline */}
+          <AnimatePresence mode="wait">
+            <motion.div key={mode} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}
+              style={{ marginBottom: 22, textAlign: 'center' }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 5px', letterSpacing: '-0.4px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
+                {mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
+              </h1>
+              <p style={{ color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
+                {mode === 'signup' ? 'Start building your second brain today' : mode === 'forgot' ? "We'll send a reset link to your email" : 'Sign in to your Neural OS'}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Tabs */}
+          {mode !== 'forgot' && (
+            <div style={{ display: 'flex', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(99,102,241,0.06)', borderRadius: 12, padding: 3, marginBottom: 20, position: 'relative' }}>
+              {(['signin', 'signup'] as AuthMode[]).map(m => (
+                <button key={m} onClick={() => switchMode(m)}
+                  style={{ flex: 1, padding: '8px 0', fontSize: 12.5, fontWeight: mode === m ? 700 : 500, color: mode === m ? '#6366f1' : isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.5)', background: mode === m ? (isDark ? 'rgba(99,102,241,0.18)' : 'white') : 'transparent', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', boxShadow: mode === m ? (isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(99,102,241,0.12)') : 'none' }}>
+                  {m === 'signin' ? 'Sign In' : 'Create Account'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Premium Google button */}
+          {mode !== 'forgot' && (
+            <>
+              <motion.button onClick={handleGoogle} disabled={googleLoading || loading}
+                whileHover={!googleLoading ? { scale: 1.015, y: -1 } : {}}
+                whileTap={!googleLoading ? { scale: 0.985 } : {}}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, padding: '12px 18px', background: isDark ? 'rgba(255,255,255,0.07)' : 'white', border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#e2e0f0'}`, borderRadius: 13, cursor: googleLoading ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, color: isDark ? '#f0f0ff' : '#1a1040', transition: 'all 0.2s', marginBottom: 14, boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.3)' : '0 4px 16px rgba(99,102,241,0.1), 0 1px 3px rgba(0,0,0,0.06)', backdropFilter: 'blur(8px)', position: 'relative', overflow: 'hidden' }}>
+                {/* shimmer sweep on hover */}
+                <motion.div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.12) 50%,transparent 100%)', transform: 'translateX(-100%)', pointerEvents: 'none' }}
+                  animate={!googleLoading ? { transform: ['translateX(-100%)', 'translateX(200%)'] } : {}}
+                  transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 1.5, ease: 'easeInOut' }} />
+                {googleLoading
+                  ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: '#4285F4' }} /><span>Connecting...</span></>
+                  : <><GoogleSVG /><span>Continue with Google</span></>}
+              </motion.button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                <div style={{ flex: 1, height: 1, background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.12)' }} />
+                <span style={{ color: isDark ? 'rgba(160,160,190,0.5)' : 'rgba(99,102,241,0.45)', fontSize: 11, fontWeight: 500, letterSpacing: '0.5px' }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.12)' }} />
+              </div>
+            </>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {mode === 'signup' && <AuthInput label="Full Name" type="text" value={name} onChange={setName} placeholder="Jane Smith" autoComplete="name" icon={UserIcon} />}
+            <AuthInput label="Email Address" type="email" value={email} onChange={setEmail} placeholder="you@example.com" autoComplete="email" icon={Mail} />
+            {mode !== 'forgot' && <AuthInput label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} icon={Lock} />}
+            {mode === 'signup' && <AuthInput label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" autoComplete="new-password" icon={Lock} />}
+
+            {/* Forgot link */}
+            {mode === 'signin' && (
+              <button type="button" onClick={() => switchMode('forgot')}
+                style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right', padding: 0, marginTop: -4, fontWeight: 600 }}>
+                Forgot password?
+              </button>
+            )}
+            {mode === 'forgot' && (
+              <button type="button" onClick={() => switchMode('signin')}
+                style={{ background: 'none', border: 'none', color: isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.45)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <ArrowLeft size={12} /> Back to Sign In
+              </button>
+            )}
+
+            {/* Error / success */}
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div key="err" initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4 }}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10 }}>
+                  <AlertCircle size={13} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ color: '#ef4444', fontSize: 12, lineHeight: 1.45 }}>{error}</span>
+                </motion.div>
+              )}
+              {success && (
+                <motion.div key="ok" initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10 }}>
+                  <CheckCircle2 size={13} color="#22c55e" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ color: '#22c55e', fontSize: 12, lineHeight: 1.45 }}>{success}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Submit button */}
+            <motion.button type="submit" disabled={loading || googleLoading}
+              whileHover={!loading ? { scale: 1.015, y: -1 } : {}}
+              whileTap={!loading ? { scale: 0.985 } : {}}
+              style={{ padding: '12.5px 16px', background: loading ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.06)') : 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#9333ea 100%)', border: 'none', borderRadius: 13, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: loading ? (isDark ? 'rgba(180,180,210,0.35)' : 'rgba(99,102,241,0.35)') : 'white', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: loading ? 'none' : '0 6px 20px rgba(99,102,241,0.42)', marginTop: 2, position: 'relative', overflow: 'hidden' }}>
+              {!loading && <motion.div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)', transform: 'translateX(-100%)', pointerEvents: 'none' }}
+                animate={{ transform: ['translateX(-100%)', 'translateX(200%)'] }}
+                transition={{ duration: 2.8, repeat: Infinity, repeatDelay: 0.8 }} />}
+              {loading
+                ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
+                : <>{mode === 'signin' ? <><LogIn size={15} /> Sign In</> : mode === 'signup' ? <><Sparkles size={15} /> Create Account</> : <><Mail size={15} /> Send Reset Email</>}</>}
+            </motion.button>
+          </form>
+
+          {/* Privacy note */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 }}>
+            <Shield size={10} color={isDark ? 'rgba(160,160,190,0.4)' : 'rgba(99,102,241,0.35)'} />
+            <p style={{ color: isDark ? 'rgba(160,160,190,0.4)' : 'rgba(99,102,241,0.4)', fontSize: 10.5, margin: 0, lineHeight: 1.5 }}>
+              Private & secure — your data is never shared
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Mobile footer */}
+        <div className="flex lg:hidden" style={{ marginTop: 18, color: isDark ? 'rgba(160,160,190,0.35)' : 'rgba(60,50,100,0.35)', fontSize: 10.5, textAlign: 'center' }}>
+          Gen AI Academy APAC 2026 · Recall X247
+        </div>
       </div>
     </div>
   );
