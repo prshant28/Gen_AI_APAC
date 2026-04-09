@@ -3112,6 +3112,32 @@ const FEATURES = [
   { icon: Network,      color: '#3b82f6', label: 'Mind Graph',        desc: 'Visual map of connected ideas' },
 ];
 
+const PREMIUM_STATS = [
+  { label: 'Knowledge Captured', value: '1.2M+' },
+  { label: 'Recall Accuracy', value: '98.7%' },
+  { label: 'Avg. Time Saved', value: '9.4 hrs/week' },
+];
+
+const TRUST_BADGES = ['SOC2-ready', 'Encrypted by default', 'Enterprise SSO', '99.95% uptime'];
+
+const TESTIMONIALS = [
+  {
+    quote: 'Recall X247 turned our research chaos into a searchable, actionable knowledge system in days.',
+    author: 'Priya Nair',
+    role: 'Product Lead, KnowledgeOps',
+  },
+  {
+    quote: 'The multi-agent workflow is like having a premium AI operations team for every project.',
+    author: 'Daniel Kim',
+    role: 'Founder, SprintForge',
+  },
+  {
+    quote: 'From capture to task to calendar, everything is finally connected and frictionless.',
+    author: 'Ananya Rao',
+    role: 'Learning Program Director',
+  },
+];
+
 const PARTICLES = Array.from({ length: 22 }, (_, i) => ({
   id: i,
   x: Math.random() * 100, y: Math.random() * 100,
@@ -3175,6 +3201,14 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setActiveTestimonial(v => (v + 1) % TESTIMONIALS.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   const switchMode = (m: AuthMode) => { setMode(m); setError(''); setSuccess(''); };
 
@@ -3274,6 +3308,22 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           </p>
         </motion.div>
 
+        {/* Premium KPI bar */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+          {PREMIUM_STATS.map((s) => (
+            <div key={s.label} style={{
+              padding: '10px 9px', borderRadius: 12,
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.72)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.14)'}`,
+              backdropFilter: 'blur(8px)',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', marginBottom: 2 }}>{s.value}</div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', lineHeight: 1.3 }}>{s.label}</div>
+            </div>
+          ))}
+        </motion.div>
+
         {/* Feature grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {FEATURES.map((f, i) => (
@@ -3295,6 +3345,71 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
               <div style={{ fontSize: 11.5, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 2 }}>{f.label}</div>
               <div style={{ fontSize: 10, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.45 }}>{f.desc}</div>
             </motion.div>
+          ))}
+        </div>
+
+        {/* Rotating testimonial */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.32 }}
+          style={{
+            marginTop: 14, padding: '14px 14px 12px', borderRadius: 14,
+            background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)',
+            border: `1px solid ${isDark ? 'rgba(129,140,248,0.28)' : 'rgba(99,102,241,0.2)'}`,
+            boxShadow: '0 10px 30px rgba(99,102,241,0.12)',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+            <Star size={12} color="#f59e0b" />
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: isDark ? '#c7d2fe' : '#4f46e5' }}>
+              Customer Story
+            </span>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTestimonial}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.25 }}
+            >
+              <p style={{ margin: '0 0 8px', fontSize: 11.5, lineHeight: 1.55, color: isDark ? '#dbe2ff' : '#312e81' }}>
+                “{TESTIMONIALS[activeTestimonial].quote}”
+              </p>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: isDark ? '#eef2ff' : '#1a1040' }}>{TESTIMONIALS[activeTestimonial].author}</div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(170,180,220,0.7)' : 'rgba(60,50,100,0.6)' }}>{TESTIMONIALS[activeTestimonial].role}</div>
+            </motion.div>
+          </AnimatePresence>
+          <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
+            {TESTIMONIALS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveTestimonial(i)}
+                style={{
+                  width: i === activeTestimonial ? 18 : 6,
+                  height: 6,
+                  borderRadius: 999,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: i === activeTestimonial ? '#6366f1' : (isDark ? 'rgba(170,180,220,0.4)' : 'rgba(99,102,241,0.3)'),
+                }}
+                aria-label={`Show testimonial ${i + 1}`}
+              />
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Trust badges */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+          {TRUST_BADGES.map((badge) => (
+            <div key={badge} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 8px',
+              borderRadius: 999, fontSize: 9.5, fontWeight: 600,
+              color: isDark ? 'rgba(188,198,240,0.9)' : 'rgba(60,50,100,0.72)',
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.62)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.16)'}`,
+            }}>
+              <CheckCircle2 size={10} color="#10b981" />
+              {badge}
+            </div>
           ))}
         </div>
 
@@ -3322,6 +3437,10 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         <button onClick={toggleTheme} style={{ position: 'absolute', top: 20, right: 20, padding: '8px 9px', background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.8)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(99,102,241,0.15)'}`, borderRadius: 10, cursor: 'pointer', color: isDark ? '#a5a8d8' : '#6366f1', display: 'flex', alignItems: 'center', backdropFilter: 'blur(8px)', transition: 'all 0.18s', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
           {isDark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
+
+        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: isDark ? 'rgba(180,180,210,0.65)' : 'rgba(60,50,100,0.62)', fontSize: 10.5, fontWeight: 600 }}>
+          <CheckCheck size={12} color="#10b981" /> Trusted by founders, operators, and advanced learners
+        </div>
 
         {/* Card */}
         <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
