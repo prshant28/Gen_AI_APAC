@@ -9,8 +9,10 @@ import {
   BarChart2, Workflow, Timer, Layers, Filter, Hash, ChevronDown, CheckCheck,
   Cpu, Boxes, Map, LayoutGrid, SlidersHorizontal, PieChart, CalendarDays, Kanban,
   FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square,
-  Moon, Sun
+  Moon, Sun, LogOut
 } from 'lucide-react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, signIn, signOut as firebaseSignOut } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -133,8 +135,9 @@ const NAV_GROUPS = [
 ];
 const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
-const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
+const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSignOut }: {
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
+  user: User | null; onSignOut: () => void;
 }) => {
   const w = isCollapsed ? 64 : 224;
   return (
@@ -198,16 +201,39 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed }: {
       </nav>
 
       {/* User */}
-      <div style={{ padding: '8px 8px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+      <div style={{ padding: '8px 8px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '6px' : '6px 8px', borderRadius: 8, justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700 }}>P</div>
+          {user?.photoURL
+            ? <img src={user.photoURL} alt="avatar" style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
+            : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                {user?.displayName?.[0]?.toUpperCase() ?? 'U'}
+              </div>
+          }
           {!isCollapsed && (
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prashant Maurya</div>
-              <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Pro Neural Plan</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.displayName ?? 'User'}</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email ?? ''}</div>
             </div>
           )}
+          {!isCollapsed && (
+            <button onClick={onSignOut} title="Sign out"
+              style={{ padding: 5, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+            >
+              <LogOut size={13} />
+            </button>
+          )}
         </div>
+        {isCollapsed && (
+          <button onClick={onSignOut} title="Sign out"
+            style={{ width: '100%', marginTop: 4, padding: '5px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+          >
+            <LogOut size={13} />
+          </button>
+        )}
       </div>
 
       {/* Collapse toggle */}
@@ -3065,6 +3091,128 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
   );
 };
 
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+
+const LoginScreen = ({ isDark, toggleTheme, onSignIn, authError }: {
+  isDark: boolean; toggleTheme: () => void; onSignIn: () => void; authError: string;
+}) => {
+  const [signingIn, setSigningIn] = useState(false);
+
+  const handleClick = async () => {
+    setSigningIn(true);
+    await onSignIn();
+    setSigningIn(false);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
+
+      {/* Ambient background orbs */}
+      <div style={{ position: 'absolute', top: '-120px', right: '-80px', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-100px', left: '-60px', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(147,51,234,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+      {/* Top bar */}
+      <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
+            <Brain size={18} color="white" />
+          </div>
+          <div>
+            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px' }}>Recall X247</div>
+            <div style={{ color: 'var(--primary)', fontSize: 8.5, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
+          </div>
+        </div>
+        <button onClick={toggleTheme} style={{ padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center' }}>
+          {isDark ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+      </div>
+
+      {/* Center content */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+
+          {/* Logo hero */}
+          <motion.div animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}>
+            <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 32px rgba(99,102,241,0.35)' }}>
+              <Brain size={38} color="white" />
+            </div>
+          </motion.div>
+
+          {/* Heading */}
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 8px', letterSpacing: '-0.5px', lineHeight: 1.15, fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
+              Your AI-Powered<br /><span style={{ color: 'var(--primary)' }}>Second Brain</span>
+            </h1>
+            <p style={{ color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+              Capture knowledge, recall anything, and let your<br />multi-agent AI system handle the rest.
+            </p>
+          </div>
+
+          {/* Sign-in card */}
+          <div style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '28px 24px', boxShadow: '0 8px 32px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+              Sign in to continue
+            </div>
+
+            {/* Google button */}
+            <button onClick={handleClick} disabled={signingIn}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '13px 20px', background: signingIn ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, cursor: signingIn ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: 'var(--text-1)', transition: 'all 0.18s', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+              onMouseEnter={e => { if (!signingIn) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(99,102,241,0.15)'; } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; }}
+            >
+              {signingIn
+                ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} color="var(--primary)" /> Signing in...</>
+                : <>
+                    <svg width="18" height="18" viewBox="0 0 18 18">
+                      <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                      <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                      <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/>
+                      <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"/>
+                    </svg>
+                    Continue with Google
+                  </>
+              }
+            </button>
+
+            {/* Error */}
+            {authError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9 }}>
+                <AlertCircle size={14} color="#ef4444" />
+                <span style={{ color: '#ef4444', fontSize: 12 }}>{authError}</span>
+              </div>
+            )}
+
+            <p style={{ color: 'var(--text-3)', fontSize: 11, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+              By signing in you agree to use this app responsibly.<br />Your data is stored securely in Firebase.
+            </p>
+          </div>
+
+          {/* Feature pills */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {[
+              { icon: Brain, label: 'Semantic Recall' },
+              { icon: Cpu, label: 'Multi-Agent AI' },
+              { icon: Sparkles, label: 'Daily Briefings' },
+              { icon: CheckSquare, label: 'Smart Tasks' },
+            ].map(f => (
+              <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
+                <f.icon size={11} color="var(--primary)" />
+                <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 500 }}>{f.label}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-3)', fontSize: 11 }}>
+        Gen AI Academy APAC 2026 · Recall X247 · Powered by Neural AI
+      </div>
+    </div>
+  );
+};
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -3077,6 +3225,31 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('recall-theme') as 'light' | 'dark') || 'light';
   });
+
+  // ── Auth state ──────────────────────────────────────────────────────────────
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleSignIn = async () => {
+    setAuthError('');
+    try { await signIn(); } catch (e: any) {
+      if (e.code !== 'auth/popup-closed-by-user') setAuthError('Sign-in failed. Please try again.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    await firebaseSignOut();
+    setUser(null);
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -3099,6 +3272,26 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => { clearTimeout(timer); window.removeEventListener('keydown', handleKeyDown); };
   }, []);
+
+  // ── Auth gates (all hooks must be called ABOVE this line) ──────────────────
+  if (authLoading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', fontFamily: "'Poppins', system-ui, sans-serif" }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(99,102,241,0.35)' }}>
+            <Brain size={26} color="white" />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#6366f1', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen isDark={isDark} toggleTheme={toggleTheme} onSignIn={handleSignIn} authError={authError} />;
+  }
 
   if (!isReady) {
     return (
@@ -3132,7 +3325,7 @@ export default function App() {
 
       {/* Desktop Sidebar */}
       <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
-        <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} user={user} onSignOut={handleSignOut} />
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -3147,7 +3340,7 @@ export default function App() {
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
               style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 224 }}
               className="lg:hidden">
-              <Sidebar currentView={view} setView={(v) => { setView(v); setIsMobileMenuOpen(false); }} isCollapsed={false} setIsCollapsed={() => {}} />
+              <Sidebar currentView={view} setView={(v) => { setView(v); setIsMobileMenuOpen(false); }} isCollapsed={false} setIsCollapsed={() => {}} user={user} onSignOut={handleSignOut} />
             </motion.div>
           </>
         )}
