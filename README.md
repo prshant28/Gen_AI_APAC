@@ -7,7 +7,7 @@
 ### *Your AI-Powered Second Brain — Multi-Agent Knowledge System*
 
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-GitHub_Pages-00d4ff?style=for-the-badge)](https://prshant28.github.io/Gen_AI_APAC/)
-[![Backend API](https://img.shields.io/badge/⚡_Backend_API-Cloud_Run-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://recall-x247-asia-southeast1.run.app)
+[![Backend API](https://img.shields.io/badge/⚡_Backend_API-Cloud_Run-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://recall-x247-727590322606.asia-southeast1.run.app/)
 [![Hackathon](https://img.shields.io/badge/🏆_Gen_AI_Academy-APAC_2026-FF6B35?style=for-the-badge)](https://github.com/prshant28/Gen_AI_APAC)
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
@@ -27,7 +27,7 @@
 
 | 🌐 Frontend (GitHub Pages) | ⚡ Backend API (Cloud Run) | 📖 API Docs |
 |:---:|:---:|:---:|
-| **[prshant28.github.io/Gen_AI_APAC](https://prshant28.github.io/Gen_AI_APAC/)** | **[recall-x247 on Cloud Run](https://recall-x247-asia-southeast1.run.app)** | **[/docs](https://recall-x247-asia-southeast1.run.app/docs)** |
+| **[prshant28.github.io/Gen_AI_APAC](https://prshant28.github.io/Gen_AI_APAC/)** | **[recall-x247 on Cloud Run](https://recall-x247-727590322606.asia-southeast1.run.app/)** | **[/docs](https://recall-x247-727590322606.asia-southeast1.run.app/docs)** |
 
 </div>
 
@@ -430,7 +430,7 @@ This project is licensed under the MIT License.
 
 <div align="center">
 
-**Built with ❤️ for the [Gen AI Academy APAC 2026 Hackathon](https://github.com/prshant28/Gen_AI_APAC)**
+**Built with ❤️ By Prashant for the [Gen AI Academy APAC 2026 Hackathon](https://github.com/prshant28/Gen_AI_APAC)**
 
 [![GitHub Stars](https://img.shields.io/github/stars/prshant28/Gen_AI_APAC?style=social)](https://github.com/prshant28/Gen_AI_APAC/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/prshant28/Gen_AI_APAC?style=social)](https://github.com/prshant28/Gen_AI_APAC/network/members)
