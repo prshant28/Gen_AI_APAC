@@ -7,6 +7,10 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 
+def _is_openrouter_key(key: Optional[str]) -> bool:
+    return bool(key and key.startswith("sk-or-v1"))
+
+
 class Settings(BaseSettings):
     GCP_PROJECT_ID: Optional[str] = None
     FIREBASE_DATABASE_ID: Optional[str] = None
@@ -24,6 +28,7 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         config_path = "firebase-applet-config.json"
         if os.path.exists(config_path):
             try:
@@ -47,17 +52,22 @@ class Settings(BaseSettings):
                 "GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY")
             )
 
-        # GEN_APAC_API_KEY is an OpenRouter key — takes priority
-        gen_apac = os.getenv("GEN_APAC_API_KEY")
-        if gen_apac:
-            self.GEN_APAC_API_KEY = gen_apac
-            self.OPENAI_API_KEY = gen_apac
-            self.USE_OPENROUTER = True
-            self.OPENAI_MODEL = "openai/gpt-4o-mini"
-        elif not self.OPENAI_API_KEY:
-            self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-            self.USE_OPENROUTER = False
-            self.OPENAI_MODEL = "gpt-4o-mini"
+        # Resolve the AI key from any of the supported variable names
+        resolved_key = (
+            os.getenv("GEN_APAC_API_KEY")
+            or os.getenv("GEN_API_KEY")
+            or self.OPENAI_API_KEY
+            or os.getenv("OPENAI_API_KEY")
+        )
+
+        if resolved_key:
+            self.OPENAI_API_KEY = resolved_key
+            if _is_openrouter_key(resolved_key):
+                self.USE_OPENROUTER = True
+                self.OPENAI_MODEL = "openai/gpt-4o-mini"
+            else:
+                self.USE_OPENROUTER = False
+                self.OPENAI_MODEL = "gpt-4o-mini"
 
     @property
     def openai_base_url(self) -> str:
