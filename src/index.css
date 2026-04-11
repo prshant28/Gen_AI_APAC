@@ -526,6 +526,8 @@ input:focus, textarea:focus, select:focus {
 @media (min-width: 860px) {
   .dash-bottom-row { grid-template-columns: 1fr 260px; }
 }
+.dash-bottom-row > * { min-width: 0; overflow: hidden; }
+.dash-chart-row > * { min-width: 0; overflow: hidden; }
 
 /* ── Dashboard header briefing card — stack on small screens ────────────────── */
 @media (max-width: 640px) {
