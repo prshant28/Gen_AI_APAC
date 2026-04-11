@@ -175,8 +175,14 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
       borderRight: '1px solid var(--border)',
     }}>
       {/* Logo */}
-      <div style={{ padding: isCollapsed ? '16px 10px' : '16px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0, minHeight: 60 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9, overflow: 'hidden', flexShrink: 0, minHeight: 56, justifyContent: isCollapsed ? 'center' : 'flex-start', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
+        <div
+          onClick={() => isCollapsed && setIsCollapsed(false)}
+          title={isCollapsed ? 'Expand sidebar' : ''}
+          style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.2)', cursor: isCollapsed ? 'pointer' : 'default', transition: 'transform 0.15s', userSelect: 'none' }}
+          onMouseEnter={e => { if (isCollapsed) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.08)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
+        >
           <Brain size={18} color="white" />
         </div>
         {!isCollapsed && (
@@ -187,18 +193,11 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
         )}
         {!isCollapsed && (
           <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
-            style={{ padding: 5, background: 'transparent', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+            style={{ padding: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
           >
             <ChevronLeft size={13} />
-          </button>
-        )}
-        {isCollapsed && (
-          <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
-            style={{ position: 'absolute', right: -12, top: 18, width: 24, height: 24, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)', zIndex: 60, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.15s' }}
-          >
-            <ChevronRight size={11} />
           </button>
         )}
       </div>
@@ -340,14 +339,18 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   ];
 
   const statCards = [
-    { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#6366f1', bg: '#eef2ff', trend: '+12%' },
-    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#9333ea', bg: '#faf5ff', trend: '2 due today' },
-    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: '#ec4899', bg: '#fdf2f8', trend: 'Lifetime' },
-    { label: 'Knowledge Domains', value: domains.length, icon: Network, color: '#10b981', bg: '#ecfdf5', trend: 'Active' },
+    { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#6366f1', trend: '+12%', sub: 'Total captured' },
+    { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#9333ea', trend: '2 due today', sub: 'Open tasks' },
+    { label: 'AI Interactions', value: stats?.ai_interactions ?? 0, icon: Sparkles, color: '#ec4899', trend: 'Lifetime', sub: 'Recall queries' },
+    { label: 'Knowledge Domains', value: domains.length, icon: Network, color: '#10b981', trend: 'Active', sub: 'Topics tracked' },
+    { label: 'Flashcards', value: stats?.flashcards ?? 0, icon: GraduationCap, color: '#f59e0b', trend: 'Study ready', sub: 'Created' },
+    { label: 'Learning Streak', value: stats?.streak_days ?? 0, icon: Zap, color: '#ef4444', trend: 'Days', sub: 'Current streak' },
+    { label: 'Focus Sessions', value: stats?.focus_sessions ?? 0, icon: Timer, color: '#06b6d4', trend: 'This week', sub: 'Deep work' },
+    { label: 'Captured Today', value: stats?.captured_today ?? 0, icon: TrendingUp, color: '#8b5cf6', trend: 'Today', sub: 'New memories' },
   ];
 
   const S = { // shared card styles
-    card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s' } as React.CSSProperties,
+    card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)', transition: 'all 0.2s' } as React.CSSProperties,
   };
 
   return (
@@ -386,20 +389,23 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
         </div>
       </motion.div>
 
-      {/* ── Stat Cards ── */}
+      {/* ── Stat Cards (2 rows × 4) ── */}
       <div className="stat-cards-grid">
         {statCards.map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            style={{ ...S.card, padding: '18px 20px', cursor: 'default' }}
+          <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+            style={{ ...S.card, padding: '16px 18px', cursor: 'default', background: 'var(--surface)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 6px 20px ${s.color}18, inset 0 1px 0 rgba(255,255,255,0.9)`; (e.currentTarget as HTMLDivElement).style.borderColor = `${s.color}35`; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)'; (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <s.icon size={18} color={s.color} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}14`, border: `1px solid ${s.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 1px 0 rgba(255,255,255,0.6)` }}>
+                <s.icon size={16} color={s.color} />
               </div>
-              <span style={{ fontSize: 10, color: s.color, background: `${s.color}18`, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{s.trend}</span>
+              <span style={{ fontSize: 9.5, color: s.color, background: `${s.color}14`, border: `1px solid ${s.color}22`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, letterSpacing: '0.2px' }}>{s.trend}</span>
             </div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 4, letterSpacing: '-0.5px' }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 3, letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC', system-ui" }}>{s.value}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 1 }}>{s.label}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{s.sub}</div>
           </motion.div>
         ))}
       </div>
@@ -583,6 +589,69 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
             </div>
           </motion.div>
         </div>
+      </div>
+
+      {/* ── New Row: Goal Tracker + System Status ── */}
+      <div className="dash-chart-row" style={{ marginTop: 16 }}>
+        {/* Goal Tracker */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} style={{ ...S.card, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Learning Goals</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Weekly progress tracker</div>
+            </div>
+            <div style={{ padding: '4px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, fontSize: 10.5, color: 'var(--primary)', fontWeight: 600 }}>This Week</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { label: 'Knowledge Captures', current: totalMem, target: 20, color: '#6366f1' },
+              { label: 'AI Recall Sessions', current: stats?.ai_interactions ?? 0, target: 10, color: '#9333ea' },
+              { label: 'Flashcard Reviews', current: stats?.flashcards ?? 0, target: 15, color: '#f59e0b' },
+              { label: 'Tasks Completed', current: Math.max(0, (stats?.total_tasks ?? 0) - (stats?.pending_tasks ?? 0)), target: 8, color: '#10b981' },
+            ].map((goal) => {
+              const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+              return (
+                <div key={goal.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text-2)', fontSize: 12, fontWeight: 500 }}>{goal.label}</span>
+                    <span style={{ color: pct >= 100 ? '#10b981' : 'var(--text-3)', fontSize: 11, fontWeight: 600 }}>{goal.current}/{goal.target}</span>
+                  </div>
+                  <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.6 }}
+                      style={{ height: '100%', borderRadius: 6, background: pct >= 100 ? '#10b981' : goal.color, boxShadow: `0 0 8px ${goal.color}40` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* AI System Status */}
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.58 }} style={{ ...S.card, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>System Status</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { label: 'Neural AI Engine', status: 'Online', color: '#10b981', icon: Cpu },
+              { label: 'Knowledge Indexer', status: 'Active', color: '#6366f1', icon: Database },
+              { label: 'Recall Memory', status: `${totalMem} nodes`, color: '#9333ea', icon: Brain },
+              { label: 'Calendar Sync', status: 'Synced', color: '#f59e0b', icon: CalendarIcon },
+              { label: 'Agent Hub', status: '7 Agents', color: '#ec4899', icon: Bot },
+            ].map((item) => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: `${item.color}15`, border: `1px solid ${item.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <item.icon size={12} color={item.color} />
+                  </div>
+                  <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{item.label}</span>
+                </div>
+                <span style={{ fontSize: 11, color: item.color, fontWeight: 600, background: `${item.color}12`, padding: '2px 8px', borderRadius: 12, border: `1px solid ${item.color}20` }}>{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -3865,7 +3934,7 @@ export default function App() {
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: 8, gap: 8 }}>
 
       {/* Desktop Sidebar */}
-      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', height: '100%' }} className="hidden lg:block">
+      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="hidden lg:block">
         <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} user={user} onSignOut={handleSignOut} />
       </div>
 
@@ -3888,7 +3957,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}>
         {/* Header */}
         <header style={{
           background: 'var(--surface)',
@@ -3919,9 +3988,9 @@ export default function App() {
               <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="hidden sm:inline">Neural AI</span>
             </div>
             <button onClick={() => setView('capture')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--primary)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.25)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-dark)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--primary)')}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
             >
               <Plus size={14} /> <span className="hidden sm:inline">Capture</span>
             </button>
@@ -3929,8 +3998,8 @@ export default function App() {
         </header>
 
         {/* Page content */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }} className="scroll-custom responsive-content">
-          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)', minHeight: 0 }} className="scroll-custom responsive-content">
+          <div style={{ maxWidth: 1280, margin: '0 auto', minWidth: 0 }}>
             <AnimatePresence mode="wait">
               <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
                 {view === 'dashboard' && <Dashboard setView={setView} />}
