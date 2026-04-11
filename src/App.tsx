@@ -752,73 +752,73 @@ const CaptureView = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+    <div style={{ maxWidth: 800, margin: '0 auto' }}>
       <AnimatePresence>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-6 right-6 z-[200] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-bold"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            {toast}
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ position: 'fixed', top: 24, right: 24, zIndex: 200, background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', padding: '12px 20px', borderRadius: 14, boxShadow: '0 8px 24px rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>
+            <CheckCircle2 size={16} />{toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <header className="text-center">
-        <h2 className="text-3xl font-bold text-slate-900">Capture Knowledge</h2>
-        <p className="text-slate-500 mt-2">Feed your Second Brain with YouTube videos, web articles, PDFs, or notes.</p>
-      </header>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 999, marginBottom: 12 }}>
+          <Sparkles size={12} color="var(--primary)" />
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>NEURAL AI CAPTURE ENGINE</span>
+        </div>
+        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 8px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Capture Knowledge</h2>
+        <p style={{ color: 'var(--text-3)', fontSize: 14, margin: 0 }}>Feed your Second Brain with YouTube videos, web articles, PDFs, or notes.</p>
+      </motion.div>
 
       {!preview ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
-          <div className="flex border-b border-slate-100">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="view-card" style={{ overflow: 'hidden' }}>
+          {/* Tabs */}
+          <div className="capture-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
             {[
               { id: 'url', label: 'URL / YouTube', icon: Globe },
               { id: 'text', label: 'Quick Note', icon: StickyNote },
               { id: 'pdf', label: 'PDF Upload', icon: FileText },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-4 font-medium transition-colors text-sm",
-                  activeTab === tab.id ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/30" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
+            ].map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '14px 8px', fontSize: 13, fontWeight: active ? 700 : 500, color: active ? 'var(--primary)' : 'var(--text-3)', background: active ? 'var(--primary-bg)' : 'transparent', border: 'none', borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                >
+                  <tab.icon size={15} />
+                  <span className="capture-tab-label">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="capture-body" style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
             {activeTab === 'url' && (
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Article or YouTube URL</label>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCapture()}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Article or YouTube URL</label>
+                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCapture()}
                   placeholder="https://example.com/article or https://youtube.com/watch?v=..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit', transition: 'all 0.15s', boxSizing: 'border-box' }}
+                  onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)'; e.target.style.background = 'var(--surface)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; e.target.style.background = 'var(--surface-2)'; }}
                 />
-                <p className="text-xs text-slate-400">Supports any web article or YouTube video URL</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', margin: 0 }}>Supports any web article or YouTube video URL</p>
               </div>
             )}
 
             {activeTab === 'text' && (
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Paste your notes or ideas</label>
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Paste your notes or ideas</label>
+                <textarea value={input} onChange={(e) => setInput(e.target.value)}
                   placeholder="Type or paste anything — meeting notes, ideas, research snippets..."
-                  rows={8}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none"
+                  rows={7}
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', transition: 'all 0.15s', boxSizing: 'border-box' }}
+                  onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)'; e.target.style.background = 'var(--surface)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; e.target.style.background = 'var(--surface-2)'; }}
                 />
               </div>
             )}
@@ -829,114 +829,102 @@ const CaptureView = () => {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => !pdfFile && fileInputRef.current?.click()}
-                className={cn(
-                  "border-2 border-dashed rounded-2xl p-12 text-center space-y-4 transition-colors cursor-pointer",
-                  dragOver ? "border-indigo-400 bg-indigo-50" : pdfFile ? "border-emerald-300 bg-emerald-50" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
-                )}
+                style={{ border: `2px dashed ${dragOver ? '#6366f1' : pdfFile ? '#10b981' : 'var(--border-2)'}`, borderRadius: 16, padding: 'clamp(24px,5vw,56px) 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: dragOver ? 'var(--primary-bg)' : pdfFile ? 'rgba(16,185,129,0.06)' : 'var(--surface-2)' }}
               >
-                <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => e.target.files?.[0] && setPdfFile(e.target.files[0])} />
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                  {pdfFile ? <CheckCircle2 className="w-8 h-8 text-emerald-500" /> : <Upload className="w-8 h-8 text-slate-400" />}
+                <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && setPdfFile(e.target.files[0])} />
+                <div style={{ width: 56, height: 56, background: pdfFile ? 'rgba(16,185,129,0.12)' : 'var(--surface-3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  {pdfFile ? <CheckCircle2 size={26} color="#10b981" /> : <Upload size={26} color="var(--text-3)" />}
                 </div>
                 {pdfFile ? (
                   <div>
-                    <p className="font-bold text-emerald-700">{pdfFile.name}</p>
-                    <p className="text-sm text-emerald-600">{(pdfFile.size / 1024 / 1024).toFixed(2)} MB — Ready to process</p>
-                    <button onClick={(e) => { e.stopPropagation(); setPdfFile(null); }} className="mt-2 text-xs text-slate-400 hover:text-red-500 transition-colors">Remove file</button>
+                    <p style={{ fontWeight: 700, color: '#10b981', marginBottom: 4 }}>{pdfFile.name}</p>
+                    <p style={{ fontSize: 12, color: '#10b981', marginBottom: 8 }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB — Ready to process</p>
+                    <button onClick={(e) => { e.stopPropagation(); setPdfFile(null); }} style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Remove file</button>
                   </div>
                 ) : (
                   <div>
-                    <p className="font-bold text-slate-700">Drop PDF here or click to upload</p>
-                    <p className="text-sm text-slate-400">AI will extract and analyze the content</p>
-                    <p className="text-xs text-slate-300 mt-1">Max 10MB</p>
+                    <p style={{ fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>Drop PDF here or click to upload</p>
+                    <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>AI will extract and analyze the content</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Max 10MB</p>
                   </div>
                 )}
               </div>
             )}
 
-            <button
-              onClick={handleCapture}
+            <button onClick={handleCapture}
               disabled={isProcessing || (activeTab !== 'pdf' && !input.trim()) || (activeTab === 'pdf' && !pdfFile)}
-              className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg"
+              className="btn-premium"
+              style={{ width: '100%', fontSize: 15 }}
             >
               {isProcessing ? (
-                <><Loader2 className="w-5 h-5 animate-spin" />AI is analyzing...</>
+                <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />AI is analyzing...</>
               ) : (
-                <><Sparkles className="w-5 h-5 text-indigo-400" />Process with Neural AI</>
+                <><Sparkles size={18} />Process with Neural AI</>
               )}
             </button>
           </div>
-        </div>
+        </motion.div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden"
-        >
-          <div className="bg-gradient-to-r from-slate-900 to-indigo-900 p-8 text-white flex justify-between items-start">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-1 bg-indigo-500 rounded text-[10px] font-bold uppercase tracking-widest">Neural Analysis</span>
-                <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest">{preview.domain}</span>
-                <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest">{preview.source_type}</span>
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+          className="view-card" style={{ overflow: 'hidden' }}>
+          {/* Preview header - always dark gradient */}
+          <div style={{ background: 'linear-gradient(135deg,#0d1117 0%,#1a1040 60%,#312e81 100%)', padding: 'clamp(20px,4vw,32px)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span style={{ padding: '3px 8px', background: '#6366f1', borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Neural Analysis</span>
+                <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.12)', borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>{preview.domain}</span>
+                <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.12)', borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>{preview.source_type}</span>
               </div>
-              <h3 className="text-2xl font-bold">{preview.title}</h3>
+              <h3 style={{ fontSize: 'clamp(16px,3vw,22px)', fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{preview.title}</h3>
             </div>
-            <button onClick={() => setPreview(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-              <X className="w-6 h-6" />
+            <button onClick={() => setPreview(null)} style={{ padding: 8, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0 }}>
+              <X size={18} />
             </button>
           </div>
 
-          {/* YouTube embed */}
           {preview.source_type === 'youtube' && (previewUrl || preview.source_url) && (
-            <div className="p-4 pb-0">
+            <div style={{ padding: '16px 16px 0' }}>
               <YouTubeEmbed url={previewUrl || preview.source_url!} />
             </div>
           )}
 
-          <div className="p-6 sm:p-8 space-y-6 sm:space-y-8">
-            <section className="space-y-3">
-              <h4 className="font-bold text-slate-900 flex items-center gap-2"><Brain className="w-4 h-4 text-indigo-500" />Summary</h4>
-              <p className="text-slate-600 leading-relaxed">{preview.summary}</p>
+          <div style={{ padding: 'clamp(20px,4vw,32px)', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <section>
+              <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 14 }}><Brain size={15} color="var(--primary)" />Summary</h4>
+              <p style={{ color: 'var(--text-2)', lineHeight: 1.7, fontSize: 14, margin: 0 }}>{preview.summary}</p>
             </section>
 
-            <section className="space-y-3">
-              <h4 className="font-bold text-slate-900 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" />Key Insights</h4>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <section>
+              <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 14 }}><CheckCircle2 size={15} color="#10b981" />Key Insights</h4>
+              <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10, padding: 0, listStyle: 'none', margin: 0 }}>
                 {preview.key_points.map((point, i) => (
-                  <li key={i} className="flex gap-3 p-3 bg-slate-50 rounded-xl text-sm text-slate-700 border border-slate-100">
-                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
+                  <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, fontSize: 13, color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0, border: '1px solid var(--primary-border)' }}>{i + 1}</span>
                     {point}
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="space-y-3">
-              <h4 className="font-bold text-slate-900 flex items-center gap-2"><Tag className="w-4 h-4 text-amber-500" />Tags</h4>
-              <div className="flex flex-wrap gap-2">
+            <section>
+              <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 14 }}><Tag size={15} color="#f59e0b" />Tags</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {preview.tags.map((tag) => (
-                  <span key={tag} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold">#{tag}</span>
+                  <span key={tag} style={{ padding: '4px 10px', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--primary-border)' }}>#{tag}</span>
                 ))}
               </div>
             </section>
 
             {preview.source_url && (
-              <div className="pt-2">
-                <a href={preview.source_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors">
-                  <ExternalLink className="w-3.5 h-3.5" />View Original Source
-                </a>
-              </div>
+              <a href={preview.source_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+                <ExternalLink size={13} />View Original Source
+              </a>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
-              <button onClick={() => setPreview(null)} className="flex-1 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors">Discard</button>
-              <button
-                onClick={handleSave}
-                disabled={isProcessing}
-                className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
-              >
-                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => setPreview(null)} className="btn-secondary" style={{ flex: 1, minWidth: 120 }}>Discard</button>
+              <button onClick={handleSave} disabled={isProcessing} className="btn-premium" style={{ flex: 2, minWidth: 160 }}>
+                {isProcessing ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
                 Save to Vault
               </button>
             </div>
@@ -1952,100 +1940,110 @@ const SettingsView = () => {
     finally { setIsTesting(false); }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h2 className="text-3xl font-bold text-slate-900">Settings & Status</h2>
-        <p className="text-slate-500 mt-1">Configure AI models and monitor system health.</p>
-      </header>
+  const hasAiKey = settings?.openai_api_key_set || settings?.gen_apac_api_key_set;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-          <h3 className="font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-500" />AI Configuration
+  return (
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 999, marginBottom: 12 }}>
+          <Settings size={11} color="var(--primary)" />
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>SYSTEM SETTINGS</span>
+        </div>
+        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Settings & Status</h2>
+        <p style={{ color: 'var(--text-3)', fontSize: 14, margin: 0 }}>Configure AI models and monitor system health.</p>
+      </motion.div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
+        {/* AI Configuration card */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="view-card" style={{ padding: 'clamp(18px,3vw,28px)' }}>
+          <h3 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, fontSize: 15 }}>
+            <Sparkles size={16} color="var(--primary)" />AI Configuration
           </h3>
 
           {isLoading ? (
-            <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+              <Loader2 size={24} color="var(--text-3)" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
           ) : (
-            <div className="space-y-4">
-              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Active AI Engine</p>
-                <p className="text-lg font-bold text-indigo-900">Neural AI</p>
-                <p className="text-xs text-indigo-500">GPT-class language model · Active</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ padding: '12px 14px', background: 'var(--primary-bg)', borderRadius: 12, border: '1px solid var(--primary-border)', marginBottom: 8 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>Active AI Engine</p>
+                <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--primary)', margin: '0 0 2px' }}>Neural AI</p>
+                <p style={{ fontSize: 11, color: 'var(--primary)', opacity: 0.7, margin: 0 }}>GPT-class language model · Active</p>
               </div>
 
               {[
-                { label: 'OpenAI API Key', value: settings?.openai_api_key_set, key: 'OPENAI_API_KEY' },
-                { label: 'OpenRouter / GEN APAC Key', value: settings?.gen_apac_api_key_set, key: 'GEN_APAC_API_KEY' },
-                { label: 'Google Gemini Key', value: settings?.gemini_api_key_set, key: 'GEMINI_API_KEY' },
-                { label: 'Google Calendar', value: settings?.google_calendar_configured, key: 'GOOGLE_CALENDAR_ID' },
-              ].map(item => (
-                <div key={item.label} className="flex justify-between items-center py-3 border-b border-slate-50">
-                  <span className="text-sm text-slate-500 font-medium">{item.label}</span>
-                  <span className={cn("text-xs font-bold px-2 py-1 rounded", item.value ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500")}>
+                { label: 'OpenAI API Key', value: settings?.openai_api_key_set },
+                { label: 'OpenRouter / GEN APAC Key', value: settings?.gen_apac_api_key_set },
+                { label: 'Google Gemini Key', value: settings?.gemini_api_key_set },
+                { label: 'Google Calendar', value: settings?.google_calendar_configured },
+              ].map((item, idx, arr) => (
+                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{item.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 6, background: item.value ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.1)', color: item.value ? '#10b981' : '#ef4444', letterSpacing: '0.3px' }}>
                     {item.value ? '✓ CONFIGURED' : '✗ MISSING'}
                   </span>
                 </div>
               ))}
 
-              <div className="flex justify-between items-center py-3">
-                <span className="text-sm text-slate-500 font-medium">GCP Project</span>
-                <span className="text-xs font-bold text-slate-600">{settings?.gcp_project_id || 'N/A'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>GCP Project</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'monospace' }}>{settings?.gcp_project_id || 'N/A'}</span>
               </div>
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-50">
-            <button
-              onClick={handleTestAI}
-              disabled={isTesting || !(settings?.openai_api_key_set || settings?.gen_apac_api_key_set)}
-              className={cn("w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-                (settings?.openai_api_key_set || settings?.gen_apac_api_key_set) ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              )}
-            >
-              {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          <div style={{ paddingTop: 16, marginTop: 16, borderTop: '1px solid var(--border)' }}>
+            <button onClick={handleTestAI} disabled={isTesting || !hasAiKey}
+              className={hasAiKey ? 'btn-premium' : 'btn-secondary'}
+              style={{ width: '100%' }}>
+              {isTesting ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Zap size={15} />}
               Test Neural AI Connection
             </button>
             {testResult && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn("mt-4 p-4 rounded-2xl text-xs flex gap-3", testResult.status === 'success' ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100")}
-              >
-                {testResult.status === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                <p>{testResult.message}</p>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, fontSize: 12, display: 'flex', gap: 10, alignItems: 'flex-start', background: testResult.status === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${testResult.status === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, color: testResult.status === 'success' ? '#10b981' : '#ef4444' }}>
+                {testResult.status === 'success' ? <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 1 }} /> : <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
+                <p style={{ margin: 0, lineHeight: 1.5 }}>{testResult.message}</p>
               </motion.div>
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="space-y-6">
-          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-indigo-500" />System Status
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* System Status */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="view-card" style={{ padding: 'clamp(18px,3vw,28px)' }}>
+            <h3 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 15 }}>
+              <Shield size={16} color="var(--primary)" />System Status
             </h3>
-            <div className="space-y-4">
+            <div>
               {[
-                { label: 'Backend Server', value: 'HEALTHY', color: 'text-emerald-600', pulse: true },
-                { label: 'Firestore Database', value: 'CONNECTED', color: 'text-emerald-600' },
-                { label: 'AI Engine', value: 'Neural AI · Active', color: 'text-indigo-600' },
-                { label: 'App Version', value: 'v2.0.0 HACKATHON', color: 'text-slate-400' },
-              ].map(item => (
-                <div key={item.label} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
-                  <span className="text-sm text-slate-500 font-medium">{item.label}</span>
-                  <span className={cn("text-xs font-bold flex items-center gap-1.5", item.color)}>
-                    {item.pulse && <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />}
+                { label: 'Backend Server', value: 'HEALTHY', color: '#10b981', pulse: true },
+                { label: 'Firestore Database', value: 'CONNECTED', color: '#10b981', pulse: false },
+                { label: 'AI Engine', value: 'Neural AI · Active', color: 'var(--primary)', pulse: false },
+                { label: 'App Version', value: 'v2.0.0 HACKATHON', color: 'var(--text-3)', pulse: false },
+              ].map((item, idx, arr) => (
+                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{item.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: item.color, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {item.pulse && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block' }} />}
                     {item.value}
                   </span>
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-3xl text-white">
-            <h3 className="font-bold text-lg mb-2">🏆 Hackathon Features</h3>
-            <ul className="space-y-2 text-sm text-indigo-100">
+          {/* Hackathon Features */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            style={{ background: 'linear-gradient(135deg,#6366f1 0%,#4f46e5 40%,#7c3aed 100%)', padding: 'clamp(18px,3vw,24px)', borderRadius: 16, color: '#fff' }}>
+            <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🏆</span> Hackathon Features
+            </h3>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 'Multi-agent Neural AI orchestration',
                 'YouTube transcript extraction',
@@ -2058,13 +2056,13 @@ const SettingsView = () => {
                 'Google Firestore persistence',
                 'Google Calendar integration',
               ].map(f => (
-                <li key={f} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-300 shrink-0" />
+                <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+                  <CheckCircle2 size={13} color="rgba(255,255,255,0.6)" style={{ flexShrink: 0 }} />
                   {f}
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
