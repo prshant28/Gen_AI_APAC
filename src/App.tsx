@@ -146,7 +146,7 @@ const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
 const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSignOut }: {
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
-  user: User | null; onSignOut: () => void;
+  user: any; onSignOut: () => void;
 }) => {
   const w = isCollapsed ? 60 : 220;
   const navRef = useRef<HTMLElement>(null);
@@ -3320,8 +3320,90 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
     finally { setLoading(false); }
   };
 
+  const NAV_LINKS = ['PLATFORM', 'FEATURES', 'COMMUNITY', 'ENTERPRISE'];
+
   return (
-    <div style={{ height: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', system-ui, sans-serif", overflow: 'hidden' }}>
+
+      {/* ── Top navigation bar ────────────────────────────────────── */}
+      <motion.nav initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 28px', height: 56, flexShrink: 0,
+          background: isDark ? 'rgba(10,12,20,0.85)' : 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+          borderBottom: `1px solid ${isDark ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.13)'}`,
+          position: 'relative', zIndex: 10,
+          boxShadow: isDark ? '0 1px 20px rgba(0,0,0,0.3)' : '0 1px 16px rgba(99,102,241,0.07)',
+        }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(99,102,241,0.4)' }}>
+            <Brain size={16} color="white" />
+          </div>
+          <span style={{ fontWeight: 800, fontSize: 15, color: isDark ? '#f0f0ff' : '#1a1040', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif", letterSpacing: '-0.2px' }}>Recall X247</span>
+        </div>
+
+        {/* Center nav links — desktop only */}
+        <div className="hidden md:flex" style={{ alignItems: 'center', gap: 6 }}>
+          {NAV_LINKS.map((link) => (
+            <button key={link}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '6px 14px', borderRadius: 8,
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.8px',
+                color: isDark ? 'rgba(180,180,210,0.65)' : 'rgba(60,50,100,0.55)',
+                fontFamily: "'Poppins', system-ui, sans-serif",
+                transition: 'color 0.15s, background 0.15s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a5b4fc' : '#6366f1';
+                (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.07)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = isDark ? 'rgba(180,180,210,0.65)' : 'rgba(60,50,100,0.55)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'none';
+              }}
+            >{link}</button>
+          ))}
+        </div>
+
+        {/* Right CTA buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Theme toggle */}
+          <button onClick={toggleTheme}
+            style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.18)'}`, background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+            {isDark ? <Sun size={14} color="#a5b4fc" /> : <Moon size={14} color="#6366f1" />}
+          </button>
+          {/* Sign In */}
+          <button onClick={() => switchMode('signin')}
+            style={{
+              padding: '7px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: "'Poppins', system-ui, sans-serif",
+              fontWeight: 600, fontSize: 12, letterSpacing: '0.2px', transition: 'all 0.18s',
+              background: 'none',
+              color: isDark ? '#a5b4fc' : '#6366f1',
+              border: `1.5px solid ${isDark ? 'rgba(99,102,241,0.4)' : 'rgba(99,102,241,0.35)'}`,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.07)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+          >Sign In</button>
+          {/* Get Started */}
+          <button onClick={() => switchMode('signup')}
+            style={{
+              padding: '7px 18px', borderRadius: 999, cursor: 'pointer', fontFamily: "'Poppins', system-ui, sans-serif",
+              fontWeight: 700, fontSize: 12, letterSpacing: '0.2px', transition: 'all 0.18s',
+              background: 'linear-gradient(135deg, #6366f1, #9333ea)',
+              color: '#fff', border: 'none',
+              boxShadow: '0 3px 12px rgba(99,102,241,0.4)',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 5px 18px rgba(99,102,241,0.55)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 3px 12px rgba(99,102,241,0.4)'; (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
+          >Get Started Free</button>
+        </div>
+      </motion.nav>
+
+      {/* ── Inner content row ─────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', minHeight: 0 }}>
 
       {/* ── Animated particle field ──────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
@@ -3497,11 +3579,6 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           <div style={{ fontWeight: 800, fontSize: 15, color: isDark ? '#f0f0ff' : '#1a1040', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>Recall X247</div>
         </motion.div>
 
-        {/* Theme toggle (top-right) */}
-        <button onClick={toggleTheme} style={{ position: 'absolute', top: 20, right: 20, padding: '8px 9px', background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.8)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(99,102,241,0.15)'}`, borderRadius: 10, cursor: 'pointer', color: isDark ? '#a5a8d8' : '#6366f1', display: 'flex', alignItems: 'center', backdropFilter: 'blur(8px)', transition: 'all 0.18s', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-          {isDark ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
-
         <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: isDark ? 'rgba(180,180,210,0.65)' : 'rgba(60,50,100,0.62)', fontSize: 10.5, fontWeight: 600 }}>
           <CheckCheck size={12} color="#10b981" /> Trusted by founders, operators, and advanced learners
         </div>
@@ -3645,6 +3722,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           Gen AI Academy APAC 2026 · Recall X247
         </div>
       </div>
+
+      </div>{/* end inner content row */}
     </div>
   );
 };
@@ -3663,20 +3742,43 @@ export default function App() {
   });
 
   // ── Auth state ──────────────────────────────────────────────────────────────
-  const [user, setUser] = useState<User | null>(null);
+  const GUEST_USER_KEY = 'recall-guest-user';
+  const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     checkRedirectResult().catch(() => {});
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
+      if (u) {
+        setUser(u);
+        setAuthLoading(false);
+      } else {
+        try {
+          const guestData = localStorage.getItem(GUEST_USER_KEY);
+          setUser(guestData ? JSON.parse(guestData) : null);
+        } catch { setUser(null); }
+        setAuthLoading(false);
+      }
     });
     return unsubscribe;
   }, []);
 
+  const handleGuestSignIn = async () => {
+    const guestUser = {
+      uid: `guest-${Date.now()}`,
+      displayName: 'Guest User',
+      email: 'guest@recall-x247.local',
+      photoURL: null,
+      isAnonymous: true,
+      isGuest: true,
+    };
+    localStorage.setItem(GUEST_USER_KEY, JSON.stringify(guestUser));
+    setUser(guestUser);
+  };
+
   const handleSignOut = async () => {
-    await firebaseSignOut();
+    localStorage.removeItem(GUEST_USER_KEY);
+    try { await firebaseSignOut(); } catch {}
     setUser(null);
   };
 
@@ -3727,7 +3829,7 @@ export default function App() {
         onEmailSignIn={signInWithEmail}
         onEmailSignUp={signUpWithEmail}
         onResetPassword={resetPassword}
-        onAnonymousSignIn={signInAsGuest}
+        onAnonymousSignIn={handleGuestSignIn}
       />
     );
   }
