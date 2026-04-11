@@ -148,73 +148,125 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
   currentView: View; setView: (v: View) => void; isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
   user: User | null; onSignOut: () => void;
 }) => {
-  const w = isCollapsed ? 64 : 224;
+  const w = isCollapsed ? 60 : 220;
+  const navRef = useRef<HTMLElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setCanScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const el = navRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkScroll);
+    window.addEventListener('resize', checkScroll);
+    return () => { el.removeEventListener('scroll', checkScroll); window.removeEventListener('resize', checkScroll); };
+  }, [checkScroll, isCollapsed]);
+
   return (
     <div style={{
-      width: w, minWidth: w, height: '100vh', background: 'var(--surface)',
-      borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
-      position: 'relative', zIndex: 50, transition: 'width 0.25s ease', flexShrink: 0,
+      width: w, minWidth: w, height: '100%', background: 'var(--surface)',
+      display: 'flex', flexDirection: 'column',
+      position: 'relative', zIndex: 50, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)', flexShrink: 0,
+      borderRight: '1px solid var(--border)',
     }}>
       {/* Logo */}
-      <div style={{ padding: '16px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
-          <Brain size={20} color="white" />
+      <div style={{ padding: isCollapsed ? '16px 10px' : '16px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', flexShrink: 0, minHeight: 60 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+          <Brain size={18} color="white" />
         </div>
         {!isCollapsed && (
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>Recall X247</div>
-            <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
+          <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>Recall X247</div>
+            <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.8px', textTransform: 'uppercase', fontWeight: 600, marginTop: 1 }}>Neural OS v2.0</div>
           </div>
+        )}
+        {!isCollapsed && (
+          <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
+            style={{ padding: 5, background: 'transparent', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+          >
+            <ChevronLeft size={13} />
+          </button>
+        )}
+        {isCollapsed && (
+          <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
+            style={{ position: 'absolute', right: -12, top: 18, width: 24, height: 24, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)', zIndex: 60, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.15s' }}
+          >
+            <ChevronRight size={11} />
+          </button>
         )}
       </div>
 
       {/* Status badge */}
       {!isCollapsed && (
-        <div style={{ margin: '8px 10px 4px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
-          <span style={{ color: '#10b981', fontSize: 11, fontWeight: 600 }}>System Ready</span>
+        <div style={{ margin: '10px 12px 2px', padding: '5px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0, boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
+          <span style={{ color: '#10b981', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.2px' }}>System Ready</span>
         </div>
+      )}
+      {isCollapsed && (
+        <div style={{ margin: '8px auto 0', width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.5)', flexShrink: 0 }} />
       )}
 
       {/* Grouped Nav */}
-      <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto', overflowX: 'hidden' }} className="scroll-custom">
-        {NAV_GROUPS.map(group => (
-          <div key={group.label} style={{ marginBottom: 2 }}>
-            {!isCollapsed && (
-              <div style={{ padding: '10px 8px 3px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
-            )}
-            {group.items.map(({ id, label, icon: Icon, color }) => {
-              const active = currentView === id;
-              return (
-                <button key={id} onClick={() => setView(id as View)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 9,
-                    padding: isCollapsed ? '10px' : '8px 10px',
-                    borderRadius: 8, border: 'none',
-                    background: active ? 'var(--primary-bg)' : 'transparent',
-                    cursor: 'pointer', transition: 'all 0.15s',
-                    position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
-                    flexShrink: 0, width: '100%', marginBottom: 1,
-                  }}
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-                >
-                  {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
-                  <Icon size={15} color={active ? 'var(--primary)' : 'var(--text-3)'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
-                  {!isCollapsed && <span style={{ color: active ? 'var(--primary-dark)' : 'var(--text-2)', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>}
-                </button>
-              );
-            })}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <nav ref={navRef} style={{ flex: 1, padding: '6px 8px', overflowY: 'auto', overflowX: 'hidden' }} className="sidebar-nav">
+          {NAV_GROUPS.map(group => (
+            <div key={group.label} style={{ marginBottom: 4 }}>
+              {!isCollapsed && (
+                <div style={{ padding: '10px 8px 4px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
+              )}
+              {isCollapsed && <div style={{ height: 6 }} />}
+              {group.items.map(({ id, label, icon: Icon, color }) => {
+                const active = currentView === id;
+                return (
+                  <button key={id} onClick={() => setView(id as View)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 9,
+                      padding: isCollapsed ? '9px 0' : '7.5px 10px',
+                      borderRadius: 9, border: 'none',
+                      background: active ? 'var(--primary-bg)' : 'transparent',
+                      cursor: 'pointer', transition: 'all 0.15s ease',
+                      position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
+                      flexShrink: 0, width: '100%', marginBottom: 1,
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                  >
+                    {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
+                    <Icon size={14} color={active ? 'var(--primary)' : 'var(--text-3)'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
+                    {!isCollapsed && <span style={{ color: active ? 'var(--primary)' : 'var(--text-2)', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {/* Scroll indicator */}
+        {!isCollapsed && canScrollDown && (
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 4, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, opacity: 0.45 }}>
+              <ChevronDown size={11} color="var(--text-3)" style={{ marginBottom: -4 }} />
+              <ChevronDown size={11} color="var(--text-3)" style={{ marginBottom: -4 }} />
+              <ChevronDown size={11} color="var(--text-3)" />
+            </div>
           </div>
-        ))}
-      </nav>
+        )}
+      </div>
 
       {/* User */}
-      <div style={{ padding: '8px 8px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '6px' : '6px 8px', borderRadius: 8, justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+      <div style={{ padding: isCollapsed ? '8px 6px 10px' : '8px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
           {user?.photoURL
-            ? <img src={user.photoURL} alt="avatar" style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
-            : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700 }}>
+            ? <img src={user.photoURL} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
+            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px' }}>
                 {user?.displayName?.[0]?.toUpperCase() ?? 'U'}
               </div>
           }
@@ -236,7 +288,7 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
         </div>
         {isCollapsed && (
           <button onClick={onSignOut} title="Sign out"
-            style={{ width: '100%', marginTop: 4, padding: '5px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+            style={{ width: '100%', marginTop: 6, padding: '5px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
           >
@@ -244,13 +296,6 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
           </button>
         )}
       </div>
-
-      {/* Collapse toggle */}
-      <button onClick={() => setIsCollapsed(!isCollapsed)}
-        style={{ position: 'absolute', right: -11, top: 76, width: 22, height: 22, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)', zIndex: 60, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
-      >
-        <ChevronRight size={12} style={{ transform: isCollapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.25s' }} />
-      </button>
     </div>
   );
 };
@@ -309,13 +354,13 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
     <div style={{ color: 'var(--text-1)' }}>
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div className="dash-header-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981' }} />
               <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
             </div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
               Welcome back, <span style={{ color: 'var(--primary)' }}>Prashant</span>
             </h1>
             <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{today}</p>
@@ -323,7 +368,8 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
 
           {/* Briefing card */}
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            style={{ ...S.card, maxWidth: 380, padding: '14px 18px', border: '1px solid var(--primary-border)' }}>
+            className="dash-briefing"
+            style={{ ...S.card, maxWidth: 360, padding: '14px 18px', border: '1px solid var(--primary-border)', flex: '1 1 280px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Sparkles size={15} color="var(--primary)" />
@@ -3714,10 +3760,10 @@ export default function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif" }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: 8, gap: 8 }}>
 
       {/* Desktop Sidebar */}
-      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0 }} className="hidden lg:block">
+      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', height: '100%' }} className="hidden lg:block">
         <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} user={user} onSignOut={handleSignOut} />
       </div>
 
@@ -3731,7 +3777,7 @@ export default function App() {
               className="lg:hidden" />
             <motion.div initial={{ x: -240 }} animate={{ x: 0 }} exit={{ x: -240 }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 224 }}
+              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 220 }}
               className="lg:hidden">
               <Sidebar currentView={view} setView={(v) => { setView(v); setIsMobileMenuOpen(false); }} isCollapsed={false} setIsCollapsed={() => {}} user={user} onSignOut={handleSignOut} />
             </motion.div>
@@ -3740,13 +3786,13 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
         {/* Header */}
         <header style={{
           background: 'var(--surface)',
           borderBottom: '1px solid var(--border)',
-          padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0, gap: 10,
+          padding: '0 16px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0, gap: 10, borderRadius: '14px 14px 0 0',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden"
@@ -3781,7 +3827,7 @@ export default function App() {
         </header>
 
         {/* Page content */}
-        <div style={{ flex: 1, overflowY: 'auto' }} className="scroll-custom responsive-content">
+        <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }} className="scroll-custom responsive-content">
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <AnimatePresence mode="wait">
               <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>

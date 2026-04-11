@@ -403,9 +403,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ── Responsive Layout ────────────────────────────────────────────────────── */
-.responsive-content { padding: 16px; }
+.responsive-content { padding: 16px; background: var(--bg); }
 @media (min-width: 640px)  { .responsive-content { padding: 20px 24px; } }
-@media (min-width: 1024px) { .responsive-content { padding: 24px 32px; } }
+@media (min-width: 1024px) { .responsive-content { padding: 22px 28px; } }
 
 /* Hide search on tiny screens */
 @media (max-width: 480px) { .header-search { display: none !important; } }
@@ -415,23 +415,6 @@ input:focus, textarea:focus, select:focus {
   .vault-modal { width: calc(100vw - 16px) !important; max-height: 95vh !important; }
 }
 
-/* Dashboard grid responsive */
-.dash-chart-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-@media (min-width: 768px) {
-  .dash-chart-row { grid-template-columns: 1fr 300px; }
-}
-.dash-bottom-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-@media (min-width: 900px) {
-  .dash-bottom-row { grid-template-columns: 1fr 280px; }
-}
 
 /* Sidebar overlay backdrop */
 .sidebar-backdrop { display: none; }
@@ -458,14 +441,40 @@ input:focus, textarea:focus, select:focus {
 .stat-cards-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
-@media (min-width: 640px) {
-  .stat-cards-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (min-width: 480px) {
+  .stat-cards-grid { gap: 12px; }
 }
 @media (min-width: 900px) {
-  .stat-cards-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 22px; }
+  .stat-cards-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+}
+
+/* ── Dashboard chart row responsive ────────────────────────────────────────── */
+.dash-chart-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 860px) {
+  .dash-chart-row { grid-template-columns: 1fr 280px; }
+}
+
+/* ── Dashboard bottom row responsive ───────────────────────────────────────── */
+.dash-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 860px) {
+  .dash-bottom-row { grid-template-columns: 1fr 260px; }
+}
+
+/* ── Dashboard header briefing card — stack on small screens ────────────────── */
+@media (max-width: 640px) {
+  .dash-header-row { flex-direction: column !important; }
+  .dash-briefing { max-width: 100% !important; width: 100% !important; }
 }
 
 /* ── Capture view mobile ──────────────────────────────────────────────────── */
@@ -474,6 +483,10 @@ input:focus, textarea:focus, select:focus {
   .capture-tabs button span { display: none; }
   .capture-body { padding: 20px 16px !important; }
 }
+
+/* ── Sidebar nav — scrollable, no scrollbar ───────────────────────────────── */
+.sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
+.sidebar-nav::-webkit-scrollbar { display: none; }
 
 /* ── Scrollbar for agent hub messages ─────────────────────────────────────── */
 .agent-messages::-webkit-scrollbar { width: 4px; }
