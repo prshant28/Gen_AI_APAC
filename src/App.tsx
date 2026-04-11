@@ -169,18 +169,16 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
 
   return (
     <div style={{
-      width: w, minWidth: w, height: '100%', background: 'var(--surface)',
-      display: 'flex', flexDirection: 'column',
-      position: 'relative', zIndex: 50, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)', flexShrink: 0,
-      borderRight: '1px solid var(--border)',
+      width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
-      {/* Logo */}
-      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9, overflow: 'hidden', flexShrink: 0, minHeight: 56, justifyContent: isCollapsed ? 'center' : 'flex-start', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
+      {/* Logo + collapse toggle */}
+      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, minHeight: 56, justifyContent: isCollapsed ? 'center' : 'flex-start', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
         <div
           onClick={() => isCollapsed && setIsCollapsed(false)}
           title={isCollapsed ? 'Expand sidebar' : ''}
           style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.2)', cursor: isCollapsed ? 'pointer' : 'default', transition: 'transform 0.15s', userSelect: 'none' }}
-          onMouseEnter={e => { if (isCollapsed) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.08)'; }}
+          onMouseEnter={e => { if (isCollapsed) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.1)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
         >
           <Brain size={18} color="white" />
@@ -192,8 +190,10 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
           </div>
         )}
         {!isCollapsed && (
-          <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
-            style={{ padding: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}
+          <button
+            onClick={() => setIsCollapsed(true)}
+            title="Collapse sidebar"
+            style={{ padding: '5px 6px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)', zIndex: 10, position: 'relative' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
           >
@@ -3392,7 +3392,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   const NAV_LINKS = ['PLATFORM', 'FEATURES', 'COMMUNITY', 'ENTERPRISE'];
 
   return (
-    <div style={{ height: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', system-ui, sans-serif", overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', system-ui, sans-serif", overflow: 'hidden', position: 'relative' }}>
 
       {/* ── Top navigation bar ────────────────────────────────────── */}
       <motion.nav initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
@@ -3513,14 +3513,38 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         </motion.div>
 
         {/* Hero text */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ marginBottom: 20 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.08 }} style={{ marginBottom: 6 }}>
+          {/* Floating badge */}
+          <motion.div
+            animate={{ y: [0, -3, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 999, background: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)', border: `1px solid ${isDark ? 'rgba(99,102,241,0.35)' : 'rgba(99,102,241,0.28)'}`, marginBottom: 14 }}>
+            <Sparkles size={11} color="#6366f1" />
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: isDark ? '#a5b4fc' : '#4f46e5', letterSpacing: '0.3px' }}>Neural AI v3.0 — Now Live</span>
+            <ChevronRight size={10} color={isDark ? '#a5b4fc' : '#4f46e5'} />
+          </motion.div>
           <h2 style={{ fontSize: 30, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 10px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
             Your AI-Powered<br />
             <span style={{ background: 'linear-gradient(135deg,#6366f1,#9333ea,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Second Brain</span>
           </h2>
-          <p style={{ color: isDark ? 'rgba(200,200,230,0.65)' : 'rgba(50,40,90,0.6)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+          <p style={{ color: isDark ? 'rgba(200,200,230,0.65)' : 'rgba(50,40,90,0.6)', fontSize: 13.5, lineHeight: 1.7, margin: '0 0 14px' }}>
             Capture knowledge, recall anything instantly, and let your multi-agent AI handle the rest. Built for the way your mind works.
           </p>
+          {/* Social proof avatar strip */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {['#6366f1','#9333ea','#ec4899','#10b981','#f59e0b'].map((c, i) => (
+                <div key={i} style={{ width: 26, height: 26, borderRadius: '50%', background: `${c}`, border: `2px solid ${isDark ? '#080b12' : '#f0f1ff'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: i === 0 ? 0 : -8, fontSize: 9, fontWeight: 700, color: '#fff', zIndex: 5 - i }}>
+                  {['P','D','A','S','R'][i]}
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                {[0,1,2,3,4].map(i => <Star key={i} size={9} color="#f59e0b" fill="#f59e0b" />)}
+              </div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', marginTop: 1 }}>2,400+ professionals use Recall X247</div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Premium KPI bar */}
@@ -3540,28 +3564,50 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         </motion.div>
 
         {/* Feature grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
           {FEATURES.map((f, i) => (
             <motion.div key={f.label}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: 0.2 + i * 0.07 }}
               onMouseEnter={() => setHoveredFeature(i)} onMouseLeave={() => setHoveredFeature(null)}
               style={{
-                padding: '10px 12px', borderRadius: 12, cursor: 'default', transition: 'all 0.22s',
-                background: hoveredFeature === i ? `${f.color}15` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
-                border: `1px solid ${hoveredFeature === i ? f.color + '40' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.12)'}`,
+                padding: '12px 12px 10px', borderRadius: 13, cursor: 'default', transition: 'all 0.22s',
+                background: hoveredFeature === i ? `${f.color}12` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.7)',
+                border: `1px solid ${hoveredFeature === i ? f.color + '38' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.13)'}`,
                 backdropFilter: 'blur(8px)',
                 transform: hoveredFeature === i ? 'translateY(-2px)' : 'none',
-                boxShadow: hoveredFeature === i ? `0 8px 24px ${f.color}22` : 'none',
+                boxShadow: hoveredFeature === i ? `0 8px 24px ${f.color}22, inset 0 1px 0 rgba(255,255,255,0.7)` : isDark ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.5)',
               }}>
-              <div style={{ width: 26, height: 26, borderRadius: 8, background: `${f.color}20`, border: `1px solid ${f.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                <f.icon size={12} color={f.color} />
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: `linear-gradient(135deg,${f.color}22,${f.color}0a)`, border: `1px solid ${f.color}38`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8, boxShadow: `0 2px 8px ${f.color}18` }}>
+                <f.icon size={14} color={f.color} />
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 2 }}>{f.label}</div>
-              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.4 }}>{f.desc}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 3, letterSpacing: '-0.1px' }}>{f.label}</div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.45 }}>{f.desc}</div>
             </motion.div>
           ))}
         </div>
+
+        {/* How it works */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.28 }} style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: isDark ? 'rgba(180,180,210,0.4)' : 'rgba(60,50,100,0.38)', marginBottom: 10 }}>HOW IT WORKS</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[
+              { n: '01', title: 'Capture', desc: 'Save URLs, PDFs, notes or voice in one click', color: '#6366f1' },
+              { n: '02', title: 'AI Processes', desc: 'Agents index, tag and link it to your knowledge graph', color: '#9333ea' },
+              { n: '03', title: 'Recall Instantly', desc: 'Ask anything — get precise answers from your own data', color: '#ec4899' },
+            ].map((step, i) => (
+              <div key={step.n} style={{ display: 'flex', gap: 12, position: 'relative' }}>
+                {/* Line connector */}
+                {i < 2 && <div style={{ position: 'absolute', left: 15, top: 30, width: 1, height: 'calc(100% - 4px)', background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.12)' }} />}
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${step.color}18`, border: `1.5px solid ${step.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 9, fontWeight: 800, color: step.color, letterSpacing: '0.5px', zIndex: 1 }}>{step.n}</div>
+                <div style={{ paddingBottom: i < 2 ? 14 : 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#e8e8ff' : '#1a1040', marginBottom: 2 }}>{step.title}</div>
+                  <div style={{ fontSize: 10, color: isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.48)', lineHeight: 1.4 }}>{step.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Rotating testimonial */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.32 }}
@@ -3637,7 +3683,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
       </div>
 
       {/* ── Right panel — auth form ───────────────────────────────── */}
-      <div className="sidebar-nav" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', zIndex: 1, overflowY: 'auto' }}>
+      <div className="sidebar-nav" style={{ flex: 1, position: 'relative', zIndex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
 
         {/* Mobile logo (hidden on lg) */}
         <motion.div className="flex lg:hidden" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -3790,7 +3837,9 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         <div className="flex lg:hidden" style={{ marginTop: 18, color: isDark ? 'rgba(160,160,190,0.35)' : 'rgba(60,50,100,0.35)', fontSize: 10.5, textAlign: 'center' }}>
           Gen AI Academy APAC 2026 · Recall X247
         </div>
-      </div>
+
+        </div>{/* end inner centering wrapper */}
+      </div>{/* end right panel */}
 
       </div>{/* end inner content row */}
     </div>
