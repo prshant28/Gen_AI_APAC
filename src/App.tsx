@@ -3321,7 +3321,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: isDark ? '#080b12' : '#f0f1ff', display: 'flex', fontFamily: "'Poppins', system-ui, sans-serif", position: 'relative', overflow: 'hidden' }}>
 
       {/* ── Animated particle field ──────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
@@ -3342,11 +3342,11 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
       </div>
 
       {/* ── Left panel — feature showcase ────────────────────────── */}
-      <div className="hidden lg:flex" style={{ flex: '0 0 420px', flexDirection: 'column', padding: '40px 44px', position: 'relative', zIndex: 1 }}>
+      <div className="hidden lg:flex sidebar-nav" style={{ flex: '0 0 400px', flexDirection: 'column', padding: '28px 36px', position: 'relative', zIndex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 56 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{ position: 'relative' }}>
             <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 3, repeat: Infinity }}
               style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(99,102,241,0.45)' }}>
@@ -3362,8 +3362,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         </motion.div>
 
         {/* Hero text */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 34, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 14px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 30, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 10px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
             Your AI-Powered<br />
             <span style={{ background: 'linear-gradient(135deg,#6366f1,#9333ea,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Second Brain</span>
           </h2>
@@ -3374,7 +3374,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
 
         {/* Premium KPI bar */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}
-          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 7, marginBottom: 10 }}>
           {PREMIUM_STATS.map((stat) => (
             <div key={stat.label} style={{
               padding: '10px 9px', borderRadius: 12,
@@ -3389,25 +3389,25 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         </motion.div>
 
         {/* Feature grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {FEATURES.map((f, i) => (
             <motion.div key={f.label}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: 0.2 + i * 0.07 }}
               onMouseEnter={() => setHoveredFeature(i)} onMouseLeave={() => setHoveredFeature(null)}
               style={{
-                padding: '13px 14px', borderRadius: 14, cursor: 'default', transition: 'all 0.22s',
+                padding: '10px 12px', borderRadius: 12, cursor: 'default', transition: 'all 0.22s',
                 background: hoveredFeature === i ? `${f.color}15` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
                 border: `1px solid ${hoveredFeature === i ? f.color + '40' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.12)'}`,
                 backdropFilter: 'blur(8px)',
                 transform: hoveredFeature === i ? 'translateY(-2px)' : 'none',
                 boxShadow: hoveredFeature === i ? `0 8px 24px ${f.color}22` : 'none',
               }}>
-              <div style={{ width: 30, height: 30, borderRadius: 9, background: `${f.color}20`, border: `1px solid ${f.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                <f.icon size={14} color={f.color} />
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: `${f.color}20`, border: `1px solid ${f.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                <f.icon size={12} color={f.color} />
               </div>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 2 }}>{f.label}</div>
-              <div style={{ fontSize: 10, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.45 }}>{f.desc}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#e0e0f0' : '#1a1040', marginBottom: 2 }}>{f.label}</div>
+              <div style={{ fontSize: 9.5, color: isDark ? 'rgba(180,180,210,0.55)' : 'rgba(60,50,100,0.5)', lineHeight: 1.4 }}>{f.desc}</div>
             </motion.div>
           ))}
         </div>
@@ -3415,7 +3415,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         {/* Rotating testimonial */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.32 }}
           style={{
-            marginTop: 14, padding: '14px 14px 12px', borderRadius: 14,
+            marginTop: 10, padding: '11px 12px 10px', borderRadius: 12,
             background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)',
             border: `1px solid ${isDark ? 'rgba(129,140,248,0.28)' : 'rgba(99,102,241,0.2)'}`,
             boxShadow: '0 10px 30px rgba(99,102,241,0.12)',
@@ -3462,7 +3462,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
         </motion.div>
 
         {/* Trust badges */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
           {TRUST_BADGES.map((badge) => (
             <div key={badge} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 8px',
@@ -3479,18 +3479,18 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
 
         {/* Footer tag */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-          style={{ marginTop: 'auto', paddingTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+          style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
           <span style={{ fontSize: 11, color: isDark ? 'rgba(180,180,210,0.5)' : 'rgba(60,50,100,0.45)', letterSpacing: '0.3px' }}>Gen AI Academy APAC 2026 · Recall X247</span>
         </motion.div>
       </div>
 
       {/* ── Right panel — auth form ───────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px', position: 'relative', zIndex: 1 }}>
+      <div className="sidebar-nav" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', zIndex: 1, overflowY: 'auto' }}>
 
         {/* Mobile logo (hidden on lg) */}
         <motion.div className="flex lg:hidden" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          style={{ alignItems: 'center', gap: 10, marginBottom: 28 }}>
+          style={{ alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
             <Brain size={18} color="white" />
           </div>
@@ -3508,12 +3508,12 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
 
         {/* Card */}
         <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-          style={{ width: '100%', maxWidth: 400, background: isDark ? 'rgba(16,18,30,0.85)' : 'rgba(255,255,255,0.92)', border: `1px solid ${isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.18)'}`, borderRadius: 22, padding: '28px 26px', backdropFilter: 'blur(24px)', boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)' : '0 24px 64px rgba(99,102,241,0.12), 0 0 0 1px rgba(99,102,241,0.08)' }}>
+          style={{ width: '100%', maxWidth: 400, background: isDark ? 'rgba(16,18,30,0.85)' : 'rgba(255,255,255,0.92)', border: `1px solid ${isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.18)'}`, borderRadius: 20, padding: '22px 22px', backdropFilter: 'blur(24px)', boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)' : '0 24px 64px rgba(99,102,241,0.12), 0 0 0 1px rgba(99,102,241,0.08)' }}>
 
           {/* Headline */}
           <AnimatePresence mode="wait">
             <motion.div key={mode} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}
-              style={{ marginBottom: 22, textAlign: 'center' }}>
+              style={{ marginBottom: 16, textAlign: 'center' }}>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 5px', letterSpacing: '-0.4px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
                 {mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
               </h1>
@@ -3560,7 +3560,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {mode === 'signup' && <AuthInput label="Full Name" type="text" value={name} onChange={setName} placeholder="Jane Smith" autoComplete="name" icon={UserIcon} />}
             <AuthInput label="Email Address" type="email" value={email} onChange={setEmail} placeholder="you@example.com" autoComplete="email" icon={Mail} />
             {mode !== 'forgot' && <AuthInput label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} icon={Lock} />}
