@@ -51,7 +51,7 @@ Recall X247 is a **production-ready multi-agent AI system** built for the **Gen 
 
 <div align="center">
 
-### 🌐 [Try it Live → prshant28.github.io/Gen_AI_APAC](https://prshant28.github.io/Gen_AI_APAC/)
+### 🌐 [Try it Live → https://recall-x247-727590322606.asia-southeast1.run.app/Gen_AI_APAC](https://recall-x247-727590322606.asia-southeast1.run.app/)
 
 **Example prompts you can try:**
 ```
