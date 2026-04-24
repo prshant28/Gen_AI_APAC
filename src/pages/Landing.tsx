@@ -129,8 +129,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [chatStep, setChatStep] = useState(1);
   const [activePersona, setActivePersona] = useState(0);
 
-  const heroRef = useRef<HTMLDivElement>(null);
-  const spotRef = useRef<HTMLDivElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -145,22 +143,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Mouse spotlight in hero
-  useEffect(() => {
-    if (reduceMotion) return;
-    const hero = heroRef.current;
-    const spot = spotRef.current;
-    if (!hero || !spot) return;
-    const onMove = (e: MouseEvent) => {
-      const r = hero.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width) * 100;
-      const y = ((e.clientY - r.top) / r.height) * 100;
-      spot.style.setProperty('--mx', `${x}%`);
-      spot.style.setProperty('--my', `${y}%`);
-    };
-    hero.addEventListener('mousemove', onMove);
-    return () => hero.removeEventListener('mousemove', onMove);
-  }, [reduceMotion]);
 
   // Animate chat preview
   useEffect(() => {
@@ -278,8 +260,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
       </AnimatePresence>
 
       {/* ── HERO ─────────────────────────────────────────────────── */}
-      <section className="lx-hero" ref={heroRef}>
-        <div className="lx-hero-spot" ref={spotRef} />
+      <section className="lx-hero">
         <div className="lx-hero-inner">
           <motion.div
             className="lx-eyebrow"

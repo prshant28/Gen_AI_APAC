@@ -349,16 +349,6 @@
     margin: 0 auto;
   }
 
-  .lx-hero-spot {
-    --mx: 50%;
-    --my: 30%;
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(circle 460px at var(--mx) var(--my), rgba(167, 139, 250, 0.18), transparent 70%);
-    transition: background 0.2s ease;
-    z-index: 0;
-  }
 
   .lx-hero-inner {
     position: relative;
