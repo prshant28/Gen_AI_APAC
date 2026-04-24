@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import keyholeImg from '@/src/assets/login-keyhole.png';
 import x247Logo from '@/src/assets/x247-logo.png';
+import auraImg from '@/src/assets/login-aura.png';
 
 type AuthFns = {
   onGoogleSignIn: () => Promise<any>;
@@ -96,6 +97,8 @@ export default function Login({
   return (
     <div className="lg-page">
       <div className="lg-box">
+        <img src={auraImg} alt="" className="lg-box-aura" aria-hidden="true" draggable={false} />
+
         <button
           type="button"
           onClick={() => navigate('/')}

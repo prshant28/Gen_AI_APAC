@@ -1794,10 +1794,11 @@
   /* ── BOX LEFT (form column) ─────────────────────────────── */
   .lg-box-left {
     position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 64px 36px 28px;
+    padding: 64px 40px 28px;
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
@@ -1806,6 +1807,7 @@
   /* ── BOX RIGHT (visual column) ──────────────────────────── */
   .lg-box-right {
     position: relative;
+    z-index: 2;
     overflow: hidden;
     background: #050608;
     border-left: 1px solid rgba(255, 255, 255, 0.05);
@@ -1814,19 +1816,37 @@
   /* ── Corner brand logo (bottom-right of BOX) ────────────── */
   .lg-corner-logo {
     position: absolute;
-    bottom: 18px;
+    bottom: 16px;
     right: 18px;
-    width: 64px;
+    width: 42px;
     height: auto;
-    opacity: 0.55;
-    filter: brightness(1.5) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+    opacity: 0.5;
+    filter: brightness(1.6) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
     z-index: 5;
     transition: opacity 0.25s ease;
   }
-  .lg-box:hover .lg-corner-logo { opacity: 0.75; }
+  .lg-box:hover .lg-corner-logo { opacity: 0.72; }
+
+  /* Ambient purple aura backdrop image inside the box */
+  .lg-box-aura {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: left center;
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    z-index: 0;
+    -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0) 100%);
+            mask-image: linear-gradient(90deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0) 100%);
+  }
 
   .lg-home-btn {
     position: absolute;
@@ -1867,41 +1887,44 @@
   .lg-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font-size: 10.5px;
+    gap: 8px;
+    font-family: 'Geist', 'Inter', sans-serif;
+    font-size: 10px;
     font-weight: 600;
-    color: #8a93a8;
-    letter-spacing: 0.12em;
+    color: #9aa3b8;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
   }
   .lg-eyebrow-dot {
     width: 5px; height: 5px;
     border-radius: 50%;
     background: #a78bfa;
-    box-shadow: 0 0 8px #a78bfa;
+    box-shadow: 0 0 10px #a78bfa, 0 0 2px #c4b5fd;
   }
 
   .lg-heading {
-    margin: -4px 0 0;
-    font-family: 'Instrument Serif', 'Times New Roman', serif;
+    margin: -2px 0 0;
+    font-family: 'Instrument Serif', 'Cormorant Garamond', 'Times New Roman', serif;
     font-style: italic;
-    font-size: 38px;
+    font-size: 50px;
     font-weight: 400;
-    letter-spacing: -0.01em;
-    line-height: 1.05;
+    letter-spacing: -0.018em;
+    line-height: 1.0;
     color: #f4f6fb;
-    background: linear-gradient(180deg, #f4f6fb 0%, #c4c8d4 100%);
+    background: linear-gradient(170deg, #ffffff 0%, #e9ebf2 38%, #b8bdcc 100%);
     -webkit-background-clip: text;
             background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
   }
   .lg-sub {
-    margin: 2px 0 0;
+    margin: 6px 0 0;
     font-family: 'Geist', 'Inter', sans-serif;
     font-size: 13.5px;
     font-weight: 400;
     color: #8a93a8;
-    line-height: 1.5;
-    letter-spacing: -0.005em;
+    line-height: 1.55;
+    letter-spacing: -0.003em;
   }
 
   /* Google */
@@ -2212,9 +2235,9 @@
     }
     .lg-box-left { padding: 22px 22px 18px; order: 1; }
     .lg-box-right { order: 2; border-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.05); }
-    .lg-corner-logo { width: 48px; bottom: 12px; right: 12px; }
+    .lg-corner-logo { width: 36px; bottom: 12px; right: 12px; }
     .lg-home-btn { top: 14px; left: 14px; }
-    .lg-heading { font-size: 30px; }
+    .lg-heading { font-size: 38px; }
   }
 
   /* ── REDUCED MOTION ─────────────────────────────────────── */
