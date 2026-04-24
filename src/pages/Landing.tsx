@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import {
-  Brain, Sparkles, ArrowRight, Zap, Shield, Cpu, Search,
-  Calendar, BarChart3, MessageSquare, Layers, Lock, Globe,
+  Brain, Sparkles, ArrowRight, ArrowLeft, Shield, Cpu, Search,
+  Calendar, Layers,
   Star, Check, ChevronRight, Play, Github, Twitter, Linkedin,
-  Menu, X, Sun, Moon, FileText, Youtube, Network, BookOpen, Mic, Clock,
+  Menu, X, Sun, Moon, FileText, Network, BookOpen,
+  Activity, Database, Workflow, Headphones,
+  Plus, Minus, Quote,
 } from 'lucide-react';
 
 type LandingProps = {
@@ -14,28 +16,20 @@ type LandingProps = {
 };
 
 const AGENTS = [
-  { icon: Layers, name: 'Orchestrator', desc: 'Routes requests to the right agents in real time', color: '#8b5cf6' },
-  { icon: FileText, name: 'Capture Agent', desc: 'Captures from YouTube, web, PDFs, voice & notes', color: '#06b6d4' },
-  { icon: Search, name: 'Recall Agent', desc: 'Semantic search across your entire memory graph', color: '#10b981' },
-  { icon: Check, name: 'Task Agent', desc: 'Turns insights into prioritized action items', color: '#f59e0b' },
-  { icon: Calendar, name: 'Calendar Agent', desc: 'Schedules deep work and study sessions', color: '#ec4899' },
-  { icon: MessageSquare, name: 'Briefing Agent', desc: 'Personalized AI summaries every morning', color: '#6366f1' },
-  { icon: BarChart3, name: 'Analytics Agent', desc: 'Tracks patterns in how you learn and think', color: '#ef4444' },
+  { icon: Layers, name: 'Orchestrator', role: 'Routes intent in real time', desc: 'Picks the right specialist agent for every query and streams the answer back fast.', accent: '#a78bfa' },
+  { icon: FileText, name: 'Capture Agent', role: 'Universal ingestion', desc: 'YouTube, web, PDFs, voice notes — turned into clean, searchable knowledge.', accent: '#22d3ee' },
+  { icon: Search, name: 'Recall Agent', role: 'Semantic memory', desc: 'Vector search across everything you ever captured. Finds meaning, not keywords.', accent: '#34d399' },
+  { icon: Network, name: 'Graph Agent', role: 'Living knowledge graph', desc: 'Auto-links ideas, people, projects. Watch your second brain wire itself.', accent: '#f472b6' },
+  { icon: Calendar, name: 'Planner Agent', role: 'Time + tasks', desc: 'Turns insights into prioritized work, schedules deep-work blocks for you.', accent: '#fbbf24' },
 ];
 
 const FEATURES = [
-  { icon: Brain, title: 'Semantic Recall', desc: 'Find anything you ever captured by meaning, not keywords. Powered by vector embeddings.' },
-  { icon: Cpu, title: '7 Specialist Agents', desc: 'A multi-agent system orchestrates capture, recall, planning, and briefings for you.' },
-  { icon: Network, title: 'Knowledge Graph', desc: 'Your ideas auto-link into a living graph that grows smarter with every memory.' },
-  { icon: Youtube, title: 'Universal Capture', desc: 'YouTube transcripts, web pages, PDFs, voice notes — all become searchable knowledge.' },
-  { icon: BookOpen, title: 'Daily Briefings', desc: 'Wake up to an AI-curated summary of what matters most across your second brain.' },
-  { icon: Shield, title: 'Privacy First', desc: 'Bank-grade auth, encryption in transit, your data is never used to train models.' },
-];
-
-const STEPS = [
-  { num: '01', title: 'Capture anything', desc: 'Drop in a YouTube link, paste text, upload a PDF, or speak. Our agents ingest and structure it instantly.' },
-  { num: '02', title: 'Let agents organize', desc: 'The Capture, Knowledge Graph and Analytics agents auto-tag, link, and embed everything for instant recall.' },
-  { num: '03', title: 'Recall & act', desc: 'Ask the Orchestrator anything. It dispatches to specialist agents, streams answers, and turns them into tasks.' },
+  { icon: Brain, title: 'Semantic Recall', desc: 'Find anything by meaning. Vector embeddings + reranking surface the right memory in milliseconds.', span: 'wide' },
+  { icon: Cpu, title: '7 Specialist Agents', desc: 'A multi-agent system orchestrates capture, recall, planning, briefings.', span: 'tall' },
+  { icon: Workflow, title: 'Live Workflows', desc: 'Chain agents into reusable flows.', span: 'normal' },
+  { icon: Database, title: 'Knowledge Graph', desc: 'Living graph of ideas, sources, people.', span: 'normal' },
+  { icon: BookOpen, title: 'Daily Briefings', desc: 'AI-curated summary every morning of what mattered yesterday and what to focus on today.', span: 'wide' },
+  { icon: Shield, title: 'Privacy First', desc: 'Encrypted in transit. Never used to train models.', span: 'normal' },
 ];
 
 const STATS = [
@@ -52,10 +46,33 @@ const TESTIMONIALS = [
 ];
 
 const FAQ = [
-  { q: 'How is this different from Notion or Mem?', a: 'Recall X247 is multi-agent first. Instead of a single chatbot or wiki, seven specialist AIs coordinate to capture, link, recall, plan, and brief you.' },
-  { q: 'Where is my data stored?', a: 'Your knowledge lives in a private graph tied to your account. Auth runs through Firebase; transit is encrypted. Your data is never used to train models.' },
+  { q: 'How is this different from Notion or Mem?', a: 'Recall X247 is multi-agent first. Instead of a single chatbot or a static wiki, seven specialist AIs coordinate to capture, link, recall, plan, and brief you continuously.' },
+  { q: 'Where is my data stored?', a: 'Your knowledge lives in a private graph tied to your account. Auth runs through Firebase; transit is encrypted. Your data is never used to train any model.' },
   { q: 'Which models power the agents?', a: 'GPT-4o-mini via OpenRouter today, with Anthropic and local-model swap-in coming soon. Each agent picks the best model for its job.' },
   { q: 'Is there a free tier?', a: 'Yes — all core capture, recall, and agent features are free forever. Premium tiers unlock advanced analytics, longer context, and team workspaces.' },
+  { q: 'Can I import from other tools?', a: 'Yes. We support Notion, Obsidian, Apple Notes, Readwise, Pocket, Roam and CSV import out of the box. More integrations land monthly.' },
+  { q: 'Does it work offline?', a: 'Capture works offline and syncs when you reconnect. Recall and agent features need a live connection for inference.' },
+];
+
+const COMPARE_ROWS: Array<{ label: string; recall: string | boolean; notion: string | boolean; mem: string | boolean }> = [
+  { label: 'Multi-agent orchestration', recall: '7 specialist agents', notion: false, mem: 'Single AI' },
+  { label: 'Semantic recall', recall: true, notion: 'Limited', mem: true },
+  { label: 'Living knowledge graph', recall: true, notion: false, mem: false },
+  { label: 'YouTube + audio capture', recall: true, notion: false, mem: false },
+  { label: 'Daily AI briefings', recall: true, notion: false, mem: 'Beta' },
+  { label: 'Open model architecture', recall: true, notion: false, mem: false },
+];
+
+const INTEGRATIONS = [
+  'OpenAI', 'Anthropic', 'Notion', 'YouTube', 'Slack', 'Linear', 'Gmail', 'Google Drive', 'Obsidian', 'GitHub', 'Readwise', 'Stripe',
+];
+
+const ACTIVITY = [
+  { icon: FileText, text: 'Capture Agent ingested a 47-min lecture', time: '2s ago', color: '#22d3ee' },
+  { icon: Network, text: 'Graph Agent linked 12 new concepts', time: '8s ago', color: '#f472b6' },
+  { icon: Search, text: 'Recall served “2024 GTM playbook”', time: '14s ago', color: '#34d399' },
+  { icon: Calendar, text: 'Planner scheduled deep-work block', time: '22s ago', color: '#fbbf24' },
+  { icon: BookOpen, text: 'Daily briefing delivered to Maya', time: '31s ago', color: '#a78bfa' },
 ];
 
 export default function Landing({ navigate, isDark, toggleTheme }: LandingProps) {
@@ -63,469 +80,542 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [scrolled, setScrolled] = useState(false);
-  const heroRef = useRef<HTMLDivElement>(null);
+  const [agentSlide, setAgentSlide] = useState(0);
 
   const { scrollY } = useScroll();
-  const heroOpacity = useTransform(scrollY, [0, 400], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 400], [1, 0.95]);
+  const heroParallax = useTransform(scrollY, [0, 600], [0, -80]);
+  const heroOpacity = useTransform(scrollY, [0, 500], [1, 0.4]);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setActiveTestimonial(i => (i + 1) % TESTIMONIALS.length), 6000);
-    return () => clearInterval(id);
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mq.matches) return;
+    const t = setInterval(() => setActiveTestimonial(i => (i + 1) % TESTIMONIALS.length), 6500);
+    return () => clearInterval(t);
   }, []);
 
+  const nextAgent = () => setAgentSlide(i => (i + 1) % AGENTS.length);
+  const prevAgent = () => setAgentSlide(i => (i - 1 + AGENTS.length) % AGENTS.length);
+
   return (
-    <div className="landing-page">
+    <div className="lx-shell">
       {/* Background layers */}
-      <div className="landing-bg" aria-hidden="true">
-        <div className="landing-bg-grid" />
-        <div className="landing-bg-glow landing-bg-glow-1" />
-        <div className="landing-bg-glow landing-bg-glow-2" />
-        <div className="landing-bg-glow landing-bg-glow-3" />
-        <div className="landing-bg-grain" />
+      <div className="lx-bg">
+        <div className="lx-bg-vignette" />
+        <div className="lx-bg-grid" />
+        <div className="lx-bg-orb lx-bg-orb-1" />
+        <div className="lx-bg-orb lx-bg-orb-2" />
+        <div className="lx-bg-orb lx-bg-orb-3" />
+        <div className="lx-bg-noise" />
       </div>
 
-      {/* Navbar */}
-      <header className={`landing-nav ${scrolled ? 'is-scrolled' : ''}`}>
-        <div className="landing-nav-inner">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="landing-nav-logo">
-            <div className="landing-nav-logo-mark">
-              <Brain size={18} />
-            </div>
-            <div className="landing-nav-logo-text">
-              <span className="landing-nav-logo-name">Recall<span className="landing-nav-logo-x">X247</span></span>
-              <span className="landing-nav-logo-sub">NEURAL OS · v3.0</span>
-            </div>
+      {/* ── NAV ──────────────────────────────────────────────────────── */}
+      <header className={`lx-nav ${scrolled ? 'lx-nav-scrolled' : ''}`}>
+        <div className="lx-nav-inner">
+          <button
+            className="lx-nav-menu-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
           </button>
 
-          <nav className="landing-nav-links">
-            <a href="#platform">Platform</a>
-            <a href="#agents">Agents</a>
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#faq">FAQ</a>
+          <button className="lx-nav-logo" onClick={() => navigate('/')} aria-label="Recall X247 home">
+            <span className="lx-nav-logo-mark">
+              <Brain size={16} strokeWidth={2.4} />
+            </span>
+            <span className="lx-nav-logo-text">
+              recall<span className="lx-nav-logo-x">×247</span>
+            </span>
+          </button>
+
+          <nav className="lx-nav-links">
+            <a href="#agents" className="lx-nav-link">Agents</a>
+            <a href="#features" className="lx-nav-link">Platform</a>
+            <a href="#pricing" className="lx-nav-link">Pricing</a>
+            <a href="#faq" className="lx-nav-link">FAQ</a>
           </nav>
 
-          <div className="landing-nav-actions">
-            <button onClick={toggleTheme} className="landing-nav-theme" aria-label="Toggle theme">
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          <div className="lx-nav-actions">
+            <button onClick={toggleTheme} className="lx-icon-btn" aria-label="Toggle theme">
+              {isDark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <button onClick={() => navigate('/login')} className="landing-nav-signin">Sign in</button>
-            <button onClick={() => navigate('/login?mode=signup')} className="landing-nav-cta">
+            <button onClick={() => navigate('/login')} className="lx-pill-ghost lx-nav-signin">
+              Sign in
+            </button>
+            <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-primary">
               <span>Get Started</span>
               <ArrowRight size={14} />
-            </button>
-            <button onClick={() => setMobileMenuOpen(true)} className="landing-nav-burger" aria-label="Menu">
-              <Menu size={20} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile menu */}
+      {/* Mobile menu overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="landing-mobile-menu"
+            className="lx-mobile-menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            <button onClick={() => setMobileMenuOpen(false)} className="landing-mobile-close" aria-label="Close">
-              <X size={24} />
+            <button className="lx-mobile-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+              <X size={20} />
             </button>
-            {['platform', 'agents', 'features', 'pricing', 'faq'].map(s => (
-              <a key={s} href={`#${s}`} onClick={() => setMobileMenuOpen(false)}>{s}</a>
-            ))}
-            <button onClick={() => { setMobileMenuOpen(false); navigate('/login'); }} className="landing-mobile-cta">
-              Sign in
-            </button>
-            <button onClick={() => { setMobileMenuOpen(false); navigate('/login?mode=signup'); }} className="landing-nav-cta">
-              <span>Get Started</span><ArrowRight size={14} />
-            </button>
+            <nav className="lx-mobile-links">
+              <a href="#agents" onClick={() => setMobileMenuOpen(false)}>Agents</a>
+              <a href="#features" onClick={() => setMobileMenuOpen(false)}>Platform</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
+            </nav>
+            <div className="lx-mobile-cta">
+              <button onClick={() => { setMobileMenuOpen(false); navigate('/login'); }} className="lx-pill-ghost">Sign in</button>
+              <button onClick={() => { setMobileMenuOpen(false); navigate('/login?mode=signup'); }} className="lx-pill-primary">
+                <span>Get Started</span><ArrowRight size={14} />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* HERO */}
-      <motion.section
-        ref={heroRef}
-        style={{ opacity: heroOpacity, scale: heroScale }}
-        className="landing-hero"
-        id="platform"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="landing-hero-eyebrow"
-        >
-          <span className="landing-hero-eyebrow-dot" />
-          <span>Neural AI v3.0 — Now live with multi-agent workflows</span>
-          <ChevronRight size={14} />
-        </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1 }}
-          className="landing-hero-title"
-        >
-          Your AI-powered
-          <br />
-          <span className="landing-hero-title-grad">Second Brain</span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25 }}
-          className="landing-hero-sub"
-        >
-          Capture anything. Recall instantly. A team of seven specialist AI agents
-          quietly organizes your knowledge so you can think clearer, decide faster,
-          and never lose an idea again.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.4 }}
-          className="landing-hero-actions"
-        >
-          <button onClick={() => navigate('/login?mode=signup')} className="landing-cta-primary group">
-            <span className="landing-cta-shine" />
-            <span className="relative z-[2]">Start free</span>
-            <ArrowRight size={16} className="relative z-[2] landing-cta-arrow" />
-          </button>
-          <button onClick={() => navigate('/login')} className="landing-cta-secondary">
-            <Play size={14} fill="currentColor" />
-            <span>Watch demo</span>
-          </button>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.55 }}
-          className="landing-hero-trust"
-        >
-          <div className="landing-hero-trust-avatars">
-            {['P','D','A','S','R'].map((c, i) => (
-              <div key={c} className="landing-hero-trust-avatar" style={{
-                background: `linear-gradient(135deg, ${['#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][i]}, ${['#6366f1','#0891b2','#059669','#d97706','#db2777'][i]})`,
-                zIndex: 5 - i,
-              }}>{c}</div>
-            ))}
-          </div>
-          <div className="landing-hero-trust-text">
-            <div className="landing-hero-trust-stars">
-              {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
-            </div>
-            <span>2,400+ professionals · trusted by founders & operators</span>
-          </div>
-        </motion.div>
-
-        {/* Hero visual: floating agent cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, delay: 0.7 }}
-          className="landing-hero-visual"
-        >
-          <div className="landing-hero-orbital">
-            <div className="landing-hero-core">
-              <Brain size={48} />
-              <div className="landing-hero-core-glow" />
-            </div>
-
-            {AGENTS.slice(0, 7).map((agent, i) => {
-              const angle = (i / 7) * Math.PI * 2 - Math.PI / 2;
-              const radius = 220;
-              const x = Math.cos(angle) * radius;
-              const y = Math.sin(angle) * radius;
-              const Icon = agent.icon;
-              return (
-                <motion.div
-                  key={agent.name}
-                  className="landing-hero-agent"
-                  style={{
-                    left: `calc(50% + ${x}px - 28px)`,
-                    top: `calc(50% + ${y}px - 28px)`,
-                    boxShadow: `0 0 40px ${agent.color}33, 0 0 0 1px ${agent.color}55`,
-                  }}
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3 + i * 0.3, repeat: Infinity, ease: 'easeInOut', delay: i * 0.2 }}
-                >
-                  <Icon size={20} style={{ color: agent.color }} />
-                </motion.div>
-              );
-            })}
-
-            {/* Connection lines (SVG) */}
-            <svg className="landing-hero-lines" viewBox="-300 -300 600 600">
-              {AGENTS.slice(0, 7).map((_, i) => {
-                const angle = (i / 7) * Math.PI * 2 - Math.PI / 2;
-                const x = Math.cos(angle) * 220;
-                const y = Math.sin(angle) * 220;
+      {/* ── HERO ─────────────────────────────────────────────────────── */}
+      <section className="lx-hero">
+        <motion.div className="lx-hero-card" style={{ y: heroParallax, opacity: heroOpacity }}>
+          {/* Animated dashboard preview inside the hero card */}
+          <div className="lx-hero-preview">
+            <div className="lx-hero-preview-glow" />
+            <div className="lx-hero-preview-grid" />
+            {/* Orbital agents */}
+            <div className="lx-orbital">
+              <div className="lx-orbital-core">
+                <Brain size={32} strokeWidth={1.6} />
+              </div>
+              <div className="lx-orbital-ring lx-orbital-ring-1" />
+              <div className="lx-orbital-ring lx-orbital-ring-2" />
+              <div className="lx-orbital-ring lx-orbital-ring-3" />
+              {AGENTS.slice(0, 5).map((a, i) => {
+                const angle = (i / 5) * 360;
+                const Icon = a.icon;
                 return (
-                  <line key={i} x1="0" y1="0" x2={x} y2={y}
-                    stroke="url(#linegrad)" strokeWidth="1" opacity="0.35" />
+                  <motion.div
+                    key={a.name}
+                    className="lx-orbital-node"
+                    style={{
+                      transform: `rotate(${angle}deg) translateX(165px) rotate(-${angle}deg)`,
+                      ['--node-color' as any]: a.accent,
+                    }}
+                    animate={{ scale: [1, 1.06, 1] }}
+                    transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.3 }}
+                  >
+                    <Icon size={16} />
+                  </motion.div>
                 );
               })}
-              <defs>
-                <linearGradient id="linegrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.6" />
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.1" />
-                </linearGradient>
-              </defs>
-            </svg>
+            </div>
+
+            {/* Floating activity cards */}
+            <motion.div
+              className="lx-hero-float lx-hero-float-tl"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 4, repeat: Infinity }}
+            >
+              <Activity size={12} />
+              <span>2,481 memories indexed today</span>
+            </motion.div>
+            <motion.div
+              className="lx-hero-float lx-hero-float-br"
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 5, repeat: Infinity }}
+            >
+              <Sparkles size={12} />
+              <span>Briefing ready · 06:30</span>
+            </motion.div>
           </div>
         </motion.div>
-      </motion.section>
 
-      {/* LOGOS / TRUST STRIP */}
-      <section className="landing-strip">
-        <div className="landing-strip-label">Trusted by teams shipping at</div>
-        <div className="landing-strip-logos">
-          {['STRIPE', 'VERCEL', 'LINEAR', 'NOTION', 'FIGMA', 'GITHUB'].map(b => (
-            <div key={b} className="landing-strip-logo">{b}</div>
-          ))}
+        <div className="lx-hero-content">
+          <motion.div
+            className="lx-eyebrow"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="lx-eyebrow-dot" />
+            <span>Neural OS · v3.0 — multi-agent workflows live</span>
+            <ChevronRight size={12} />
+          </motion.div>
+
+          <motion.h1
+            className="lx-hero-title"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.05 }}
+          >
+            <span className="lx-hero-title-line">Your second brain,</span>
+            <span className="lx-hero-title-line lx-hero-title-grad">always on.</span>
+          </motion.h1>
+
+          <motion.p
+            className="lx-hero-sub"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15 }}
+          >
+            Capture anything. Recall instantly. A team of seven specialist AI agents
+            quietly organizes your knowledge so you can think clearer, decide faster,
+            and never lose an idea again.
+          </motion.p>
+
+          <motion.div
+            className="lx-hero-ctas"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.25 }}
+          >
+            <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-primary lx-pill-lg">
+              <span>Start free</span>
+              <ArrowRight size={15} />
+            </button>
+            <button onClick={() => navigate('/login')} className="lx-pill-ghost lx-pill-lg">
+              <Play size={13} fill="currentColor" />
+              <span>Watch demo</span>
+            </button>
+          </motion.div>
+
+          <motion.div
+            className="lx-hero-trust"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.4 }}
+          >
+            <div className="lx-trust-avatars">
+              {['P', 'D', 'A', 'S', 'R'].map((l, i) => (
+                <div key={l} className="lx-trust-avatar" style={{ ['--i' as any]: i }}>{l}</div>
+              ))}
+            </div>
+            <div className="lx-trust-meta">
+              <div className="lx-trust-stars">
+                {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={11} fill="#fbbf24" stroke="none" />)}
+              </div>
+              <div className="lx-trust-text">2,400+ professionals · trusted by founders & operators</div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* MULTI-AGENT SECTION */}
-      <section id="agents" className="landing-section">
-        <SectionHeader
-          eyebrow="MULTI-AGENT ARCHITECTURE"
-          title={<>Seven specialist AIs<br /><span className="landing-section-grad">working in concert</span></>}
-          sub="Instead of a single overloaded chatbot, Recall X247 dispatches your requests to seven purpose-built agents — each tuned to do one thing exceptionally well."
-        />
+      {/* ── INTEGRATIONS MARQUEE ─────────────────────────────────────── */}
+      <section className="lx-marquee-section">
+        <div className="lx-marquee-label">
+          <span className="lx-eyebrow-dot" />
+          Connects with the tools you already use
+        </div>
+        <div className="lx-marquee">
+          <div className="lx-marquee-track">
+            {[...INTEGRATIONS, ...INTEGRATIONS].map((name, i) => (
+              <div key={i} className="lx-marquee-item">{name}</div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        <div className="landing-agents-grid">
-          {AGENTS.map((agent, i) => {
-            const Icon = agent.icon;
-            return (
+      {/* ── AGENTS CAROUSEL ──────────────────────────────────────────── */}
+      <section id="agents" className="lx-section">
+        <div className="lx-carousel-card">
+          <div className="lx-carousel-header">
+            <div className="lx-eyebrow">
+              <span className="lx-eyebrow-dot" />
+              Meet the agents
+            </div>
+            <div className="lx-carousel-count">
+              {String(agentSlide + 1).padStart(2, '0')} <span>/ {String(AGENTS.length).padStart(2, '0')}</span>
+            </div>
+          </div>
+
+          <div className="lx-carousel-body">
+            <AnimatePresence mode="wait">
               <motion.div
-                key={agent.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5, delay: i * 0.05 }}
-                className="landing-agent-card"
-                style={{ '--agent-color': agent.color } as any}
+                key={agentSlide}
+                className="lx-carousel-slide"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -24 }}
+                transition={{ duration: 0.45 }}
               >
-                <div className="landing-agent-icon" style={{ background: `${agent.color}1a`, color: agent.color, boxShadow: `inset 0 0 0 1px ${agent.color}33` }}>
-                  <Icon size={20} />
+                <div className="lx-carousel-text">
+                  <h3 className="lx-carousel-title">{AGENTS[agentSlide].name}</h3>
+                  <div className="lx-carousel-role">{AGENTS[agentSlide].role}</div>
+                  <p className="lx-carousel-desc">{AGENTS[agentSlide].desc}</p>
+                  <div className="lx-carousel-tags">
+                    <span className="lx-tag">Real-time</span>
+                    <span className="lx-tag">Streaming</span>
+                    <span className="lx-tag">Memory-aware</span>
+                  </div>
                 </div>
-                <h3 className="landing-agent-name">{agent.name}</h3>
-                <p className="landing-agent-desc">{agent.desc}</p>
-                <div className="landing-agent-glow" style={{ background: `radial-gradient(circle at 50% 0%, ${agent.color}33, transparent 60%)` }} />
+                <div className="lx-carousel-visual" style={{ ['--accent' as any]: AGENTS[agentSlide].accent }}>
+                  <div className="lx-carousel-visual-glow" />
+                  <div className="lx-carousel-visual-icon">
+                    {(() => { const I = AGENTS[agentSlide].icon; return <I size={64} strokeWidth={1.4} />; })()}
+                  </div>
+                  <div className="lx-carousel-visual-rings">
+                    <div /><div /><div />
+                  </div>
+                </div>
               </motion.div>
-            );
-          })}
+            </AnimatePresence>
+          </div>
+
+          <div className="lx-carousel-controls">
+            <button onClick={prevAgent} className="lx-carousel-btn" aria-label="Previous agent">
+              <ArrowLeft size={15} />
+            </button>
+            <div className="lx-carousel-dots">
+              {AGENTS.map((_, i) => (
+                <button
+                  key={i}
+                  className={`lx-carousel-dot ${i === agentSlide ? 'lx-carousel-dot-active' : ''}`}
+                  onClick={() => setAgentSlide(i)}
+                  aria-label={`Go to agent ${i + 1}`}
+                />
+              ))}
+            </div>
+            <button onClick={nextAgent} className="lx-carousel-btn" aria-label="Next agent">
+              <ArrowRight size={15} />
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section id="features" className="landing-section">
+      {/* ── BENTO FEATURES ───────────────────────────────────────────── */}
+      <section id="features" className="lx-section">
         <SectionHeader
-          eyebrow="WHAT YOU GET"
-          title={<>Everything a knowledge worker<br /><span className="landing-section-grad">actually needs</span></>}
-          sub="Not another note-taker. A complete operating system for your second brain — capture, recall, plan, and ship."
+          eyebrow="Platform"
+          title={<>Built for <span className="lx-grad-silver">deep work.</span></>}
+          sub="Every surface is designed to help you think — not to demand more of your attention."
         />
-
-        <div className="landing-features-grid">
+        <div className="lx-bento">
           {FEATURES.map((f, i) => {
             const Icon = f.icon;
             return (
               <motion.div
                 key={f.title}
-                initial={{ opacity: 0, y: 30 }}
+                className={`lx-bento-card lx-bento-${f.span}`}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5, delay: i * 0.07 }}
-                className="landing-feature-card"
+                transition={{ duration: 0.5, delay: i * 0.06 }}
               >
-                <div className="landing-feature-icon">
-                  <Icon size={20} />
+                <div className="lx-bento-icon">
+                  <Icon size={18} />
                 </div>
-                <h3 className="landing-feature-title">{f.title}</h3>
-                <p className="landing-feature-desc">{f.desc}</p>
+                <div className="lx-bento-title">{f.title}</div>
+                <div className="lx-bento-desc">{f.desc}</div>
+                <div className="lx-bento-shine" />
               </motion.div>
             );
           })}
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="landing-section">
-        <SectionHeader
-          eyebrow="HOW IT WORKS"
-          title={<>From scattered notes to<br /><span className="landing-section-grad">a living memory in 3 steps</span></>}
-        />
+      {/* ── LIVE ACTIVITY ────────────────────────────────────────────── */}
+      <section className="lx-section">
+        <div className="lx-activity-wrap">
+          <div className="lx-activity-text">
+            <SectionHeader
+              eyebrow="Live now"
+              title={<>Your second brain is <span className="lx-grad-silver">always working.</span></>}
+              sub="While you focus, agents quietly capture, link, recall and plan in the background."
+              align="left"
+            />
+            <div className="lx-stats-row">
+              {STATS.map(s => (
+                <div key={s.label} className="lx-stat">
+                  <div className="lx-stat-value">{s.value}</div>
+                  <div className="lx-stat-label">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="lx-activity-feed">
+            <div className="lx-activity-header">
+              <div className="lx-activity-dot" />
+              <span>Live activity</span>
+            </div>
+            <div className="lx-activity-list">
+              {ACTIVITY.map((a, i) => {
+                const Icon = a.icon;
+                return (
+                  <motion.div
+                    key={i}
+                    className="lx-activity-item"
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.45, delay: i * 0.08 }}
+                  >
+                    <span className="lx-activity-icon" style={{ background: `${a.color}22`, color: a.color }}>
+                      <Icon size={13} />
+                    </span>
+                    <span className="lx-activity-text-line">{a.text}</span>
+                    <span className="lx-activity-time">{a.time}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div className="landing-steps">
-          {STEPS.map((step, i) => (
-            <motion.div
-              key={step.num}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: i * 0.15 }}
-              className="landing-step"
-            >
-              <div className="landing-step-num">{step.num}</div>
-              <h3 className="landing-step-title">{step.title}</h3>
-              <p className="landing-step-desc">{step.desc}</p>
-              {i < STEPS.length - 1 && <div className="landing-step-arrow"><ArrowRight size={20} /></div>}
-            </motion.div>
+      {/* ── COMPARISON TABLE ─────────────────────────────────────────── */}
+      <section className="lx-section">
+        <SectionHeader
+          eyebrow="Why Recall X247"
+          title={<>The fastest path from <span className="lx-grad-silver">capture to clarity.</span></>}
+          sub="A modern second brain that does the work, instead of asking you to organize it."
+        />
+        <div className="lx-compare-card">
+          <div className="lx-compare-row lx-compare-head">
+            <div className="lx-compare-cell">Capability</div>
+            <div className="lx-compare-cell lx-compare-mine">
+              <span className="lx-compare-mark">●</span> Recall X247
+            </div>
+            <div className="lx-compare-cell">Notion AI</div>
+            <div className="lx-compare-cell">Mem</div>
+          </div>
+          {COMPARE_ROWS.map(row => (
+            <div key={row.label} className="lx-compare-row">
+              <div className="lx-compare-cell lx-compare-label">{row.label}</div>
+              <CompareCell value={row.recall} highlight />
+              <CompareCell value={row.notion} />
+              <CompareCell value={row.mem} />
+            </div>
           ))}
         </div>
       </section>
 
-      {/* STATS */}
-      <section className="landing-stats">
-        <div className="landing-stats-grid">
-          {STATS.map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="landing-stat"
-            >
-              <div className="landing-stat-value">{s.value}</div>
-              <div className="landing-stat-label">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
-      <section className="landing-section">
+      {/* ── TESTIMONIALS ─────────────────────────────────────────────── */}
+      <section className="lx-section">
         <SectionHeader
-          eyebrow="LOVED BY THINKERS"
-          title={<>Built for the way<br /><span className="landing-section-grad">your mind actually works</span></>}
+          eyebrow="From the field"
+          title={<>Loved by people who <span className="lx-grad-silver">build & think.</span></>}
         />
-
-        <div className="landing-testimonial-wrap">
+        <div className="lx-testimonial-card">
+          <Quote className="lx-testimonial-quote-icon" size={36} />
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTestimonial}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.5 }}
-              className="landing-testimonial"
+              className="lx-testimonial-body"
             >
-              <div className="landing-testimonial-stars">
-                {[...Array(5)].map((_, i) => <Star key={i} size={16} fill="currentColor" />)}
-              </div>
-              <blockquote className="landing-testimonial-quote">
-                "{TESTIMONIALS[activeTestimonial].quote}"
-              </blockquote>
-              <div className="landing-testimonial-author">
-                <div className="landing-testimonial-avatar">{TESTIMONIALS[activeTestimonial].avatar}</div>
+              <p className="lx-testimonial-quote">{TESTIMONIALS[activeTestimonial].quote}</p>
+              <div className="lx-testimonial-meta">
+                <div className="lx-testimonial-avatar">{TESTIMONIALS[activeTestimonial].avatar}</div>
                 <div>
-                  <div className="landing-testimonial-name">{TESTIMONIALS[activeTestimonial].name}</div>
-                  <div className="landing-testimonial-role">{TESTIMONIALS[activeTestimonial].role}</div>
+                  <div className="lx-testimonial-name">{TESTIMONIALS[activeTestimonial].name}</div>
+                  <div className="lx-testimonial-role">{TESTIMONIALS[activeTestimonial].role}</div>
                 </div>
               </div>
             </motion.div>
           </AnimatePresence>
-
-          <div className="landing-testimonial-dots">
+          <div className="lx-testimonial-dots">
             {TESTIMONIALS.map((_, i) => (
               <button
                 key={i}
+                className={`lx-carousel-dot ${i === activeTestimonial ? 'lx-carousel-dot-active' : ''}`}
                 onClick={() => setActiveTestimonial(i)}
-                className={`landing-testimonial-dot ${i === activeTestimonial ? 'is-active' : ''}`}
-                aria-label={`Testimonial ${i + 1}`}
+                aria-label={`Show testimonial ${i + 1}`}
               />
             ))}
           </div>
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" className="landing-section">
+      {/* ── PRICING ──────────────────────────────────────────────────── */}
+      <section id="pricing" className="lx-section">
         <SectionHeader
-          eyebrow="PRICING"
-          title={<>Free forever for thinkers.<br /><span className="landing-section-grad">Pro for power users.</span></>}
+          eyebrow="Pricing"
+          title={<>Free to start. <span className="lx-grad-silver">Premium when ready.</span></>}
+          sub="Every plan unlocks the full multi-agent system. Pay only for scale and team features."
         />
-
-        <div className="landing-pricing-grid">
-          <div className="landing-price-card">
-            <div className="landing-price-tag">FREE</div>
-            <div className="landing-price-amount">$0<span>/forever</span></div>
-            <p className="landing-price-desc">Everything you need to build your second brain.</p>
-            <ul className="landing-price-features">
-              {['Unlimited memories', 'All 7 AI agents', 'YouTube + web + PDF capture', 'Knowledge graph', 'Daily briefings'].map(f => (
-                <li key={f}><Check size={14} /> {f}</li>
-              ))}
+        <div className="lx-price-grid">
+          <div className="lx-price-card">
+            <div className="lx-price-name">Starter</div>
+            <div className="lx-price-amount"><span>$0</span><em>/mo</em></div>
+            <div className="lx-price-tag">Forever free</div>
+            <ul className="lx-price-features">
+              <li><Check size={13} /> All 7 agents included</li>
+              <li><Check size={13} /> 1 GB knowledge graph</li>
+              <li><Check size={13} /> 500 captures / month</li>
+              <li><Check size={13} /> Daily AI briefings</li>
+              <li><Check size={13} /> Community support</li>
             </ul>
-            <button onClick={() => navigate('/login?mode=signup')} className="landing-price-btn">
-              Get started free
-            </button>
+            <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-ghost lx-pill-block">Get started</button>
           </div>
 
-          <div className="landing-price-card landing-price-featured">
-            <div className="landing-price-badge">POPULAR</div>
-            <div className="landing-price-tag">PRO</div>
-            <div className="landing-price-amount">$12<span>/month</span></div>
-            <p className="landing-price-desc">For serious knowledge workers and researchers.</p>
-            <ul className="landing-price-features">
-              {['Everything in Free', 'Advanced analytics', 'Long context (1M tokens)', 'Priority models (Claude / GPT-4o)', 'Calendar integrations', 'Voice capture'].map(f => (
-                <li key={f}><Check size={14} /> {f}</li>
-              ))}
+          <div className="lx-price-card lx-price-card-feature">
+            <div className="lx-price-badge">Most popular</div>
+            <div className="lx-price-name">Pro</div>
+            <div className="lx-price-amount"><span>$19</span><em>/mo</em></div>
+            <div className="lx-price-tag">Best for serious thinkers</div>
+            <ul className="lx-price-features">
+              <li><Check size={13} /> Unlimited captures</li>
+              <li><Check size={13} /> 50 GB knowledge graph</li>
+              <li><Check size={13} /> Advanced analytics</li>
+              <li><Check size={13} /> Custom agent workflows</li>
+              <li><Check size={13} /> Priority models (GPT-4o)</li>
+              <li><Check size={13} /> Priority support</li>
             </ul>
-            <button onClick={() => navigate('/login?mode=signup')} className="landing-price-btn landing-price-btn-primary">
-              <span className="landing-cta-shine" />
-              <span className="relative z-[2]">Start 14-day trial</span>
-              <ArrowRight size={14} className="relative z-[2]" />
-            </button>
+            <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-primary lx-pill-block">Start Pro trial</button>
           </div>
 
-          <div className="landing-price-card">
-            <div className="landing-price-tag">TEAMS</div>
-            <div className="landing-price-amount">Custom</div>
-            <p className="landing-price-desc">Shared workspaces for teams that think together.</p>
-            <ul className="landing-price-features">
-              {['Everything in Pro', 'Team workspaces', 'Shared knowledge graphs', 'SSO + audit logs', 'Dedicated support', 'Custom integrations'].map(f => (
-                <li key={f}><Check size={14} /> {f}</li>
-              ))}
+          <div className="lx-price-card">
+            <div className="lx-price-name">Teams</div>
+            <div className="lx-price-amount"><span>$49</span><em>/seat/mo</em></div>
+            <div className="lx-price-tag">For small high-output teams</div>
+            <ul className="lx-price-features">
+              <li><Check size={13} /> Everything in Pro</li>
+              <li><Check size={13} /> Shared knowledge graphs</li>
+              <li><Check size={13} /> Team briefings & digests</li>
+              <li><Check size={13} /> Admin & SSO controls</li>
+              <li><Check size={13} /> SOC 2 controls</li>
             </ul>
-            <button onClick={() => navigate('/login')} className="landing-price-btn">
-              Contact sales
-            </button>
+            <button onClick={() => navigate('/login')} className="lx-pill-ghost lx-pill-block">Talk to sales</button>
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="landing-section">
+      {/* ── FAQ ──────────────────────────────────────────────────────── */}
+      <section id="faq" className="lx-section">
         <SectionHeader
-          eyebrow="FREQUENTLY ASKED"
-          title={<>Questions, answered.<br /><span className="landing-section-grad">No fluff.</span></>}
+          eyebrow="FAQ"
+          title={<>Questions, <span className="lx-grad-silver">answered.</span></>}
         />
-
-        <div className="landing-faq">
-          {FAQ.map((item, i) => (
-            <div key={item.q} className={`landing-faq-item ${openFaq === i ? 'is-open' : ''}`}>
-              <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="landing-faq-q">
-                <span>{item.q}</span>
-                <ChevronRight size={18} className="landing-faq-chevron" />
+        <div className="lx-faq">
+          {FAQ.map((f, i) => (
+            <div key={i} className={`lx-faq-item ${openFaq === i ? 'lx-faq-open' : ''}`}>
+              <button className="lx-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                <span>{f.q}</span>
+                <span className="lx-faq-icon">{openFaq === i ? <Minus size={15} /> : <Plus size={15} />}</span>
               </button>
-              <AnimatePresence>
+              <AnimatePresence initial={false}>
                 {openFaq === i && (
                   <motion.div
+                    className="lx-faq-a"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="landing-faq-a-wrap"
                   >
-                    <p className="landing-faq-a">{item.a}</p>
+                    <p>{f.a}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -534,108 +624,119 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section className="landing-final-cta">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="landing-final-card"
-        >
-          <Sparkles className="landing-final-icon" size={28} />
-          <h2 className="landing-final-title">
-            Stop forgetting.<br />
-            <span className="landing-section-grad">Start recalling.</span>
-          </h2>
-          <p className="landing-final-sub">
-            Join 2,400+ founders, operators and researchers building their second brain with Recall X247.
-          </p>
-          <div className="landing-final-actions">
-            <button onClick={() => navigate('/login?mode=signup')} className="landing-cta-primary group">
-              <span className="landing-cta-shine" />
-              <span className="relative z-[2]">Get started — it's free</span>
-              <ArrowRight size={16} className="relative z-[2] landing-cta-arrow" />
-            </button>
-            <button onClick={() => navigate('/login')} className="landing-cta-secondary">
-              <span>I already have an account</span>
-            </button>
+      {/* ── FINAL CTA ────────────────────────────────────────────────── */}
+      <section className="lx-section">
+        <div className="lx-final-cta">
+          <div className="lx-final-glow" />
+          <div className="lx-final-content">
+            <h2 className="lx-final-title">
+              Stop forgetting. <span className="lx-grad-silver">Start recalling.</span>
+            </h2>
+            <p className="lx-final-sub">
+              Your second brain is one click away. Free to start, magical to use.
+            </p>
+            <div className="lx-hero-ctas">
+              <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-primary lx-pill-lg">
+                <span>Get started for free</span>
+                <ArrowRight size={15} />
+              </button>
+              <button onClick={() => navigate('/login')} className="lx-pill-ghost lx-pill-lg">
+                <span>Sign in</span>
+              </button>
+            </div>
           </div>
-          <div className="landing-final-trust">
-            <Lock size={12} /> No credit card · Free forever · Cancel anytime
-          </div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="landing-footer">
-        <div className="landing-footer-inner">
-          <div className="landing-footer-brand">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="landing-nav-logo">
-              <div className="landing-nav-logo-mark"><Brain size={18} /></div>
-              <div className="landing-nav-logo-text">
-                <span className="landing-nav-logo-name">Recall<span className="landing-nav-logo-x">X247</span></span>
-                <span className="landing-nav-logo-sub">NEURAL OS · v3.0</span>
-              </div>
+      {/* ── FOOTER ───────────────────────────────────────────────────── */}
+      <footer className="lx-footer">
+        <div className="lx-footer-top">
+          <div className="lx-footer-brand">
+            <button className="lx-nav-logo" onClick={() => navigate('/')}>
+              <span className="lx-nav-logo-mark"><Brain size={16} strokeWidth={2.4} /></span>
+              <span className="lx-nav-logo-text">recall<span className="lx-nav-logo-x">×247</span></span>
             </button>
-            <p className="landing-footer-tagline">
-              Your AI-powered second brain. Capture anything, recall instantly, ship faster.
-            </p>
-            <div className="landing-footer-socials">
-              <a href="#" aria-label="GitHub"><Github size={16} /></a>
-              <a href="#" aria-label="Twitter"><Twitter size={16} /></a>
-              <a href="#" aria-label="LinkedIn"><Linkedin size={16} /></a>
+            <p className="lx-footer-tag">Your AI-powered second brain. Multi-agent. Always on.</p>
+            <div className="lx-footer-social">
+              <a href="#" aria-label="Twitter"><Twitter size={15} /></a>
+              <a href="#" aria-label="GitHub"><Github size={15} /></a>
+              <a href="#" aria-label="LinkedIn"><Linkedin size={15} /></a>
             </div>
           </div>
-
-          <div className="landing-footer-cols">
+          <div className="lx-footer-cols">
             <div>
-              <div className="landing-footer-h">Product</div>
-              <a href="#platform">Platform</a>
+              <h5>Product</h5>
               <a href="#agents">Agents</a>
-              <a href="#features">Features</a>
+              <a href="#features">Platform</a>
               <a href="#pricing">Pricing</a>
+              <a href="#">Changelog</a>
             </div>
             <div>
-              <div className="landing-footer-h">Company</div>
+              <h5>Resources</h5>
+              <a href="#">Docs</a>
+              <a href="#">API</a>
+              <a href="#">Guides</a>
+              <a href="#">Status</a>
+            </div>
+            <div>
+              <h5>Company</h5>
               <a href="#">About</a>
-              <a href="#">Careers</a>
               <a href="#">Blog</a>
+              <a href="#">Careers</a>
               <a href="#">Contact</a>
             </div>
             <div>
-              <div className="landing-footer-h">Resources</div>
-              <a href="#faq">FAQ</a>
-              <a href="#">Docs</a>
-              <a href="#">API</a>
+              <h5>Legal</h5>
               <a href="#">Privacy</a>
+              <a href="#">Terms</a>
+              <a href="#">Security</a>
+              <a href="#">DPA</a>
             </div>
           </div>
         </div>
-        <div className="landing-footer-bottom">
-          <span>© 2026 Recall X247 · Built for Gen AI Academy APAC</span>
-          <span>Made with <Brain size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> in the cloud</span>
+        <div className="lx-footer-bottom">
+          <span>© 2026 Recall X247 Labs · All rights reserved.</span>
+          <span className="lx-footer-meta">Built for thinkers · Made on Earth 🌍</span>
         </div>
       </footer>
+
+      {/* ── FLOATING DOCK ────────────────────────────────────────────── */}
+      <div className="lx-dock">
+        <button className="lx-dock-btn" onClick={() => navigate('/login')} aria-label="Talk to us">
+          <Headphones size={16} />
+        </button>
+      </div>
     </div>
   );
 }
 
-function SectionHeader({ eyebrow, title, sub }: { eyebrow: string; title: ReactNode; sub?: string }) {
+function SectionHeader({
+  eyebrow, title, sub, align = 'center',
+}: { eyebrow: string; title: ReactNode; sub?: string; align?: 'left' | 'center' }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      className={`lx-section-header lx-section-header-${align}`}
+      initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.6 }}
-      className="landing-section-header"
     >
-      <div className="landing-section-eyebrow">
-        <span className="landing-section-eyebrow-dot" />
-        <span>{eyebrow}</span>
+      <div className="lx-eyebrow">
+        <span className="lx-eyebrow-dot" />
+        {eyebrow}
       </div>
-      <h2 className="landing-section-title">{title}</h2>
-      {sub && <p className="landing-section-sub">{sub}</p>}
+      <h2 className="lx-section-title">{title}</h2>
+      {sub && <p className="lx-section-sub">{sub}</p>}
     </motion.div>
   );
+}
+
+function CompareCell({ value, highlight }: { value: string | boolean; highlight?: boolean }) {
+  if (value === true) {
+    return <div className={`lx-compare-cell ${highlight ? 'lx-compare-mine' : ''}`}><Check size={15} className="lx-compare-yes" /></div>;
+  }
+  if (value === false) {
+    return <div className={`lx-compare-cell ${highlight ? 'lx-compare-mine' : ''}`}><X size={15} className="lx-compare-no" /></div>;
+  }
+  return <div className={`lx-compare-cell ${highlight ? 'lx-compare-mine' : ''}`}><span className="lx-compare-text">{value}</span></div>;
 }
