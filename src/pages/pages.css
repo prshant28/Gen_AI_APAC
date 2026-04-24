@@ -1766,9 +1766,9 @@
     position: relative;
     z-index: 2;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
-    padding: 64px 40px 28px;
+    padding: 72px 42px 28px;
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
@@ -1842,9 +1842,10 @@
     position: relative;
     width: 100%;
     max-width: 420px;
+    margin: auto;
     display: flex;
     flex-direction: column;
-    gap: 11px;
+    gap: 13px;
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -1857,12 +1858,12 @@
   .lg-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-family: 'Geist', 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 600;
-    color: #9aa3b8;
-    letter-spacing: 0.22em;
+    gap: 9px;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #b9c0d2;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
   }
   .lg-eyebrow-dot {
@@ -1937,21 +1938,25 @@
     background: rgba(255, 255, 255, 0.07);
   }
   .lg-divider span {
-    padding: 0 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #8a93a8;
-    letter-spacing: 0.1em;
+    padding: 0 14px;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #9aa3b8;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
   }
 
   /* Form */
   .lg-form { display: flex; flex-direction: column; gap: 10px; }
   .lg-field-group { display: flex; flex-direction: column; gap: 6px; }
   .lg-label {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #8a93a8;
-    letter-spacing: 0.12em;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #9aa3b8;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
   }
   .lg-field {
     position: relative;
@@ -2151,9 +2156,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    font-size: 12px;
     font-weight: 500;
-    color: #8a93a8;
+    color: #9aa3b8;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
   }
   .lg-trust-item svg { color: #a78bfa; opacity: 0.85; }
   .lg-trust-dot {
