@@ -95,8 +95,7 @@ export default function Login({
 
   return (
     <div className="lg-page">
-      {/* ── LEFT: simple form panel ───────────────────────── */}
-      <div className="lg-left">
+      <div className="lg-box">
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -107,6 +106,7 @@ export default function Login({
           <span>Home</span>
         </button>
 
+        <div className="lg-box-left">
         <div className="lg-form-card">
           <div className="lg-eyebrow">
             <span className="lg-eyebrow-dot" />
@@ -276,13 +276,16 @@ export default function Login({
             </div>
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* ── RIGHT: 3D padlock visual ───────────────────────── */}
-      <div className="lg-right" aria-hidden="true">
-        <img src={keyholeImg} alt="" className="lg-right-img" />
-        <img src={x247Logo} alt="" className="lg-right-watermark" draggable={false} />
-        <div className="lg-right-vignette" />
+        {/* ── RIGHT: 3D padlock visual inside the box ─────── */}
+        <div className="lg-box-right" aria-hidden="true">
+          <img src={keyholeImg} alt="" className="lg-right-img" />
+          <div className="lg-right-vignette" />
+        </div>
+
+        {/* ── Corner brand logo ───────────────────────────── */}
+        <img src={x247Logo} alt="x247 AI" className="lg-corner-logo" draggable={false} />
       </div>
     </div>
   );
