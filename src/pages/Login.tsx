@@ -111,11 +111,6 @@ export default function Login({
 
         <div className="lg-box-left">
         <div className="lg-form-card">
-          <div className="lg-eyebrow">
-            <span className="lg-eyebrow-dot" />
-            <span>{mode === 'sign-in' ? 'ACCOUNT' : 'CREATE ACCOUNT'}</span>
-          </div>
-
           <h1 className="lg-heading">
             {mode === 'sign-in' ? 'Sign in to your account' : 'Create your account'}
           </h1>
