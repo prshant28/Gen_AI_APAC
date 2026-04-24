@@ -7,8 +7,17 @@ An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackatho
 
 ## UI/UX
 - **Light/Dark theme toggle** — Moon/Sun button in header, persisted in localStorage, applies `data-theme="dark"` to `<html>` element. CSS custom properties drive all theme colors.
-- **Responsive** — Stat cards 2-col on mobile → 4-col on desktop; Agent Hub hides left panel on mobile; header collapses search + Capture text on small screens; `responsive-content` class handles padding. 
-- **Design system** — CSS custom properties: `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--border`, `--text-1`, `--text-2`, `--text-3`, `--primary`, `--primary-bg`, `--primary-dark`, `--primary-border`.
+- **Responsive** — Stat cards 2-col on mobile → 4-col on desktop; Agent Hub hides left panel on mobile; header collapses search + Capture text on small screens; `responsive-content` class handles padding.
+- **Design system** — CSS custom properties: `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--border`, `--border-2`, `--text-1`, `--text-2`, `--text-3`, `--primary`, `--primary-bg`, `--primary-dark`, `--primary-border`, `--shadow-sm/md/lg`, `--inner-glow`.
+- **Premium styling** — Glassmorphism cards, gradient button shimmer, dark mesh background, glow effects, Poppins font.
+- **Theme visibility fixes** (April 2026):
+  - Fixed all dark-mode-only views (WorkspaceView, MemoryTimeline, Analytics, KnowledgeGraph) — replaced hardcoded `#f1f5f9`/`#e2e8f0`/`#6b7280` colors with CSS vars
+  - Fixed Dashboard card inner glow (`rgba(255,255,255,0.9)`) — now theme-aware via `isDark` prop
+  - Fixed loading screen hardcoded `#f5f6fa` background → `var(--bg)`
+  - Fixed sidebar/main wrapper inner glows — theme-aware
+  - Fixed AgentHub agent name `#1e293b` → `var(--text-1)`, idle dot → `var(--border-2)`
+  - Fixed Calendar/Study Plan modals — covered by comprehensive Tailwind class overrides in CSS
+  - Upgraded `text-slate-400` dark override to proper visible value
 - **CI/CD** — `.github/workflows/deploy.yml` auto-deploys to Google Cloud Run on push to `main`.
 
 ## Multi-Agent Architecture

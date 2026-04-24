@@ -306,7 +306,7 @@ const DOMAIN_COLORS = ['#6366f1', '#9333ea', '#f472b6', '#10b981', '#f59e0b', '#
 const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
 const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
 
-const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
+const Dashboard = ({ setView, isDark }: { setView: (v: View) => void; isDark?: boolean }) => {
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<Memory[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -350,7 +350,7 @@ const Dashboard = ({ setView }: { setView: (v: View) => void }) => {
   ];
 
   const S = { // shared card styles
-    card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)', transition: 'all 0.2s' } as React.CSSProperties,
+    card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', transition: 'all 0.2s' } as React.CSSProperties,
   };
 
   return (
@@ -2103,7 +2103,7 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
     { id: 'note', label: 'Notes', color: '#10b981' },
   ];
 
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+  const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
 
   return (
     <div>
@@ -2114,8 +2114,8 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
             <GitBranch size={17} color="#f472b6" />
           </div>
           <div>
-            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Memory Timeline</h1>
-            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Chronological view of your captured knowledge</p>
+            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 700, margin: 0 }}>Memory Timeline</h1>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Chronological view of your captured knowledge</p>
           </div>
           <div style={{ marginLeft: 'auto' }}>
             <button onClick={() => setView('capture')}
@@ -2131,17 +2131,17 @@ const MemoryTimelineView = ({ setView }: { setView: (v: View) => void }) => {
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} color="#6b7280" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
-            style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+            style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {filters.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id as any)}
-              style={{ padding: '5px 12px', borderRadius: 20, border: `1px solid ${filter === f.id ? f.color + '60' : 'rgba(255,255,255,0.08)'}`, background: filter === f.id ? `${f.color}18` : 'transparent', color: filter === f.id ? f.color : '#6b7280', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+              style={{ padding: '5px 12px', borderRadius: 20, border: `1px solid ${filter === f.id ? f.color + '60' : 'var(--border)'}`, background: filter === f.id ? `${f.color}18` : 'transparent', color: filter === f.id ? f.color : 'var(--text-3)', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
               {f.label}
             </button>
           ))}
         </div>
-        <div style={{ color: '#6b7280', fontSize: 12 }}>{filtered.length} memories</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{filtered.length} memories</div>
       </div>
 
       {/* Timeline */}
@@ -2372,20 +2372,20 @@ const KnowledgeGraphView = () => {
         {/* Sidebar stats */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Domain Nodes</div>
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Domain Nodes</div>
             {domains.length > 0 ? domains.map((d: any, i: number) => (
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[i % COLORS.length], boxShadow: `0 0 6px ${COLORS[i % COLORS.length]}`, flexShrink: 0 }} />
-                <span style={{ color: '#9ca3af', fontSize: 12, flex: 1 }}>{d.name}</span>
+                <span style={{ color: 'var(--text-2)', fontSize: 12, flex: 1 }}>{d.name}</span>
                 <span style={{ color: COLORS[i % COLORS.length], fontSize: 11, fontWeight: 600 }}>{d.value}</span>
               </div>
             )) : <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>Capture memories to see graph</p>}
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Legend</div>
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Legend</div>
             {[
               { label: 'Central Hub', color: '#00d4ff', size: 12 },
               { label: 'Domain Node', color: '#8b5cf6', size: 9 },
@@ -2399,8 +2399,8 @@ const KnowledgeGraphView = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Stats</div>
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Stats</div>
             {[
               { label: 'Total Nodes', value: memories.length + ([...new Set(memories.map(m => m.domain))].length || 0) + 1 },
               { label: 'Total Edges', value: memories.length + ([...new Set(memories.map(m => m.domain))].length || 0) },
@@ -2435,7 +2435,7 @@ const AnalyticsView = () => {
     ]).then(([s, m, l, t]) => { if (s) setStats(s); setMemories(m); setLogs(l); setTasks(t); });
   }, []);
 
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+  const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
   const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b'];
   const domains = stats?.knowledge_domains ?? [];
 
@@ -2477,8 +2477,8 @@ const AnalyticsView = () => {
             <BarChart2 size={17} color="#10b981" />
           </div>
           <div>
-            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Analytics</h1>
-            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Deep insights into your knowledge patterns</p>
+            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 700, margin: 0 }}>Analytics</h1>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Deep insights into your knowledge patterns</p>
           </div>
         </div>
       </motion.div>
@@ -2620,7 +2620,7 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
     setNewTaskText(''); setShowNewTask(false);
   };
 
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
+  const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, backdropFilter: 'blur(20px)' } as React.CSSProperties;
   const projectMemories = memories.filter(m => m.domain.toLowerCase().includes(project.name.toLowerCase().split('/')[0].trim().toLowerCase()) || project.memoryIds.includes(m.id));
 
   return (
@@ -2631,8 +2631,8 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
             <Kanban size={17} color="#f59e0b" />
           </div>
           <div>
-            <h1 style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, margin: 0 }}>Workspace</h1>
-            <p style={{ color: '#4b5563', fontSize: 12, margin: 0 }}>Organize knowledge into projects</p>
+            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 700, margin: 0 }}>Workspace</h1>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Organize knowledge into projects</p>
           </div>
         </div>
       </motion.div>
@@ -2643,22 +2643,22 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
           {projects.map((p, i) => (
             <motion.button key={p.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
               onClick={() => setActiveProject(p.id)}
-              style={{ ...card, padding: '12px 14px', cursor: 'pointer', border: `1px solid ${activeProject === p.id ? p.color + '40' : 'rgba(255,255,255,0.07)'}`, background: activeProject === p.id ? `${p.color}10` : 'rgba(255,255,255,0.03)', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+              style={{ ...card, padding: '12px 14px', cursor: 'pointer', border: `1px solid ${activeProject === p.id ? p.color + '40' : 'var(--border)'}`, background: activeProject === p.id ? `${p.color}10` : 'var(--surface)', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.2s' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, boxShadow: activeProject === p.id ? `0 0 8px ${p.color}` : 'none', flexShrink: 0 }} />
-                <span style={{ color: activeProject === p.id ? '#e2e8f0' : '#9ca3af', fontSize: 13, fontWeight: activeProject === p.id ? 600 : 400 }}>{p.name}</span>
+                <span style={{ color: activeProject === p.id ? 'var(--text-1)' : 'var(--text-3)', fontSize: 13, fontWeight: activeProject === p.id ? 600 : 400 }}>{p.name}</span>
               </div>
               <div style={{ display: 'flex', gap: 6, marginLeft: 16 }}>
-                <span style={{ color: '#6b7280', fontSize: 10 }}>{p.tasks.length} tasks</span>
-                <span style={{ color: '#6b7280', fontSize: 10 }}>·</span>
-                <span style={{ color: '#6b7280', fontSize: 10 }}>{p.tasks.filter(t => t.done).length} done</span>
+                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>{p.tasks.length} tasks</span>
+                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>·</span>
+                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>{p.tasks.filter(t => t.done).length} done</span>
               </div>
             </motion.button>
           ))}
           {showNewProject ? (
             <div style={{ ...card, padding: '10px 12px' }}>
               <input autoFocus value={newProjectName} onChange={e => setNewProjectName(e.target.value)} onKeyDown={e => e.key === 'Enter' && addProject()} placeholder="Project name..."
-                style={{ width: '100%', background: 'none', border: 'none', color: '#e2e8f0', fontSize: 12, outline: 'none', fontFamily: 'inherit', marginBottom: 8 }} />
+                style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit', marginBottom: 8 }} />
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={addProject} style={{ flex: 1, padding: '5px 0', background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.3)', borderRadius: 7, color: '#00d4ff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
                 <button onClick={() => setShowNewProject(false)} style={{ flex: 1, padding: '5px 0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 7, color: '#6b7280', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
@@ -2681,52 +2681,52 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
             style={{ ...card, padding: '16px 20px', border: `1px solid ${project.color}25` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: project.color, boxShadow: `0 0 12px ${project.color}` }} />
-              <h2 style={{ color: '#f1f5f9', fontSize: 18, fontWeight: 700, margin: 0 }}>{project.name}</h2>
+              <h2 style={{ color: 'var(--text-1)', fontSize: 18, fontWeight: 700, margin: 0 }}>{project.name}</h2>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-                <span style={{ color: '#4b5563', fontSize: 11 }}>{project.tasks.filter(t => !t.done).length} pending tasks</span>
+                <span style={{ color: 'var(--text-3)', fontSize: 11 }}>{project.tasks.filter(t => !t.done).length} pending tasks</span>
                 <span style={{ color: project.color, fontSize: 11, fontWeight: 600 }}>{Math.round(project.tasks.length > 0 ? (project.tasks.filter(t => t.done).length / project.tasks.length) * 100 : 0)}% complete</span>
               </div>
             </div>
-            {project.description && <p style={{ color: '#6b7280', fontSize: 12, margin: '8px 0 0 20px' }}>{project.description}</p>}
+            {project.description && <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '8px 0 0 20px' }}>{project.description}</p>}
           </motion.div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {/* Tasks */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ ...card, padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>Tasks</div>
-                <button onClick={() => setShowNewTask(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
+                <div style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: 13 }}>Tasks</div>
+                <button onClick={() => setShowNewTask(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
                   <PlusCircle size={12} /> Add
                 </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {project.tasks.map(t => (
                   <div key={t.id} onClick={() => toggleTask(t.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'background 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)'}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : '#6b7280'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-3)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : 'var(--border-2)'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
                       {t.done && <CheckCheck size={10} color="#fff" />}
                     </div>
-                    <span style={{ color: t.done ? '#6b7280' : '#9ca3af', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>{t.text}</span>
+                    <span style={{ color: t.done ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>{t.text}</span>
                   </div>
                 ))}
                 {showNewTask && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                     <input autoFocus value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setShowNewTask(false); }}
                       placeholder="New task..."
-                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#e2e8f0', fontSize: 12, padding: '5px 9px', outline: 'none', fontFamily: 'inherit' }} />
+                      style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 12, padding: '5px 9px', outline: 'none', fontFamily: 'inherit' }} />
                   </div>
                 )}
-                {project.tasks.length === 0 && !showNewTask && <p style={{ color: '#6b7280', fontSize: 12, margin: '4px 0 0', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>}
+                {project.tasks.length === 0 && !showNewTask && <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '4px 0 0', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>}
               </div>
             </motion.div>
 
             {/* Related memories */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} style={{ ...card, padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>Related Memories</div>
-                <button onClick={() => setView('capture')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
+                <div style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: 13 }}>Related Memories</div>
+                <button onClick={() => setView('capture')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'inherit' }}>
                   <Plus size={12} /> Capture
                 </button>
               </div>
@@ -2737,13 +2737,13 @@ const WorkspaceView = ({ setView }: { setView: (v: View) => void }) => {
                     <div key={m.id} style={{ display: 'flex', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', alignItems: 'flex-start' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: clr, marginTop: 4, flexShrink: 0 }} />
                       <div>
-                        <div style={{ color: '#d1d5db', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{m.title}</div>
-                        <div style={{ color: '#6b7280', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
+                        <div style={{ color: 'var(--text-1)', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{m.title}</div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
                       </div>
                     </div>
                   );
                 })}
-                {projectMemories.length === 0 && <p style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No related memories yet</p>}
+                {projectMemories.length === 0 && <p style={{ color: 'var(--text-3)', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No related memories yet</p>}
               </div>
             </motion.div>
           </div>
@@ -2983,14 +2983,14 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                     transition: 'all 0.25s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ position: 'relative', width: 7, height: 7, flexShrink: 0 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: status === 'running' ? agent.color : status === 'done' ? '#10b981' : '#e2e8f0' }} />
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: status === 'running' ? agent.color : status === 'done' ? '#10b981' : 'var(--border-2)' }} />
                         {status === 'running' && (
                           <div style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: `1px solid ${agent.color}`, animation: 'ping 1s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.6 }} />
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: status === 'running' ? agent.color : '#1e293b', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
-                        <div style={{ color: '#94a3b8', fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.role}</div>
+                        <div style={{ color: status === 'running' ? agent.color : 'var(--text-1)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.role}</div>
                       </div>
                     </div>
                     {status === 'running' && (
@@ -3952,13 +3952,13 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div style={{ height: '100vh', width: '100%', background: '#f5f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+      <div style={{ height: '100vh', width: '100%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
         <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2.2 }}>
           <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(99,102,241,0.35)' }}>
             <Brain size={34} color="white" />
           </div>
         </motion.div>
-        <div style={{ color: '#94a3b8', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 500 }}>Initializing Neural OS...</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 500 }}>Initializing Neural OS...</div>
       </div>
     );
   }
@@ -3981,7 +3981,7 @@ export default function App() {
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: 8, gap: 8 }}>
 
       {/* Desktop Sidebar */}
-      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="hidden lg:block">
+      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="hidden lg:block">
         <Sidebar currentView={view} setView={setView} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} user={user} onSignOut={handleSignOut} />
       </div>
 
@@ -4004,7 +4004,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)' }}>
         {/* Header */}
         <header style={{
           background: 'var(--surface)',
@@ -4049,7 +4049,7 @@ export default function App() {
           <div style={{ maxWidth: 1280, margin: '0 auto', minWidth: 0 }}>
             <AnimatePresence mode="wait">
               <motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
-                {view === 'dashboard' && <Dashboard setView={setView} />}
+                {view === 'dashboard' && <Dashboard setView={setView} isDark={isDark} />}
                 {view === 'agent' && <AgentHubView setView={setView} />}
                 {view === 'capture' && <CaptureView />}
                 {view === 'vault' && <VaultView setView={setView} />}
