@@ -4,6 +4,7 @@ import {
   ShieldCheck, Sparkles, Loader2,
 } from 'lucide-react';
 import keyholeImg from '@/src/assets/login-keyhole.png';
+import x247Logo from '@/src/assets/x247-logo.png';
 
 type AuthFns = {
   onGoogleSignIn: () => Promise<any>;
@@ -280,7 +281,7 @@ export default function Login({
       {/* ── RIGHT: 3D padlock visual ───────────────────────── */}
       <div className="lg-right" aria-hidden="true">
         <img src={keyholeImg} alt="" className="lg-right-img" />
-        <div className="lg-right-watermark">X247</div>
+        <img src={x247Logo} alt="" className="lg-right-watermark" draggable={false} />
         <div className="lg-right-vignette" />
       </div>
     </div>
