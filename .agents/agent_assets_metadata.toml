@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "CCkBxIGGv2IjgBE3PfwQH"
+uri = "file://src/assets/login-keyhole.png"
+type = "image"
+title = "dark padlock keyhole"
