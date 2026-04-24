@@ -176,40 +176,16 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
       width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
-      {/* Logo + collapse toggle */}
-      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, minHeight: 56, justifyContent: isCollapsed ? 'center' : 'flex-start', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
-        <div
+      {/* Logo */}
+      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0, minHeight: 56, boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
+        <img
+          src="/x247-logo.png"
+          alt="x247 AI"
+          className="x247-logo-img"
+          draggable={false}
           onClick={() => isCollapsed && setIsCollapsed(false)}
-          title={isCollapsed ? 'Expand sidebar' : ''}
-          style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1 0%,#9333ea 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.2)', cursor: isCollapsed ? 'pointer' : 'default', transition: 'transform 0.15s', userSelect: 'none' }}
-          onMouseEnter={e => { if (isCollapsed) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.1)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
-        >
-          <Brain size={18} color="white" />
-        </div>
-        {!isCollapsed && (
-          <div style={{ overflow: 'hidden', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <img
-              src="/x247-logo.png"
-              alt="x247 AI"
-              className="x247-logo-img"
-              draggable={false}
-              style={{ height: 22, width: 'auto' }}
-            />
-            <div style={{ color: 'var(--primary)', fontSize: 8.5, letterSpacing: '1.8px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
-          </div>
-        )}
-        {!isCollapsed && (
-          <button
-            onClick={() => setIsCollapsed(true)}
-            title="Collapse sidebar"
-            style={{ padding: '5px 6px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)', zIndex: 10, position: 'relative' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
-          >
-            <ChevronLeft size={13} />
-          </button>
-        )}
+          style={{ height: isCollapsed ? 20 : 22, width: 'auto', cursor: isCollapsed ? 'pointer' : 'default' }}
+        />
       </div>
 
       {/* Status badge */}
