@@ -4,7 +4,7 @@ import {
   Brain, Sparkles, ArrowRight, ArrowLeft, Shield, Cpu, Search,
   Calendar, Layers, Star, Check, ChevronRight, Github, Twitter, Linkedin,
   Menu, X, Sun, Moon, FileText, Network, BookOpen, Activity, Database,
-  Workflow, Headphones, Plus, Minus, Quote, Mic, Youtube, Globe, Mail,
+  Workflow, Headphones, Plus, Minus, Quote, Youtube, Globe, Mail,
   Zap, Rocket, Target, Telescope, Compass, Send, MessageCircle,
   TrendingUp, Clock, Bolt, Lock, Hexagon,
 } from 'lucide-react';
@@ -469,29 +469,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
               </div>
             </div>
 
-            {/* Floating notification badges */}
-            <motion.div
-              className="lx-mock-float lx-mock-float-1"
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            >
-              <span className="lx-mock-float-icon" style={{ background: '#22d3ee22', color: '#22d3ee' }}><Mic size={11} /></span>
-              <div>
-                <div className="lx-mock-float-t">Voice memo captured</div>
-                <div className="lx-mock-float-s">Linked to "GTM playbook"</div>
-              </div>
-            </motion.div>
-            <motion.div
-              className="lx-mock-float lx-mock-float-2"
-              animate={{ y: [0, 6, 0] }}
-              transition={{ duration: 5, repeat: Infinity, delay: 1 }}
-            >
-              <span className="lx-mock-float-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}><Bolt size={11} /></span>
-              <div>
-                <div className="lx-mock-float-t">Recall · 0.3s</div>
-                <div className="lx-mock-float-s">6 memories returned</div>
-              </div>
-            </motion.div>
           </div>
         </motion.div>
       </section>
