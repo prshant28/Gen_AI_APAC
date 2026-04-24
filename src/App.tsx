@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import x247Logo from '@/src/assets/x247-logo.png';
 import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Youtube, Globe, FileText, StickyNote, Send, Loader2, Tag, Clock, ExternalLink,
@@ -3965,13 +3966,11 @@ export default function App() {
   // ── Auth gates (all hooks must be called ABOVE this line) ──────────────────
   if (authLoading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', fontFamily: "'Poppins', system-ui, sans-serif" }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(99,102,241,0.35)' }}>
-            <Brain size={26} color="white" />
-          </div>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#07080c' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+          <img src={x247Logo} alt="x247 AI" style={{ width: 'clamp(120px,15vw,180px)', height: 'auto', userSelect: 'none' }} draggable={false} />
           <div style={{ display: 'flex', gap: 6 }}>
-            {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#6366f1', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
+            {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.42)', animation: `bounce 1.1s ease-in-out ${i*0.15}s infinite` }} />)}
           </div>
         </div>
       </div>
@@ -4001,13 +4000,11 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div style={{ height: '100vh', width: '100%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
-        <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2.2 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(99,102,241,0.35)' }}>
-            <Brain size={34} color="white" />
-          </div>
-        </motion.div>
-        <div style={{ color: 'var(--text-3)', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 500 }}>Initializing Neural OS...</div>
+      <div style={{ height: '100vh', width: '100%', background: '#07080c', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 24 }}>
+        <img src={x247Logo} alt="x247 AI" style={{ width: 'clamp(120px,15vw,180px)', height: 'auto', userSelect: 'none' }} draggable={false} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.42)', animation: `bounce 1.1s ease-in-out ${i*0.15}s infinite` }} />)}
+        </div>
       </div>
     );
   }
