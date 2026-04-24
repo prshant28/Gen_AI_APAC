@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
-import { motion, useScroll, useSpring, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { useEffect, useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
+import { motion, useScroll, useSpring, AnimatePresence, useReducedMotion, useInView } from 'framer-motion';
 import {
-  Brain, Sparkles, ArrowRight, ArrowLeft, Shield, Cpu, Search,
+  Brain, Sparkles, ArrowRight, Shield, Cpu, Search,
   Calendar, Layers, Star, Check, ChevronRight, Github, Twitter, Linkedin,
   Menu, X, Sun, Moon, FileText, Network, BookOpen, Activity, Database,
-  Workflow, Headphones, Plus, Minus, Quote, Youtube, Globe, Mail,
+  Headphones, Plus, Minus, Quote, Youtube, Globe, Mail,
   Zap, Rocket, Target, Telescope, Compass, Send, MessageCircle,
-  TrendingUp, Clock, Bolt, Lock, Hexagon,
+  TrendingUp, Clock, Lock, Hexagon, Mic, Link2, BrainCircuit,
+  FlaskConical, Wifi, BarChart3,
 } from 'lucide-react';
 
 type LandingProps = {
@@ -16,6 +17,8 @@ type LandingProps = {
 };
 
 // ── DATA ─────────────────────────────────────────────────────────
+const HERO_WORDS = ['thinks with you.', 'remembers everything.', 'connects your ideas.', 'plans your week.'];
+
 const AGENTS = [
   { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#a78bfa', desc: 'Picks the right specialist for every query and streams the answer.' },
   { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#22d3ee', desc: 'YouTube, web, PDFs, voice, Slack — all turned into clean memory.' },
@@ -78,10 +81,10 @@ const PERSONAS = [
 ];
 
 const STATS = [
-  { value: '1.2M+', label: 'Memories captured' },
-  { value: '98.7%', label: 'Recall accuracy' },
-  { value: '9.4h', label: 'Saved per week' },
-  { value: '< 400ms', label: 'Avg recall time' },
+  { value: 1200000, display: '1.2M+', label: 'Memories captured', suffix: '' },
+  { value: 98.7, display: '98.7%', label: 'Recall accuracy', suffix: '%' },
+  { value: 9.4, display: '9.4h', label: 'Saved per week', suffix: 'h' },
+  { value: 400, display: '< 400ms', label: 'Avg recall time', suffix: 'ms' },
 ];
 
 const TESTIMONIALS = [
@@ -121,6 +124,52 @@ const CHAT_SCRIPT = [
   { role: 'ai', text: 'Booked Mon–Wed 9–11am. Linked to Q3 strategy memory.' },
 ];
 
+const LIVE_FEED = [
+  { icon: Mic, text: 'Voice memo captured', meta: '0.3s · Orchestrator', color: '#a78bfa' },
+  { icon: Youtube, text: 'YouTube lecture parsed', meta: '12s · 47 memories', color: '#fb7185' },
+  { icon: FileText, text: 'PDF strategy doc ingested', meta: '2.1s · 28 memories', color: '#22d3ee' },
+  { icon: Link2, text: 'Article linked to 8 memories', meta: '0.8s · Graph Agent', color: '#34d399' },
+  { icon: MessageCircle, text: 'Slack thread summarized', meta: '1.4s · 12 memories', color: '#fbbf24' },
+  { icon: Globe, text: 'Web research captured', meta: '3.2s · 19 memories', color: '#f472b6' },
+  { icon: Send, text: 'Email thread distilled', meta: '0.9s · 6 memories', color: '#60a5fa' },
+  { icon: BrainCircuit, text: 'Knowledge cluster formed', meta: 'Graph · 34 nodes', color: '#a78bfa' },
+  { icon: Zap, text: 'Daily brief generated', meta: 'Briefing Agent · 08:00', color: '#fbbf24' },
+  { icon: Clock, text: 'Deep-work block scheduled', meta: 'Planner · Mon 9am', color: '#34d399' },
+];
+
+const FEATURES = [
+  {
+    icon: BrainCircuit, title: 'Neural memory graph', size: 'wide',
+    desc: 'Every idea becomes a node. Every concept an edge. Watch your second brain wire itself in real time.',
+    color: '#a78bfa', tag: 'Graph Agent',
+  },
+  {
+    icon: Mic, title: 'Voice-first capture', size: 'tall',
+    desc: 'Record a thought, get a structured memory. Works offline, syncs instantly.',
+    color: '#22d3ee', tag: 'Capture Agent',
+  },
+  {
+    icon: Zap, title: 'Sub-400ms recall', size: 'small',
+    desc: 'Semantic search across every memory you\'ve ever captured.',
+    color: '#34d399', tag: 'Recall Agent',
+  },
+  {
+    icon: FlaskConical, title: 'Open model swap', size: 'small',
+    desc: 'GPT-4o, Claude, local models — each agent picks the best for its job.',
+    color: '#fbbf24', tag: 'Architecture',
+  },
+  {
+    icon: BarChart3, title: 'Daily AI briefings', size: 'tall',
+    desc: 'Every morning: what happened yesterday, what matters today, what you\'re forgetting.',
+    color: '#fb7185', tag: 'Briefing Agent',
+  },
+  {
+    icon: Lock, title: 'Private by design', size: 'wide',
+    desc: 'Your graph never trains a model. End-to-end encrypted. Firebase Auth + SOC 2 controls.',
+    color: '#60a5fa', tag: 'Guardian Agent',
+  },
+];
+
 // ── COMPONENT ────────────────────────────────────────────────────
 export default function Landing({ navigate, isDark, toggleTheme }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -128,6 +177,10 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [scrolled, setScrolled] = useState(false);
   const [chatStep, setChatStep] = useState(1);
   const [activePersona, setActivePersona] = useState(0);
+
+  // Typewriter state
+  const [wordIdx, setWordIdx] = useState(0);
+  const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
 
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -143,41 +196,36 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Typewriter cycling
+  useEffect(() => {
+    if (reduceMotion) return;
+    let timeout: ReturnType<typeof setTimeout>;
+    if (phase === 'in') {
+      timeout = setTimeout(() => setPhase('hold'), 600);
+    } else if (phase === 'hold') {
+      timeout = setTimeout(() => setPhase('out'), 2200);
+    } else {
+      timeout = setTimeout(() => {
+        setWordIdx(i => (i + 1) % HERO_WORDS.length);
+        setPhase('in');
+      }, 400);
+    }
+    return () => clearTimeout(timeout);
+  }, [phase, reduceMotion]);
 
   // Animate chat preview
   useEffect(() => {
     if (reduceMotion) { setChatStep(CHAT_SCRIPT.length); return; }
     const t = setInterval(() => {
       setChatStep(s => (s >= CHAT_SCRIPT.length ? 1 : s + 1));
-    }, 2600);
+    }, 2800);
     return () => clearInterval(t);
   }, [reduceMotion]);
 
-  // Auto-rotate personas
-  useEffect(() => {
-    if (reduceMotion) return;
-    const t = setInterval(() => setActivePersona(i => (i + 1) % PERSONAS.length), 5500);
-    return () => clearInterval(t);
-  }, [reduceMotion]);
-
-  // Mobile menu accessibility — Escape, focus trap, restore focus
+  // Mobile menu keyboard
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    lastFocusedRef.current = document.activeElement as HTMLElement;
-    const menu = mobileMenuRef.current;
-    const focusables = menu?.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    focusables?.[0]?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setMobileMenuOpen(false); return; }
-      if (e.key === 'Tab' && focusables && focusables.length > 0) {
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileMenuOpen(false); };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
@@ -277,9 +325,20 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.05 }}
           >
-            <span className="lx-hero-line">The second brain</span>
-            <span className="lx-hero-line">
-              that <span className="lx-hero-grad">thinks with you.</span>
+            <span className="lx-hero-line">The second brain that</span>
+            <span className="lx-hero-line lx-hero-line-animated">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={wordIdx}
+                  className="lx-hero-word"
+                  initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
+                  transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+                >
+                  {HERO_WORDS[wordIdx]}
+                </motion.span>
+              </AnimatePresence>
             </span>
           </motion.h1>
 
@@ -323,10 +382,29 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
               <div className="lx-trust-text">2,400+ thinkers · loved by founders, researchers & operators</div>
             </div>
           </motion.div>
+
+          {/* Live stats ticker */}
+          <motion.div
+            className="lx-hero-ticker"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.55 }}
+          >
+            {[
+              { val: '1.2M+', lbl: 'memories' },
+              { val: '< 400ms', lbl: 'recall' },
+              { val: '7', lbl: 'agents' },
+              { val: '98.7%', lbl: 'accuracy' },
+            ].map((s, i) => (
+              <div key={i} className="lx-hero-tick">
+                <span className="lx-hero-tick-val">{s.val}</span>
+                <span className="lx-hero-tick-lbl">{s.lbl}</span>
+              </div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
-      {/* ── PRODUCT MOCKUP — the hero's "wow" ───────────────────── */}
+      {/* ── PRODUCT MOCKUP ───────────────────────────────────────── */}
       <section className="lx-mockup-section">
         <motion.div
           className="lx-mockup-wrap"
@@ -337,7 +415,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         >
           <div className="lx-mockup-glow" />
           <div className="lx-mockup">
-            {/* Mockup chrome */}
             <div className="lx-mock-chrome">
               <span className="lx-mock-dot" style={{ background: '#ff5f57' }} />
               <span className="lx-mock-dot" style={{ background: '#febc2e' }} />
@@ -347,7 +424,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             </div>
 
             <div className="lx-mock-body">
-              {/* Sidebar */}
               <div className="lx-mock-sidebar">
                 <div className="lx-mock-side-head">
                   <span className="lx-nav-logo-mark" style={{ width: 22, height: 22, borderRadius: 7 }}>
@@ -378,7 +454,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                 </div>
               </div>
 
-              {/* Main: chat */}
               <div className="lx-mock-main">
                 <div className="lx-mock-main-head">
                   <div className="lx-mock-thread">
@@ -411,23 +486,26 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                     </motion.div>
                   ))}
                 </div>
-                <div className="lx-mock-input">
-                  <span className="lx-mock-input-prompt">Ask your second brain…</span>
-                  <span className="lx-mock-input-send"><Send size={11} /></span>
+                <div className="lx-mock-input-bar">
+                  <div className="lx-mock-input"><span className="lx-mock-input-placeholder">Ask your second brain…</span></div>
+                  <button className="lx-mock-send"><Send size={11} /></button>
                 </div>
               </div>
 
-              {/* Right rail */}
-              <div className="lx-mock-rail">
+              <div className="lx-mock-right">
                 <div className="lx-mock-card">
                   <div className="lx-mock-card-head">
-                    <Sparkles size={11} style={{ color: '#fbbf24' }} />
-                    <span>Today's brief</span>
+                    <Cpu size={11} style={{ color: '#a78bfa' }} />
+                    <span>Agents · active</span>
                   </div>
-                  <div className="lx-mock-card-body">
-                    <div className="lx-mock-bar"><span style={{ width: '82%' }} /></div>
-                    <div className="lx-mock-bar"><span style={{ width: '64%' }} /></div>
-                    <div className="lx-mock-bar"><span style={{ width: '91%' }} /></div>
+                  <div className="lx-mock-agents-mini">
+                    {AGENTS.slice(0, 4).map(a => (
+                      <div key={a.name} className="lx-mock-agent-row">
+                        <span style={{ color: a.color, width: 8, height: 8, borderRadius: '50%', background: a.color, display: 'inline-block', boxShadow: `0 0 5px ${a.color}`, flexShrink: 0 }} />
+                        <span className="lx-mock-agent-label">{a.name}</span>
+                        <div className="lx-mock-bar"><span style={{ width: `${60 + Math.random() * 35}%` }} /></div>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 <div className="lx-mock-card">
@@ -448,8 +526,8 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                   </div>
                 </div>
               </div>
-            </div>
 
+            </div>
           </div>
         </motion.div>
       </section>
@@ -459,6 +537,44 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         <div className="lx-logobar-label">Trusted by teams shipping at companies like</div>
         <div className="lx-logobar-row">
           {LOGOS.map(name => <span key={name} className="lx-logo">{name}</span>)}
+        </div>
+      </section>
+
+      {/* ── LIVE ACTIVITY FEED ───────────────────────────────────── */}
+      <section className="lx-feed-section">
+        <div className="lx-feed-label">
+          <span className="lx-feed-dot" />
+          <span>Live intelligence feed — memories being captured right now</span>
+        </div>
+        <div className="lx-feed-track-wrap">
+          <div className="lx-feed-fade lx-feed-fade-l" />
+          <div className="lx-feed-track">
+            <div className="lx-feed-row">
+              {[...LIVE_FEED, ...LIVE_FEED].map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <div key={i} className="lx-feed-item" style={{ ['--fc' as any]: item.color }}>
+                    <span className="lx-feed-icon"><Icon size={13} /></span>
+                    <span className="lx-feed-text">{item.text}</span>
+                    <span className="lx-feed-meta">{item.meta}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="lx-feed-row lx-feed-row-rev">
+              {[...LIVE_FEED.slice(5), ...LIVE_FEED.slice(0, 5), ...LIVE_FEED.slice(5), ...LIVE_FEED.slice(0, 5)].map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <div key={i} className="lx-feed-item" style={{ ['--fc' as any]: item.color }}>
+                    <span className="lx-feed-icon"><Icon size={13} /></span>
+                    <span className="lx-feed-text">{item.text}</span>
+                    <span className="lx-feed-meta">{item.meta}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="lx-feed-fade lx-feed-fade-r" />
         </div>
       </section>
 
@@ -535,6 +651,38 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                   <span className="lx-agent-pulse-dot" />
                   <span>online</span>
                 </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── FEATURE BENTO GRID ───────────────────────────────────── */}
+      <section className="lx-section">
+        <SectionHeader
+          eyebrow="Built different"
+          title={<>Every feature is a <span className="lx-grad-silver">specialist agent.</span></>}
+          sub="Not a plugin. Not a wrapper. A coordinated intelligence system."
+        />
+        <div className="lx-bento">
+          {FEATURES.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <motion.div
+                key={f.title}
+                className={`lx-bento-card lx-bento-${f.size}`}
+                style={{ ['--accent' as any]: f.color }}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.55, delay: i * 0.07 }}
+              >
+                <div className="lx-bento-glow" />
+                <div className="lx-bento-tag">{f.tag}</div>
+                <div className="lx-bento-icon"><Icon size={22} /></div>
+                <h3 className="lx-bento-title">{f.title}</h3>
+                <p className="lx-bento-desc">{f.desc}</p>
+                <div className="lx-bento-accent-line" />
               </motion.div>
             );
           })}
@@ -628,7 +776,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         </div>
       </section>
 
-      {/* ── STATS ────────────────────────────────────────────────── */}
+      {/* ── STATS ─────────────────────────────────────────────────── */}
       <section className="lx-section lx-section-tight">
         <div className="lx-bigstats">
           {STATS.map((s, i) => (
@@ -640,7 +788,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08 }}
             >
-              <div className="lx-bigstat-v">{s.value}</div>
+              <CountUp display={s.display} className="lx-bigstat-v" />
               <div className="lx-bigstat-l">{s.label}</div>
             </motion.div>
           ))}
@@ -671,34 +819,51 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         </div>
       </section>
 
-      {/* ── TESTIMONIAL WALL ─────────────────────────────────────── */}
-      <section className="lx-section">
+      {/* ── TESTIMONIAL MARQUEE ──────────────────────────────────── */}
+      <section className="lx-section lx-section-tight">
         <SectionHeader
           eyebrow="Loved out loud"
           title={<>People who think for a living, <span className="lx-grad-silver">love thinking with us.</span></>}
         />
-        <div className="lx-tw">
-          {TESTIMONIALS.map((t, i) => (
-            <motion.div
-              key={i}
-              className="lx-tw-card"
-              style={{ ['--accent' as any]: t.tint }}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
-            >
-              <Quote size={20} className="lx-tw-q" />
-              <p className="lx-tw-quote">{t.quote}</p>
-              <div className="lx-tw-meta">
-                <div className="lx-tw-avatar" style={{ background: `linear-gradient(135deg, ${t.tint}, #22d3ee)` }}>{t.avatar}</div>
-                <div>
-                  <div className="lx-tw-name">{t.name}</div>
-                  <div className="lx-tw-role">{t.role}</div>
+        <div className="lx-tmarquee-wrap">
+          <div className="lx-tmarquee-fade lx-tmarquee-fade-l" />
+          <div className="lx-tmarquee-fade lx-tmarquee-fade-r" />
+          {/* Row 1 → left */}
+          <div className="lx-tmarquee-row">
+            <div className="lx-tmarquee-track">
+              {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
+                <div key={i} className="lx-tmarquee-card" style={{ ['--accent' as any]: t.tint }}>
+                  <Quote size={16} className="lx-tw-q" />
+                  <p className="lx-tmarquee-quote">{t.quote}</p>
+                  <div className="lx-tw-meta">
+                    <div className="lx-tw-avatar" style={{ background: `linear-gradient(135deg, ${t.tint}, #22d3ee)` }}>{t.avatar}</div>
+                    <div>
+                      <div className="lx-tw-name">{t.name}</div>
+                      <div className="lx-tw-role">{t.role}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              ))}
+            </div>
+          </div>
+          {/* Row 2 → right */}
+          <div className="lx-tmarquee-row lx-tmarquee-row-rev">
+            <div className="lx-tmarquee-track">
+              {[...TESTIMONIALS.slice(3), ...TESTIMONIALS.slice(0, 3), ...TESTIMONIALS.slice(3), ...TESTIMONIALS.slice(0, 3)].map((t, i) => (
+                <div key={i} className="lx-tmarquee-card" style={{ ['--accent' as any]: t.tint }}>
+                  <Quote size={16} className="lx-tw-q" />
+                  <p className="lx-tmarquee-quote">{t.quote}</p>
+                  <div className="lx-tw-meta">
+                    <div className="lx-tw-avatar" style={{ background: `linear-gradient(135deg, ${t.tint}, #22d3ee)` }}>{t.avatar}</div>
+                    <div>
+                      <div className="lx-tw-name">{t.name}</div>
+                      <div className="lx-tw-role">{t.role}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -773,22 +938,29 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
       <section className="lx-section">
         <div className="lx-final-cta">
           <div className="lx-final-glow" />
+          <div className="lx-final-orb lx-final-orb-1" />
+          <div className="lx-final-orb lx-final-orb-2" />
           <div className="lx-final-content">
             <div className="lx-eyebrow">
               <span className="lx-eyebrow-dot" />
               Your second brain is one click away
             </div>
             <h2 className="lx-final-title">
-              Stop forgetting. <span className="lx-grad-silver">Start thinking with it.</span>
+              Stop forgetting.<br /><span className="lx-final-grad">Start thinking with it.</span>
             </h2>
             <p className="lx-final-sub">Free forever. Set up in 90 seconds. Scales to your whole team when you're ready.</p>
             <div className="lx-hero-ctas">
               <button onClick={() => navigate('/login?mode=signup')} className="lx-pill-primary lx-pill-lg">
-                <Sparkles size={14} /><span>Start free</span>
+                <Sparkles size={14} /><span>Start free — no card</span>
               </button>
               <button onClick={() => navigate('/login')} className="lx-pill-ghost lx-pill-lg">
                 <span>Sign in</span><ArrowRight size={14} />
               </button>
+            </div>
+            <div className="lx-final-badges">
+              <span className="lx-final-badge"><Check size={11} /> No credit card</span>
+              <span className="lx-final-badge"><Check size={11} /> 90-second setup</span>
+              <span className="lx-final-badge"><Check size={11} /> Cancel anytime</span>
             </div>
           </div>
         </div>
@@ -875,6 +1047,29 @@ function SectionHeader({ eyebrow, title, sub }: { eyebrow: string; title: ReactN
   );
 }
 
+function CountUp({ display, className }: { display: string; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (inView && !shown) setShown(true);
+  }, [inView]);
+  return (
+    <div ref={ref} className={className}>
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={shown ? 'final' : 'init'}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {display}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function CompareCell({ value, highlight }: { value: string | boolean; highlight?: boolean }) {
   if (value === true) return <div className={`lx-compare-cell ${highlight ? 'lx-compare-mine' : ''}`}><Check size={15} className="lx-compare-yes" /></div>;
   if (value === false) return <div className={`lx-compare-cell ${highlight ? 'lx-compare-mine' : ''}`}><X size={15} className="lx-compare-no" /></div>;
@@ -907,7 +1102,6 @@ function PriceCard({
   );
 }
 
-// Mini graph for the dashboard mockup
 function MiniGraph() {
   return (
     <svg viewBox="0 0 140 80" className="lx-mock-mini-graph">
@@ -935,7 +1129,6 @@ function MiniGraph() {
   );
 }
 
-// Big interactive-looking graph for the showcase section
 function BigGraph() {
   const nodes = useMemo(() => ([
     { id: 0, x: 50, y: 50, r: 14, color: '#a78bfa', label: 'You' },
