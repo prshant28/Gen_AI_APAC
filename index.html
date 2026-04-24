@@ -3,12 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/x247-logo.png" />
     <title>Recall X247 — Neural OS v2.0</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #07080c; }
+      #x247-splash {
+        position: fixed; inset: 0; z-index: 99999;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 22px;
+        background:
+          radial-gradient(ellipse 60% 50% at 50% 45%, rgba(99,102,241,0.14) 0%, transparent 60%),
+          radial-gradient(ellipse 50% 40% at 50% 55%, rgba(167,139,250,0.10) 0%, transparent 65%),
+          #07080c;
+        transition: opacity 0.45s ease, visibility 0.45s ease;
+      }
+      #x247-splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+      #x247-splash img {
+        width: clamp(180px, 26vw, 320px);
+        height: auto;
+        filter: drop-shadow(0 8px 30px rgba(255,255,255,0.08))
+                drop-shadow(0 2px 6px rgba(99,102,241,0.20));
+        animation: x247-pulse 2.4s ease-in-out infinite;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+      #x247-splash .x247-bar {
+        width: 96px; height: 2px; border-radius: 999px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+        background-size: 200% 100%;
+        animation: x247-shimmer 1.6s ease-in-out infinite;
+      }
+      @keyframes x247-pulse {
+        0%, 100% { opacity: 0.85; transform: scale(1); }
+        50%      { opacity: 1;    transform: scale(1.025); }
+      }
+      @keyframes x247-shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #x247-splash img, #x247-splash .x247-bar { animation: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="x247-splash" aria-hidden="true">
+      <img src="/x247-logo.png" alt="x247 AI" />
+      <div class="x247-bar"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          var s = document.getElementById('x247-splash');
+          if (s) {
+            s.classList.add('hide');
+            setTimeout(function () { s.parentNode && s.parentNode.removeChild(s); }, 600);
+          }
+        }, 350);
+      });
+    </script>
   </body>
 </html>
-

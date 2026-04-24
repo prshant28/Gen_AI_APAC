@@ -187,9 +187,15 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
           <Brain size={18} color="white" />
         </div>
         {!isCollapsed && (
-          <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-            <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>Recall X247</div>
-            <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.8px', textTransform: 'uppercase', fontWeight: 600, marginTop: 1 }}>Neural OS v2.0</div>
+          <div style={{ overflow: 'hidden', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <img
+              src="/x247-logo.png"
+              alt="x247 AI"
+              className="x247-logo-img"
+              draggable={false}
+              style={{ height: 22, width: 'auto' }}
+            />
+            <div style={{ color: 'var(--primary)', fontSize: 8.5, letterSpacing: '1.8px', textTransform: 'uppercase', fontWeight: 600 }}>Neural OS v2.0</div>
           </div>
         )}
         {!isCollapsed && (
@@ -406,7 +412,7 @@ const Dashboard = ({ setView, isDark }: { setView: (v: View) => void; isDark?: b
               </div>
               <span style={{ fontSize: 9.5, color: s.color, background: `${s.color}14`, border: `1px solid ${s.color}22`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, letterSpacing: '0.2px' }}>{s.trend}</span>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 3, letterSpacing: '-0.5px', fontFamily: "'Syne', system-ui" }}>{s.value}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 3, letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC', system-ui" }}>{s.value}</div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 1 }}>{s.label}</div>
             <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{s.sub}</div>
           </motion.div>
@@ -771,7 +777,7 @@ const CaptureView = () => {
           <Sparkles size={12} color="var(--primary)" />
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>NEURAL AI CAPTURE ENGINE</span>
         </div>
-        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 8px', letterSpacing: '-0.5px', fontFamily: "'Syne',system-ui" }}>Capture Knowledge</h2>
+        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 8px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Capture Knowledge</h2>
         <p style={{ color: 'var(--text-3)', fontSize: 14, margin: 0 }}>Feed your Second Brain with YouTube videos, web articles, PDFs, or notes.</p>
       </motion.div>
 
@@ -1953,7 +1959,7 @@ const SettingsView = () => {
           <Settings size={11} color="var(--primary)" />
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>SYSTEM SETTINGS</span>
         </div>
-        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.5px', fontFamily: "'Syne',system-ui" }}>Settings & Status</h2>
+        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Settings & Status</h2>
         <p style={{ color: 'var(--text-3)', fontSize: 14, margin: 0 }}>Configure AI models and monitor system health.</p>
       </motion.div>
 
@@ -3407,11 +3413,8 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           boxShadow: isDark ? '0 1px 20px rgba(0,0,0,0.3)' : '0 1px 16px rgba(99,102,241,0.07)',
         }}>
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(99,102,241,0.4)' }}>
-            <Brain size={16} color="white" />
-          </div>
-          <span style={{ fontWeight: 800, fontSize: 15, color: isDark ? '#f0f0ff' : '#1a1040', fontFamily: "'Syne', system-ui, sans-serif", letterSpacing: '-0.2px' }}>Recall X247</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/x247-logo.png" alt="x247 AI" className="x247-logo-img" style={{ height: 26, width: 'auto' }} draggable={false} />
         </div>
 
         {/* Center nav links — desktop only */}
@@ -3498,19 +3501,15 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-          <div style={{ position: 'relative' }}>
-            <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 3, repeat: Infinity }}
-              style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(99,102,241,0.45)' }}>
-              <Brain size={22} color="white" />
-            </motion.div>
-            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }}
-              style={{ position: 'absolute', inset: -3, borderRadius: 16, background: 'transparent', border: '1.5px solid rgba(99,102,241,0.4)', pointerEvents: 'none' }} />
-          </div>
-          <div>
-            <div style={{ color: isDark ? '#f0f0ff' : '#1a1040', fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px', fontFamily: "'Syne', system-ui, sans-serif" }}>Recall X247</div>
-            <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>Neural OS v2.0</div>
-          </div>
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, marginBottom: 28 }}>
+          <img
+            src="/x247-logo.png"
+            alt="x247 AI"
+            className="x247-logo-img"
+            draggable={false}
+            style={{ height: 38, width: 'auto' }}
+          />
+          <div style={{ color: '#6366f1', fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}>Neural OS v2.0</div>
         </motion.div>
 
         {/* Hero text */}
@@ -3523,7 +3522,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
             <span style={{ fontSize: 10.5, fontWeight: 700, color: isDark ? '#a5b4fc' : '#4f46e5', letterSpacing: '0.3px' }}>Neural AI v3.0 — Now Live</span>
             <ChevronRight size={10} color={isDark ? '#a5b4fc' : '#4f46e5'} />
           </motion.div>
-          <h2 style={{ fontSize: 30, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 10px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Syne', system-ui, sans-serif" }}>
+          <h2 style={{ fontSize: 30, fontWeight: 900, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 10px', lineHeight: 1.15, letterSpacing: '-0.6px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
             Your AI-Powered<br />
             <span style={{ background: 'linear-gradient(135deg,#6366f1,#9333ea,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Second Brain</span>
           </h2>
@@ -3689,11 +3688,14 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
 
         {/* Mobile logo (hidden on lg) */}
         <motion.div className="flex lg:hidden" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          style={{ alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
-            <Brain size={18} color="white" />
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: isDark ? '#f0f0ff' : '#1a1040', fontFamily: "'Syne', system-ui, sans-serif" }}>Recall X247</div>
+          style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <img
+            src="/x247-logo.png"
+            alt="x247 AI"
+            className="x247-logo-img"
+            draggable={false}
+            style={{ height: 30, width: 'auto' }}
+          />
         </motion.div>
 
         <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: isDark ? 'rgba(180,180,210,0.65)' : 'rgba(60,50,100,0.62)', fontSize: 10.5, fontWeight: 600 }}>
@@ -3708,7 +3710,7 @@ const LoginScreen = ({ isDark, toggleTheme, onGoogleSignIn, onEmailSignIn, onEma
           <AnimatePresence mode="wait">
             <motion.div key={mode} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}
               style={{ marginBottom: 16, textAlign: 'center' }}>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 5px', letterSpacing: '-0.4px', fontFamily: "'Syne', system-ui, sans-serif" }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: isDark ? '#f0f0ff' : '#1a1040', margin: '0 0 5px', letterSpacing: '-0.4px', fontFamily: "'Alegreya Sans SC', system-ui, sans-serif" }}>
                 {mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
               </h1>
               <p style={{ color: isDark ? 'rgba(180,180,210,0.6)' : 'rgba(60,50,100,0.55)', fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>

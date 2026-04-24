@@ -4,6 +4,7 @@ import {
   ShieldCheck, Sparkles, Loader2,
 } from 'lucide-react';
 import keyholeImg from '@/src/assets/login-keyhole.png';
+import x247Logo from '@/src/assets/x247-logo.png';
 
 type AuthFns = {
   onGoogleSignIn: () => Promise<any>;
@@ -107,6 +108,8 @@ export default function Login({
         </button>
 
         <div className="lg-form-card">
+          <img src={x247Logo} alt="x247 AI" className="lg-brand-logo" draggable={false} />
+
           <div className="lg-eyebrow">
             <span className="lg-eyebrow-dot" />
             <span>{mode === 'sign-in' ? 'ACCOUNT' : 'CREATE ACCOUNT'}</span>
