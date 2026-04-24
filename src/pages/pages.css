@@ -32,7 +32,7 @@
     width: 100%;
     background: var(--lx-bg);
     color: var(--lx-text-1);
-    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
     font-feature-settings: "ss01" on, "cv11" on, "kern" on;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -385,7 +385,7 @@
 
   .lx-hero-title {
     margin: 8px 0 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Syne', 'Poppins', sans-serif;
     font-size: clamp(48px, 8.5vw, 112px);
     font-weight: 700;
     letter-spacing: -0.045em;
@@ -763,7 +763,7 @@
     border: 1px solid var(--lx-border-hi);
     border-radius: 12px;
     box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.6);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Syne', 'Poppins', sans-serif;
   }
   .lx-mock-float-icon {
     width: 26px; height: 26px;
@@ -809,7 +809,7 @@
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--lx-text-2);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Syne', 'Poppins', sans-serif;
     transition: color 0.2s, opacity 0.2s;
   }
   .lx-logo:hover { color: var(--lx-text-1); }
@@ -836,7 +836,7 @@
 
   .lx-section-title {
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Syne', 'Poppins', sans-serif;
     font-size: clamp(32px, 5.2vw, 64px);
     font-weight: 700;
     letter-spacing: -0.04em;
@@ -1689,9 +1689,9 @@
     height: 100vh;
     background: #0a0c12;
     color: #f4f6fb;
-    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    font-feature-settings: "ss01" on, "cv11" on, "kern" on;
-    letter-spacing: -0.011em;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "kern" on;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     display: grid;
@@ -1765,11 +1765,11 @@
 
   .lg-heading {
     margin: -6px 0 0;
-    font-family: 'Inter', sans-serif;
-    font-size: 24px;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.2;
+    font-family: 'Syne', 'Poppins', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
     color: #f4f6fb;
   }
   .lg-sub {
@@ -1838,41 +1838,68 @@
   .lg-field {
     position: relative;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     height: 44px;
-    background: rgba(255, 255, 255, 0.025);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 10px;
-    transition: all 0.2s;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   }
   .lg-field:focus-within {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.045);
     border-color: rgba(167, 139, 250, 0.5);
     box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
   }
   .lg-field-icon {
     position: absolute;
     left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
     color: #6b7388;
     pointer-events: none;
     transition: color 0.2s;
+    z-index: 2;
   }
   .lg-field:focus-within .lg-field-icon { color: #a78bfa; }
   .lg-input {
     flex: 1;
     width: 100%;
+    min-width: 0;
     height: 100%;
-    padding: 0 14px 0 38px;
-    font-family: inherit;
+    margin: 0;
+    padding: 0 14px 0 40px;
+    font-family: 'Poppins', system-ui, sans-serif;
     font-size: 13.5px;
     font-weight: 400;
+    line-height: 1;
     color: #f4f6fb;
     background: transparent;
+    background-color: transparent !important;
+    background-image: none !important;
     border: 0;
     outline: none;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     letter-spacing: -0.005em;
   }
-  .lg-input::placeholder { color: #6b7388; }
+  .lg-input::placeholder { color: #6b7388; opacity: 1; }
+  /* Kill browser autofill yellow/blue inset that creates the visible "layer" */
+  .lg-input:-webkit-autofill,
+  .lg-input:-webkit-autofill:hover,
+  .lg-input:-webkit-autofill:focus,
+  .lg-input:-webkit-autofill:active {
+    -webkit-text-fill-color: #f4f6fb;
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+    box-shadow: 0 0 0 1000px transparent inset !important;
+    background-color: transparent !important;
+    background-clip: content-box !important;
+    transition: background-color 600000s 0s, color 600000s 0s;
+    caret-color: #a78bfa;
+  }
+  .lg-input:-internal-autofill-selected { background-color: transparent !important; }
   .lg-field-toggle {
     position: absolute;
     right: 8px;
@@ -2063,7 +2090,7 @@
     bottom: 6%;
     left: 50%;
     transform: translateX(-50%);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Syne', 'Poppins', sans-serif;
     font-size: clamp(40px, 6vw, 86px);
     font-weight: 800;
     letter-spacing: -0.04em;

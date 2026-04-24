@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500;600&family=Alegreya+Sans+SC:ital,wght@0,300;0,400;0,500;0,700;0,800;1,400&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
-  --font-display: 'Alegreya Sans SC', system-ui, sans-serif;
+  --font-display: 'Syne', 'Poppins', system-ui, sans-serif;
 }
 
 /* ── Reset ────────────────────────────────────────────────────────────────── */
@@ -26,13 +26,13 @@ html, body, #root {
 
 /* ── Typography ───────────────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Alegreya Sans SC', system-ui, sans-serif;
+  font-family: 'Syne', 'Poppins', system-ui, sans-serif;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.015em;
 }
 
 .font-display, .brand-text {
-  font-family: 'Alegreya Sans SC', system-ui, sans-serif;
+  font-family: 'Syne', 'Poppins', system-ui, sans-serif;
 }
 
 /* ── Light Theme Design Tokens ──────────────────────────────────────────── */
@@ -159,18 +159,18 @@ h1, h2, h3, h4, h5, h6 {
 [data-theme="dark"] .border-red-200 { border-color: rgba(239,68,68,0.28) !important; }
 
 /* ── Dark input/form overrides ────────────────────────────────────────────── */
-[data-theme="dark"] input:not([type='range']),
-[data-theme="dark"] textarea,
-[data-theme="dark"] select {
+[data-theme="dark"] input:not([type='range']):not(.lg-input),
+[data-theme="dark"] textarea:not(.lg-input),
+[data-theme="dark"] select:not(.lg-input) {
   background-color: #192236 !important;
   border-color: rgba(255,255,255,0.1) !important;
   color: #e8edf5 !important;
 }
-[data-theme="dark"] input::placeholder,
-[data-theme="dark"] textarea::placeholder { color: #6b7d93 !important; }
-[data-theme="dark"] input:focus,
-[data-theme="dark"] textarea:focus,
-[data-theme="dark"] select:focus {
+[data-theme="dark"] input:not(.lg-input)::placeholder,
+[data-theme="dark"] textarea:not(.lg-input)::placeholder { color: #6b7d93 !important; }
+[data-theme="dark"] input:not(.lg-input):focus,
+[data-theme="dark"] textarea:not(.lg-input):focus,
+[data-theme="dark"] select:not(.lg-input):focus {
   border-color: #818cf8 !important;
   box-shadow: 0 0 0 3px rgba(129,140,248,0.18) !important;
   background-color: #1e2a42 !important;
