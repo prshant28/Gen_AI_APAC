@@ -7,27 +7,70 @@
    ============================================================ */
 
 .landing-page {
-  --land-bg: #050608;
-  --land-bg-2: #0a0d14;
-  --land-surface: rgba(255, 255, 255, 0.03);
-  --land-surface-2: rgba(255, 255, 255, 0.05);
-  --land-border: rgba(255, 255, 255, 0.08);
-  --land-border-2: rgba(255, 255, 255, 0.14);
-  --land-text-1: #f8fafc;
-  --land-text-2: #94a3b8;
-  --land-text-3: #64748b;
+  --land-bg: #02060f;
+  --land-bg-2: #050a18;
+  --land-surface: rgba(255, 255, 255, 0.035);
+  --land-surface-2: rgba(255, 255, 255, 0.06);
+  --land-border: rgba(255, 255, 255, 0.09);
+  --land-border-2: rgba(255, 255, 255, 0.16);
+  --land-text-1: #f1f5fc;
+  --land-text-2: #9aa6bf;
+  --land-text-3: #6b7794;
   --land-accent: #8b5cf6;
   --land-accent-2: #06b6d4;
   --land-accent-3: #ec4899;
+  --land-letterpress: 0 1px 0 rgba(255, 255, 255, 0.18);
+  --land-letterpress-strong: 0 1px 0 rgba(255, 255, 255, 0.4);
 
   position: relative;
   min-height: 100vh;
   width: 100%;
   background: var(--land-bg);
   color: var(--land-text-1);
-  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  font-family: 'Alegreya Sans SC', 'Poppins', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   line-height: 1.5;
+  text-shadow: var(--land-letterpress);
+  font-feature-settings: "ss01" on, "ss02" on, "kern" on;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Global letterpress text-shadow on landing — matches recall.prshant.dev signature.
+   Applies subtle white shadow to all readable text; headings get a stronger shadow.
+   Gradient text (color: transparent) is exempted via overrides. */
+.landing-page p,
+.landing-page span,
+.landing-page a,
+.landing-page button,
+.landing-page li,
+.landing-page label,
+.landing-page input::placeholder {
+  text-shadow: var(--land-letterpress);
+}
+
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page h4,
+.landing-page h5,
+.landing-page h6 {
+  text-shadow: var(--land-letterpress-strong);
+  letter-spacing: -0.01em;
+}
+
+/* Disable text-shadow on gradient/transparent text — must list explicit classes */
+.landing-page .landing-nav-logo-x,
+.landing-page .landing-hero-title-grad,
+.landing-page .landing-section-grad,
+.landing-page .landing-stat-value,
+.landing-page .landing-feature-title,
+.landing-page .landing-agent-name,
+.landing-page .landing-step-number,
+.landing-page .landing-price-amount,
+.landing-page [class*="-grad"],
+.landing-page .landing-gradient-text,
+.landing-page .gradient-text {
+  text-shadow: none !important;
 }
 
 /* Background layers */
@@ -1361,17 +1404,45 @@
    ============================================================ */
 
 .login-page {
+  --land-letterpress: 0 1px 0 rgba(255, 255, 255, 0.18);
+  --land-letterpress-strong: 0 1px 0 rgba(255, 255, 255, 0.4);
   position: relative;
   min-height: 100vh;
   width: 100%;
-  background: #050608;
-  color: #f8fafc;
-  font-family: 'Poppins', system-ui, sans-serif;
+  background: #02060f;
+  color: #f1f5fc;
+  font-family: 'Alegreya Sans SC', 'Poppins', system-ui, sans-serif;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  text-shadow: var(--land-letterpress);
+  -webkit-font-smoothing: antialiased;
+}
+
+.login-page p,
+.login-page span,
+.login-page a,
+.login-page button,
+.login-page label,
+.login-page input::placeholder {
+  text-shadow: var(--land-letterpress);
+}
+
+.login-page h1,
+.login-page h2,
+.login-page h3,
+.login-page h4 {
+  text-shadow: var(--land-letterpress-strong);
+  letter-spacing: -0.01em;
+}
+
+/* Exclude gradient/transparent text */
+.login-page [class*="-grad"],
+.login-page .login-brand-x,
+.login-page .login-hero-grad-text {
+  text-shadow: none !important;
 }
 
 .login-bg-glow {
