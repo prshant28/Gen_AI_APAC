@@ -29,6 +29,9 @@ import {
   LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import './pages/pages.css';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -3854,8 +3857,30 @@ export default function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [appSettings, setAppSettings] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('recall-theme') as 'light' | 'dark') || 'light';
+    return (localStorage.getItem('recall-theme') as 'light' | 'dark') || 'dark';
   });
+
+  // ── Routing ─────────────────────────────────────────────────────────────────
+  const [route, setRoute] = useState<string>(() => {
+    if (typeof window === 'undefined') return '/';
+    const p = window.location.pathname;
+    return p === '' ? '/' : p;
+  });
+
+  const navigate = useCallback((path: string) => {
+    if (typeof window !== 'undefined') {
+      const fullPath = path.startsWith('/') ? path : `/${path}`;
+      window.history.pushState({}, '', fullPath);
+      setRoute(fullPath.split('?')[0]);
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, []);
+
+  useEffect(() => {
+    const onPop = () => setRoute(window.location.pathname || '/');
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // ── Auth state ──────────────────────────────────────────────────────────────
   const GUEST_USER_KEY = 'recall-guest-user';
@@ -3903,6 +3928,21 @@ export default function App() {
     localStorage.setItem('recall-theme', theme);
   }, [theme]);
 
+  // Sync URL when user state changes
+  useEffect(() => {
+    if (authLoading) return;
+    const publicPaths = ['/', '/login', '/auth', '/signin', '/signup'];
+    if (user && publicPaths.includes(route)) {
+      // Signed in but on public route → push to /dashboard
+      window.history.replaceState({}, '', '/dashboard');
+      setRoute('/dashboard');
+    } else if (!user && route === '/dashboard') {
+      // Signed out but on dashboard → go to landing
+      window.history.replaceState({}, '', '/');
+      setRoute('/');
+    }
+  }, [user, authLoading, route]);
+
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
   const isDark = theme === 'dark';
 
@@ -3936,19 +3976,26 @@ export default function App() {
     );
   }
 
+  // ── Public routes (unauthenticated) ─────────────────────────────────────────
   if (!user) {
-    return (
-      <LoginScreen
-        isDark={isDark}
-        toggleTheme={toggleTheme}
-        onGoogleSignIn={signInWithGoogle}
-        onEmailSignIn={signInWithEmail}
-        onEmailSignUp={signUpWithEmail}
-        onResetPassword={resetPassword}
-        onAnonymousSignIn={handleGuestSignIn}
-      />
-    );
+    if (route === '/login' || route === '/auth' || route === '/signin' || route === '/signup') {
+      const initialMode = (typeof window !== 'undefined' && window.location.search.includes('mode=signup')) ? 'sign-up' : 'sign-in';
+      return (
+        <Login
+          navigate={navigate}
+          initialMode={initialMode}
+          onGoogleSignIn={signInWithGoogle}
+          onEmailSignIn={signInWithEmail}
+          onEmailSignUp={signUpWithEmail}
+          onResetPassword={resetPassword}
+          onAnonymousSignIn={handleGuestSignIn}
+        />
+      );
+    }
+    // Default: landing page
+    return <Landing navigate={navigate} isDark={isDark} toggleTheme={toggleTheme} />;
   }
+
 
   if (!isReady) {
     return (
