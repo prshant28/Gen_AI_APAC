@@ -1703,8 +1703,8 @@
     height: 100vh;
     background: #0a0c12;
     color: #f4f6fb;
-    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    font-feature-settings: "kern" on;
+    font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-feature-settings: "kern" on, "ss01" on, "cv11" on;
     letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -1789,9 +1789,9 @@
 
   .lg-heading {
     margin: -6px 0 0;
-    font-family: 'Syne', 'Poppins', sans-serif;
+    font-family: 'Manrope', 'Inter', sans-serif;
     font-size: 26px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.022em;
     line-height: 1.15;
     color: #f4f6fb;
@@ -1893,7 +1893,7 @@
     height: 100%;
     margin: 0;
     padding: 0 14px 0 40px;
-    font-family: 'Poppins', system-ui, sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     font-size: 13.5px;
     font-weight: 400;
     line-height: 1;
@@ -1975,42 +1975,31 @@
     width: 100%;
     height: 46px;
     padding: 0 18px;
-    font-family: inherit;
+    font-family: 'Manrope', 'Inter', sans-serif;
     font-size: 14px;
     font-weight: 600;
     color: white;
     background: linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #22d3ee 100%);
     background-size: 200% 200%;
     background-position: 0% 0%;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 11px;
     cursor: pointer;
     overflow: hidden;
-    transition: all 0.25s cubic-bezier(.22,.61,.36,1);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.25) inset,
-      0 14px 32px -10px rgba(139, 92, 246, 0.55),
-      0 4px 12px -4px rgba(34, 211, 238, 0.35);
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    background: #0a0c12 !important;
+    background-color: #0a0c12 !important;
+    background-image: none !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6);
     margin-top: 2px;
   }
   .lg-submit:hover:not(:disabled) {
-    background-position: 100% 100%;
-    transform: translateY(-1px);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.3) inset,
-      0 20px 42px -10px rgba(139, 92, 246, 0.7),
-      0 6px 16px -4px rgba(34, 211, 238, 0.5);
+    background-color: #14171f !important;
+    border-color: rgba(255, 255, 255, 0.18);
   }
-  .lg-submit:disabled { opacity: 0.65; cursor: not-allowed; }
-  .lg-submit-shine {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
-    transform: translateX(-100%);
-    transition: transform 0.7s ease;
-    pointer-events: none;
-  }
-  .lg-submit:hover:not(:disabled) .lg-submit-shine { transform: translateX(100%); }
+  .lg-submit:active:not(:disabled) { transform: translateY(1px); }
+  .lg-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+  .lg-submit-shine { display: none; }
   .lg-submit-z { position: relative; z-index: 2; }
   .lg-submit-arrow { transition: transform 0.25s; }
   .lg-submit:hover:not(:disabled) .lg-submit-arrow { transform: translateX(3px); }
@@ -2111,15 +2100,15 @@
   }
   .lg-right-watermark {
     position: absolute;
-    bottom: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    font-family: 'Syne', 'Poppins', sans-serif;
-    font-size: clamp(34px, 4.6vw, 64px);
+    bottom: 7%;
+    left: 8%;
+    transform: none;
+    font-family: 'Manrope', 'Inter', sans-serif;
+    font-size: clamp(40px, 5vw, 72px);
     font-weight: 700;
-    letter-spacing: -0.03em;
-    color: rgba(255, 255, 255, 0.045);
-    text-transform: lowercase;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.07);
+    text-transform: uppercase;
     pointer-events: none;
     white-space: nowrap;
   }
