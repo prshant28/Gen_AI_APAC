@@ -5,6 +5,16 @@ An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackatho
 
 **AI Provider:** Google Gemini 2.0 Flash (GOOGLE_API_KEY via OpenAI-compat layer). Auto-falls back to OpenRouter (GEN_APAC_API_KEY) on rate-limit. UI branding: "Powered by Google Gemini 2.0".
 
+## Global Features (April 2026 — Hackathon Upgrade)
+- **Global Toast System** (`App.tsx`) — Event-driven toasts via `window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }))`. Exported `showToast(msg, type)` helper usable from any page. Types: `success` (green), `error` (red), `info` (indigo). Animated slide-in/out, stacked, auto-dismiss at 3.8s.
+- **Floating Quick-Capture FAB** (`App.tsx`) — Purple `+` button fixed at bottom-right. Expands to: Capture URL (→ /capture), Quick Note (inline modal that posts to `/capture` and fires a toast), Agent Hub (→ /agent). Collapses with 45° rotation animation. Shown only when authenticated.
+- **FlashcardsPage** — Complete dark-theme redesign with spaced repetition. Grid of memory cards, study session modal with Know/Don't Know buttons, score tracking persisted to `localStorage`, session results screen with retry option for missed cards. Stats bar showing total decks, studied count, avg score.
+- **VaultPage** — Converted from Tailwind light-theme (`bg-white`, `text-slate-*`) to full dark CSS vars. Added sort control (newest/oldest/A-Z), real-time client-side search with clear button, domain filter, inline flashcard generator with spaced repetition. Dark glassmorphism modals.
+- **TasksPage** — Converted from Tailwind light-theme to dark CSS vars. Inline new-task form (no modal), overdue detection, priority filter chips, summary stat cards (pending/due today/overdue/completed), animated task list with colored left border per priority.
+- **GraphPage** — Added mouse hover tooltips (floating node info card), click-to-select interaction with detailed right-panel info, highlighted edges on hover, cursor changes. Fixed all hardcoded colors (#f1f5f9, #4b5563) → CSS vars.
+- **AnalyticsPage** — Fixed all hardcoded colors (#e2e8f0, #4b5563, #6b7280, #9ca3af) → CSS vars. Upgraded Captures chart from BarChart to AreaChart with gradient fill. Added icon to each KPI card. Added avg tags/memory metric.
+- **CapturePage** — Migrated from local toast state to global `showToast()` system.
+
 ## UI/UX
 - **Light/Dark theme toggle** — Moon/Sun button in header, persisted in localStorage, applies `data-theme="dark"` to `<html>` element. CSS custom properties drive all theme colors.
 - **Responsive** — Stat cards 2-col on mobile → 4-col on desktop; Agent Hub hides left panel on mobile; header collapses search + Capture text on small screens; `responsive-content` class handles padding.

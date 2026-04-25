@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Loader2, CheckCircle2, Clock, Trash2, CheckSquare } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Loader2, CheckCircle2, Clock, Trash2, CheckSquare, Zap, AlertTriangle, ArrowDown, Calendar, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+
+const PRI_CONFIG: Record<string, { color: string; bg: string; border: string; icon: any; label: string }> = {
+  high:   { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.25)',   icon: AlertTriangle, label: 'High' },
+  medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  icon: Zap,           label: 'Medium' },
+  low:    { color: '#10b981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  icon: ArrowDown,     label: 'Low' },
+};
 
 const TasksModule = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -10,6 +15,10 @@ const TasksModule = () => {
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', priority: 'medium', due_date: '' });
   const [tab, setTab] = useState<'pending' | 'completed'>('pending');
+  const [filter, setFilter] = useState<string>('all');
+  const [creating, setCreating] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const fetchTasks = useCallback(() => {
     setIsLoading(true);
@@ -17,158 +26,222 @@ const TasksModule = () => {
       fetch('/tasks?status=pending&limit=50').then(r => r.ok ? r.json() : []),
       fetch('/tasks?status=completed&limit=20').then(r => r.ok ? r.json() : [])
     ]).then(([pending, completed]) => {
-      setTasks(pending);
-      setCompletedTasks(completed);
-      setIsLoading(false);
+      setTasks(pending); setCompletedTasks(completed); setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, []);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => { if (showNewTask) setTimeout(() => titleRef.current?.focus(), 80); }, [showNewTask]);
 
   const handleCreate = async () => {
-    if (!newTask.title.trim()) return;
+    if (!newTask.title.trim() || creating) return;
+    setCreating(true);
     try {
       await fetch('/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTask) });
-      setShowNewTask(false);
-      setNewTask({ title: '', priority: 'medium', due_date: '' });
-      fetchTasks();
+      setShowNewTask(false); setNewTask({ title: '', priority: 'medium', due_date: '' }); fetchTasks();
     } catch (err) { console.error(err); }
+    finally { setCreating(false); }
   };
 
   const handleComplete = async (id: string) => {
-    try {
-      await fetch(`/tasks/${id}/complete`, { method: 'POST' });
-      fetchTasks();
-    } catch (err) { console.error(err); }
+    setCompletingId(id);
+    try { await fetch(`/tasks/${id}/complete`, { method: 'POST' }); fetchTasks(); }
+    catch (err) { console.error(err); }
+    finally { setCompletingId(null); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this task?')) return;
-    try {
-      await fetch(`/tasks/${id}`, { method: 'DELETE' });
-      fetchTasks();
-    } catch (err) { console.error(err); }
+    try { await fetch(`/tasks/${id}`, { method: 'DELETE' }); fetchTasks(); }
+    catch (err) { console.error(err); }
   };
 
-  const priorityColors: Record<string, string> = {
-    high: 'bg-red-50 text-red-600 border-red-100',
-    medium: 'bg-amber-50 text-amber-600 border-amber-100',
-    low: 'bg-emerald-50 text-emerald-600 border-emerald-100'
-  };
+  const displayTasks = (tab === 'pending' ? tasks : completedTasks)
+    .filter(t => filter === 'all' || t.priority === filter);
 
-  const displayTasks = tab === 'pending' ? tasks : completedTasks;
+  const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
+  const today = tasks.filter(t => t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString()).length;
+
+  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Tasks</h2>
-          <p className="text-slate-500 mt-1">{tasks.length} pending · {completedTasks.length} completed</p>
-        </div>
-        <button onClick={() => setShowNewTask(true)} className="rs-btn rs-btn-primary active:scale-95 flex items-center gap-2">
-          <Plus className="w-4 h-4" />New Task
-        </button>
-      </header>
-
-      <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit">
-        {(['pending', 'completed'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn('px-5 py-2 rounded-lg text-sm font-bold transition-all', tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-            {t === 'pending' ? `Pending (${tasks.length})` : `Completed (${completedTasks.length})`}
+    <div style={{ color: 'var(--text-1)' }}>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckSquare size={17} color="#10b981" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Tasks</h1>
+                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
+                  {tasks.length} pending · {completedTasks.length} completed
+                  {overdue > 0 && <span style={{ color: '#ef4444', marginLeft: 6, fontWeight: 600 }}>· {overdue} overdue</span>}
+                </p>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setShowNewTask(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(16,185,129,0.35)', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.45)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)'; }}>
+            <Plus size={15} /> New Task
           </button>
-        ))}
+        </div>
+
+        {/* Summary cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 14 }}>
+          {[
+            { label: 'Pending', value: tasks.length, color: '#6366f1' },
+            { label: 'Due Today', value: today, color: '#f59e0b' },
+            { label: 'Overdue', value: overdue, color: '#ef4444' },
+            { label: 'Completed', value: completedTasks.length, color: '#10b981' },
+          ].map(s => (
+            <div key={s.label} style={{ ...card, padding: '12px 14px', border: `1px solid ${s.color}18`, textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 3 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Tab bar + filter */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
+          {(['pending', 'completed'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: '6px 16px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? 'var(--surface)' : 'transparent', color: tab === t ? 'var(--text-1)' : 'var(--text-3)', fontSize: 12, fontWeight: tab === t ? 700 : 500, transition: 'all 0.18s', boxShadow: tab === t ? 'var(--shadow-sm)' : 'none' }}>
+              {t === 'pending' ? `📋 Pending (${tasks.length})` : `✅ Done (${completedTasks.length})`}
+            </button>
+          ))}
+        </div>
+        {tab === 'pending' && (
+          <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 10.5 }}>
+              <Filter size={11} />
+            </div>
+            {['all', 'high', 'medium', 'low'].map(p => (
+              <button key={p} onClick={() => setFilter(p)}
+                style={{ padding: '4px 10px', borderRadius: 8, border: `1px solid ${filter === p ? (PRI_CONFIG[p]?.border ?? 'var(--border)') : 'var(--border)'}`, background: filter === p ? (PRI_CONFIG[p]?.bg ?? 'var(--surface-2)') : 'var(--surface-2)', color: filter === p ? (PRI_CONFIG[p]?.color ?? 'var(--text-1)') : 'var(--text-3)', fontSize: 11, fontWeight: filter === p ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', textTransform: 'capitalize' }}>
+                {p === 'all' ? 'All' : p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Inline new task form */}
+      <AnimatePresence>
+        {showNewTask && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            style={{ overflow: 'hidden', marginBottom: 10 }}>
+            <div style={{ ...card, padding: '16px 18px', border: '1px solid rgba(16,185,129,0.25)', background: 'rgba(16,185,129,0.03)', marginBottom: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Plus size={14} color="#10b981" />
+                <span style={{ color: '#10b981', fontSize: 12, fontWeight: 700 }}>New Task</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <input ref={titleRef} type="text" placeholder="What needs to be done?" value={newTask.title}
+                  onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowNewTask(false); }}
+                  style={{ flex: 2, minWidth: 200, padding: '9px 12px', background: 'var(--surface)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 9, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <select value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value })}
+                  style={{ flex: 1, minWidth: 100, padding: '9px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <input type="date" value={newTask.due_date} onChange={e => setNewTask({ ...newTask, due_date: e.target.value })}
+                  style={{ flex: 1, minWidth: 130, padding: '9px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button onClick={handleCreate} disabled={!newTask.title.trim() || creating}
+                  style={{ padding: '9px 18px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, cursor: newTask.title.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: newTask.title.trim() ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {creating ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={13} />} Add
+                </button>
+                <button onClick={() => setShowNewTask(false)}
+                  style={{ padding: '9px 9px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+          <Loader2 size={28} color="#10b981" style={{ animation: 'spin 1s linear infinite' }} />
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <AnimatePresence>
-            {displayTasks.map((task) => (
-              <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
-                className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center gap-4 group hover:shadow-md transition-shadow">
-                {tab === 'pending' ? (
-                  <button onClick={() => handleComplete(task.id)}
-                    className="w-6 h-6 rounded-full border-2 border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition-all shrink-0 flex items-center justify-center group/btn">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                  </button>
-                ) : (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-                )}
+            {displayTasks.map((task, i) => {
+              const pri = PRI_CONFIG[task.priority] ?? PRI_CONFIG.medium;
+              const PriIcon = pri.icon;
+              const isOverdue = task.due_date && new Date(task.due_date) < new Date() && tab === 'pending';
+              return (
+                <motion.div key={task.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ delay: i * 0.02 }}
+                  style={{ ...card, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s', position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${tab === 'pending' ? pri.color : '#10b981'}` }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}>
 
-                <div className="flex-1 min-w-0">
-                  <p className={cn('font-bold text-slate-800', tab === 'completed' && 'line-through text-slate-400')}>{task.title}</p>
-                  {task.due_date && (
-                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />Due: {task.due_date}
-                    </p>
+                  {/* Checkbox / check */}
+                  {tab === 'pending' ? (
+                    <button onClick={() => handleComplete(task.id)} disabled={completingId === task.id}
+                      style={{ width: 24, height: 24, borderRadius: '50%', border: `2px solid ${pri.color}50`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.background = 'rgba(16,185,129,0.1)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = `${pri.color}50`; e.currentTarget.style.background = 'transparent'; }}>
+                      {completingId === task.id ? <Loader2 size={12} color="#10b981" style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle2 size={12} color="transparent" />}
+                    </button>
+                  ) : (
+                    <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
                   )}
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {task.priority && (
-                    <span className={cn('text-[10px] font-bold px-2 py-1 rounded border uppercase', priorityColors[task.priority] || priorityColors.medium)}>
-                      {task.priority}
-                    </span>
-                  )}
-                  <button onClick={() => handleDelete(task.id)}
-                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: tab === 'completed' ? 'var(--text-3)' : 'var(--text-1)', fontSize: 13.5, fontWeight: 600, margin: 0, textDecoration: tab === 'completed' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</p>
+                    {task.due_date && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        {isOverdue ? <AlertTriangle size={10} color="#ef4444" /> : <Clock size={10} color="var(--text-3)" />}
+                        <span style={{ fontSize: 10.5, color: isOverdue ? '#ef4444' : 'var(--text-3)', fontWeight: isOverdue ? 600 : 400 }}>
+                          {isOverdue ? 'Overdue — ' : 'Due: '}{task.due_date}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+                    {task.priority && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: pri.bg, border: `1px solid ${pri.border}`, borderRadius: 20 }}>
+                        <PriIcon size={9} color={pri.color} />
+                        <span style={{ color: pri.color, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{pri.label}</span>
+                      </div>
+                    )}
+                    <button onClick={() => handleDelete(task.id)}
+                      style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid transparent', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', opacity: 0 }}
+                      className="task-delete-btn"
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
 
           {displayTasks.length === 0 && (
-            <div className="py-20 text-center">
-              <CheckSquare className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium">{tab === 'pending' ? 'All caught up! No pending tasks.' : 'No completed tasks yet.'}</p>
+            <div style={{ textAlign: 'center', padding: '52px 0' }}>
+              <CheckSquare size={38} color="var(--border-2)" style={{ margin: '0 auto 12px' }} />
+              <p style={{ color: 'var(--text-3)', margin: 0, fontSize: 14 }}>
+                {tab === 'pending' ? (filter !== 'all' ? `No ${filter} priority tasks.` : 'All done! Add a new task to get started.') : 'No completed tasks yet.'}
+              </p>
             </div>
           )}
         </div>
       )}
-
-      <AnimatePresence>
-        {showNewTask && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNewTask(false)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-              <h3 className="text-xl font-bold text-slate-900">Create New Task</h3>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Task Title</label>
-                  <input autoFocus type="text" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                    placeholder="What needs to be done?"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Priority</label>
-                    <select value={newTask.priority} onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Due Date</label>
-                    <input type="date" value={newTask.due_date} onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowNewTask(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all">Cancel</button>
-                <button onClick={handleCreate} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all">Create Task</button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

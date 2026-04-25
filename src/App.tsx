@@ -5,7 +5,8 @@ import {
 import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
-  Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu
+  Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu,
+  CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -203,6 +204,161 @@ const Sidebar = ({
 
 const ALL_NAV = NAV_GROUPS.flatMap(g => g.items);
 
+/* ─────────────────────────────────────────────
+   GLOBAL TOAST SYSTEM
+   Any page can trigger: window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }))
+────────────────────────────────────────────── */
+type ToastType = 'success' | 'error' | 'info';
+interface ToastItem { id: number; msg: string; type: ToastType; }
+
+const TOAST_ICONS: Record<ToastType, React.ReactNode> = {
+  success: <CheckCircle2 size={15} />,
+  error:   <AlertTriangle size={15} />,
+  info:    <Info size={15} />,
+};
+const TOAST_COLORS: Record<ToastType, { bg: string; border: string; text: string }> = {
+  success: { bg: 'linear-gradient(135deg,#10b981,#059669)', border: 'rgba(16,185,129,0.4)', text: '#fff' },
+  error:   { bg: 'linear-gradient(135deg,#ef4444,#dc2626)', border: 'rgba(239,68,68,0.4)',  text: '#fff' },
+  info:    { bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'rgba(99,102,241,0.4)', text: '#fff' },
+};
+
+const GlobalToast = () => {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const counterRef = useRef(0);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { msg, type = 'success' } = (e as CustomEvent).detail ?? {};
+      if (!msg) return;
+      const id = ++counterRef.current;
+      setToasts(prev => [...prev, { id, msg, type }]);
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3800);
+    };
+    window.addEventListener('recall-toast', handler);
+    return () => window.removeEventListener('recall-toast', handler);
+  }, []);
+
+  return (
+    <div style={{ position: 'fixed', top: 22, right: 22, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+      <AnimatePresence>
+        {toasts.map(t => {
+          const c = TOAST_COLORS[t.type];
+          return (
+            <motion.div key={t.id} initial={{ opacity: 0, x: 60, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 60, scale: 0.9 }}
+              style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9, color: c.text, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontFamily: "'Poppins', sans-serif", pointerEvents: 'all', minWidth: 220, maxWidth: 340 }}>
+              {TOAST_ICONS[t.type]}
+              <span style={{ flex: 1 }}>{t.msg}</span>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export const showToast = (msg: string, type: ToastType = 'success') => {
+  window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }));
+};
+
+/* ─────────────────────────────────────────────
+   QUICK CAPTURE FAB
+────────────────────────────────────────────── */
+const QuickCaptureFAB = () => {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const saveNote = async () => {
+    if (!note.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_type: 'note', url: '', content: note, preview: false })
+      });
+      if (res.ok) {
+        showToast('Note saved to Vault!');
+        setNote(''); setShowNote(false); setOpen(false);
+      } else {
+        showToast('Failed to save note', 'error');
+      }
+    } catch { showToast('Failed to save note', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const ACTIONS = [
+    { icon: Globe, label: 'Capture URL', color: '#00d4ff', action: () => { navigate('/capture'); setOpen(false); } },
+    { icon: StickyNote, label: 'Quick Note', color: '#f59e0b', action: () => { setShowNote(true); setOpen(false); } },
+    { icon: Bot, label: 'Agent Hub', color: '#a78bfa', action: () => { navigate('/agent'); setOpen(false); } },
+  ];
+
+  return (
+    <>
+      {/* Quick Note Modal */}
+      <AnimatePresence>
+        {showNote && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '0 24px 88px' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNote(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(5,5,15,0.5)', backdropFilter: 'blur(4px)' }} />
+            <motion.div initial={{ opacity: 0, y: 16, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.95 }}
+              style={{ position: 'relative', width: 340, background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: '18px 20px', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <StickyNote size={15} color="#f59e0b" />
+                <span style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700 }}>Quick Note</span>
+                <button onClick={() => setShowNote(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><X size={14} /></button>
+              </div>
+              <textarea value={note} onChange={e => setNote(e.target.value)} autoFocus
+                placeholder="Capture an idea, thought, or insight..."
+                rows={4}
+                style={{ width: '100%', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box', lineHeight: 1.55 }}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote(); }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>⌘↵ to save</span>
+                <button onClick={saveNote} disabled={!note.trim() || saving}
+                  style={{ padding: '7px 16px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: note.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: note.trim() ? 1 : 0.5 }}>
+                  {saving ? 'Saving…' : 'Save to Vault'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FAB actions */}
+      <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 8000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+        <AnimatePresence>
+          {open && ACTIONS.map((a, i) => (
+            <motion.button key={a.label}
+              initial={{ opacity: 0, y: 12, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.8 }}
+              transition={{ delay: i * 0.05 }}
+              onClick={a.action}
+              title={a.label}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px 8px 10px', background: 'var(--surface)', border: `1px solid ${a.color}35`, borderRadius: 22, boxShadow: `0 6px 18px rgba(0,0,0,0.4), 0 0 0 1px ${a.color}15`, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-1)', fontSize: 12, fontWeight: 600 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${a.color}18`, border: `1px solid ${a.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <a.icon size={14} color={a.color} />
+              </div>
+              {a.label}
+            </motion.button>
+          ))}
+        </AnimatePresence>
+
+        {/* Main FAB button */}
+        <motion.button
+          onClick={() => setOpen(o => !o)}
+          whileTap={{ scale: 0.93 }}
+          style={{ width: 52, height: 52, borderRadius: '50%', background: open ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: open ? '1px solid var(--border)' : '1px solid rgba(99,102,241,0.4)', boxShadow: open ? 'none' : '0 8px 24px rgba(99,102,241,0.5), 0 0 0 1px rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.25s' }}>
+          <motion.div animate={{ rotate: open ? 45 : 0 }} transition={{ duration: 0.2 }}>
+            <Plus size={22} color={open ? 'var(--text-2)' : '#fff'} />
+          </motion.div>
+        </motion.button>
+      </div>
+    </>
+  );
+};
+
 const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignOut: () => void; isDark: boolean; toggleTheme: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -304,6 +460,10 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
           </div>
         </div>
       </main>
+
+      {/* Global Toast + FAB */}
+      <GlobalToast />
+      <QuickCaptureFAB />
 
       {/* Command Palette */}
       <AnimatePresence>

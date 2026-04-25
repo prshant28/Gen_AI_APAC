@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Globe, StickyNote, FileText, Sparkles, Loader2, CheckCircle2, X, Brain, Tag, ExternalLink, Save, Upload } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { YouTubeEmbed } from '../lib/utils';
+import { showToast } from '../App';
 import type { Memory } from '../lib/types';
 
 const CaptureView = () => {
@@ -12,13 +13,7 @@ const CaptureView = () => {
   const [previewUrl, setPreviewUrl] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleCapture = async () => {
     if (activeTab === 'pdf' && pdfFile) {
@@ -89,14 +84,6 @@ const CaptureView = () => {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            style={{ position: 'fixed', top: 24, right: 24, zIndex: 200, background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', padding: '12px 20px', borderRadius: 14, boxShadow: '0 8px 24px rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>
-            <CheckCircle2 size={16} />{toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 999, marginBottom: 12 }}>

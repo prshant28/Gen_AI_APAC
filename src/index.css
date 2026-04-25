@@ -659,3 +659,8 @@ img { max-width: 100%; }
   background: rgba(99,102,241,0.18);
   color: var(--text-1);
 }
+
+/* ── Task delete button – show on row hover ───────────────────────────────── */
+.task-delete-btn { opacity: 0; transition: opacity 0.15s; }
+div:hover > div > .task-delete-btn,
+div:hover .task-delete-btn { opacity: 1 !important; }
