@@ -625,6 +625,112 @@ input:focus, textarea:focus, select:focus {
 .view-content { width: 100%; overflow-x: hidden; }
 img { max-width: 100%; }
 
+/* ── Analytics / 2-col responsive grid ───────────────────────────────────── */
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (min-width: 700px) { .grid-2col { grid-template-columns: 1fr 1fr; } }
+
+/* ── Workspace sidebar + main ─────────────────────────────────────────────── */
+.workspace-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 640px) { .workspace-layout { grid-template-columns: 200px 1fr; } }
+@media (min-width: 900px) { .workspace-layout { grid-template-columns: 220px 1fr; } }
+
+/* ── Workspace inner 2-col ────────────────────────────────────────────────── */
+.workspace-inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 560px) { .workspace-inner { grid-template-columns: 1fr 1fr; } }
+
+/* ── Vault grid ───────────────────────────────────────────────────────────── */
+.vault-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 560px)  { .vault-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+@media (min-width: 900px)  { .vault-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
+@media (min-width: 1100px) { .vault-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; } }
+
+/* ── Timeline date label responsive ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .timeline-date-col { width: 72px !important; font-size: 10px !important; }
+  .timeline-line { left: 72px !important; }
+}
+
+/* ── Calendar grid responsive ─────────────────────────────────────────────── */
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 860px) { .calendar-layout { grid-template-columns: 1fr 260px; } }
+
+/* ── Page header row ──────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* ── Recall chat layout ───────────────────────────────────────────────────── */
+.recall-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 130px);
+  min-height: 400px;
+  gap: 0;
+}
+
+/* ── Agent layout responsive ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .quick-prompts-grid { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── Flashcard memory grid ────────────────────────────────────────────────── */
+.flashcard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 480px)  { .flashcard-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 900px)  { .flashcard-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1200px) { .flashcard-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 56px 24px; text-align: center; gap: 10px;
+}
+
+/* ── Loading spinner center ───────────────────────────────────────────────── */
+.loading-center {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 64px 24px; gap: 14px;
+}
+
+/* ── Section title ────────────────────────────────────────────────────────── */
+.section-title {
+  font-size: 14px; font-weight: 700; color: var(--text-1);
+  margin: 0 0 4px;
+}
+.section-sub {
+  font-size: 11px; color: var(--text-3);
+  margin: 0;
+}
+
 /* ── Capture tabs on mobile ───────────────────────────────────────────────── */
 @media (max-width: 400px) {
   .capture-tab-label { display: none; }

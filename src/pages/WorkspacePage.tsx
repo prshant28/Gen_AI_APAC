@@ -67,7 +67,7 @@ const WorkspaceView = () => {
         </div>
       </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 16 }}>
+      <div className="workspace-layout">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {projects.map((p, i) => (
             <motion.button key={p.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
@@ -117,7 +117,7 @@ const WorkspaceView = () => {
             {project.description && <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '8px 0 0 20px' }}>{project.description}</p>}
           </motion.div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="workspace-inner">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ ...card, padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: 13 }}>Tasks</div>

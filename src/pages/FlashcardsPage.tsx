@@ -283,7 +283,7 @@ const FlashcardsView = () => {
           <p style={{ color: 'var(--text-3)', margin: 0 }}>{filter ? 'No memories match your filter.' : 'No memories yet — capture content to generate flashcards!'}</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
+        <div className="flashcard-grid">
           {filtered.map((memory, i) => {
             const score = scores[memory.id];
             const clr = SRC_CLR[memory.source_type] ?? '#6366f1';

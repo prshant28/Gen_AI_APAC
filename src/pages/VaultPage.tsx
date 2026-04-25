@@ -214,7 +214,7 @@ const VaultView = () => {
           <Loader2 size={34} color="#f472b6" style={{ animation: 'spin 1s linear infinite' }} />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
+        <div className="vault-grid">
           {filtered.map((memory, i) => {
             const src = SRC_ICON[memory.source_type] ?? { icon: StickyNote, color: '#f59e0b' };
             const SrcIcon = src.icon;

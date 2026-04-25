@@ -94,7 +94,7 @@ const AnalyticsView = () => {
       </div>
 
       {/* Row 1: Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      <div className="grid-2col">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }} style={{ ...card, padding: '16px 18px' }}>
           <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Captures by Day</div>
           <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginBottom: 14 }}>Day-of-week distribution</div>
@@ -140,7 +140,7 @@ const AnalyticsView = () => {
       </div>
 
       {/* Row 2: More charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="grid-2col">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} style={{ ...card, padding: '16px 18px' }}>
           <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Knowledge Domains</div>
           {domains.length > 0 ? (

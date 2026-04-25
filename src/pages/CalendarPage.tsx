@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Plus, Loader2, GraduationCap, X } from 'lucide-react';
+import { Calendar as CalIcon, Plus, Loader2, GraduationCap, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
 
 const CalendarModule = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -47,165 +46,228 @@ const CalendarModule = () => {
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
 
+  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
+  const labelStyle: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', display: 'block', marginBottom: 5 };
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthName = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Schedule</h2>
-          <p className="text-slate-500 mt-1">Manage study sessions and knowledge review events.</p>
+    <div style={{ color: 'var(--text-1)' }}>
+      {/* Header */}
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CalIcon size={17} color="var(--primary)" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Schedule</h1>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Manage study sessions and knowledge review events</p>
+          </div>
         </div>
-        <div className="flex gap-3">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setShowStudyPlan(true)}
-            className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2">
-            <GraduationCap className="w-4 h-4" />AI Study Plan
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10, color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+            <GraduationCap size={14} /> AI Study Plan
           </button>
           <button onClick={() => setShowNewEvent(true)}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2">
-            <Plus className="w-4 h-4" />New Event
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'linear-gradient(135deg,var(--primary),#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
+            <Plus size={14} /> New Event
           </button>
         </div>
-      </header>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-100 shadow-xl p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">{today.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+      {/* Layout */}
+      <div className="calendar-layout">
+        {/* Calendar grid */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ ...card, padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <h3 style={{ fontWeight: 800, fontSize: 16, margin: 0 }}>{monthName}</h3>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>{daysInMonth} days</div>
           </div>
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">{d}</div>
+
+          {/* Day headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 6 }}>
+            {DAY_NAMES.map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', padding: '4px 0' }}>{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
+
+          {/* Day cells */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const isToday = day === today.getDate();
               const dayEvents = events.filter(e => new Date(e.date).getDate() === day);
               return (
-                <div key={day} className={cn('aspect-square rounded-xl flex flex-col p-1.5 transition-colors cursor-default text-center', isToday ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50')}>
-                  <span className={cn('text-xs font-bold', isToday ? 'text-white' : 'text-slate-500')}>{day}</span>
-                  <div className="flex flex-wrap gap-0.5 mt-1 justify-center">
+                <div key={day} style={{
+                  aspectRatio: '1', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '6px 2px 4px',
+                  background: isToday ? 'var(--primary)' : 'transparent',
+                  border: `1px solid ${isToday ? 'transparent' : 'transparent'}`,
+                  cursor: 'default', transition: 'background 0.15s',
+                }}
+                  onMouseEnter={e => { if (!isToday) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { if (!isToday) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isToday ? '#fff' : 'var(--text-2)' }}>{day}</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3, justifyContent: 'center' }}>
                     {dayEvents.slice(0, 3).map((_, ei) => (
-                      <div key={ei} className={cn('w-1.5 h-1.5 rounded-full', isToday ? 'bg-white/60' : 'bg-indigo-500')} />
+                      <div key={ei} style={{ width: 5, height: 5, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.6)' : 'var(--primary)' }} />
                     ))}
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
 
-        <div className="space-y-4">
-          <h3 className="font-bold text-slate-900">Upcoming Events</h3>
+          {/* Today marker */}
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px rgba(99,102,241,0.6)' }} />
+            <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Today — {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+          </div>
+        </motion.div>
+
+        {/* Upcoming Events sidebar */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+            <h3 style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>Upcoming Events</h3>
+            {events.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{events.length} total</span>}
+          </div>
+
           {isLoading ? (
-            <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-          ) : events.length > 0 ? events.slice(0, 8).map(event => (
-            <div key={event.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-              <p className="text-xs font-bold text-indigo-600 mb-1">{event.date} · {event.time}</p>
-              <h4 className="font-bold text-slate-800 text-sm line-clamp-2">{event.title}</h4>
-              <p className="text-[10px] text-slate-400 mt-1">{event.duration_minutes} mins</p>
+            <div className="loading-center">
+              <Loader2 size={22} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
             </div>
+          ) : events.length > 0 ? events.slice(0, 8).map((event, idx) => (
+            <motion.div key={event.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04 }}
+              style={{ ...card, padding: '12px 14px', borderRadius: 12 }}>
+              <p style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', marginBottom: 3, margin: '0 0 4px' }}>{event.date} · {event.time}</p>
+              <h4 style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</h4>
+              <p style={{ fontSize: 10, color: 'var(--text-3)', margin: 0 }}>{event.duration_minutes} mins</p>
+            </motion.div>
           )) : (
-            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              <CalendarIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">No upcoming events</p>
+            <div className="empty-state" style={{ ...card, borderStyle: 'dashed', borderRadius: 12, padding: '36px 16px' }}>
+              <CalIcon size={28} color="var(--text-3)" />
+              <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>No upcoming events</p>
+              <button onClick={() => setShowNewEvent(true)}
+                style={{ padding: '6px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8, color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Add first event
+              </button>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
 
+      {/* New Event Modal */}
       <AnimatePresence>
         {showNewEvent && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNewEvent(false)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-              <h3 className="text-xl font-bold text-slate-900">Schedule Event</h3>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Event Title</label>
-                  <input type="text" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Study session, review, etc." className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowNewEvent(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+              style={{ position: 'relative', width: '100%', maxWidth: 420, ...card, padding: '28px 26px', borderRadius: 20, boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Schedule Event</h3>
+                <button onClick={() => setShowNewEvent(false)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>Event Title</label>
+                  <input type="text" value={newEvent.title} onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Study session, review, etc." style={inputStyle} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Date</label>
-                    <input type="date" value={newEvent.date} onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Date</label>
+                    <input type="date" value={newEvent.date} onChange={e => setNewEvent({ ...newEvent, date: e.target.value })} style={inputStyle} />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Time</label>
-                    <input type="time" value={newEvent.time} onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  <div>
+                    <label style={labelStyle}>Time</label>
+                    <input type="time" value={newEvent.time} onChange={e => setNewEvent({ ...newEvent, time: e.target.value })} style={inputStyle} />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (minutes)</label>
-                  <input type="number" value={newEvent.duration_minutes} onChange={(e) => setNewEvent({ ...newEvent, duration_minutes: parseInt(e.target.value) })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" min="15" step="15" />
+                <div>
+                  <label style={labelStyle}>Duration (minutes)</label>
+                  <input type="number" value={newEvent.duration_minutes} onChange={e => setNewEvent({ ...newEvent, duration_minutes: parseInt(e.target.value) })} style={inputStyle} min="15" step="15" />
                 </div>
               </div>
-              <div className="flex gap-3">
-                <button onClick={() => setShowNewEvent(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50">Cancel</button>
-                <button onClick={handleCreateEvent} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700">Schedule</button>
+              <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                <button onClick={() => setShowNewEvent(false)} style={{ flex: 1, padding: '11px 0', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                <button onClick={handleCreateEvent} style={{ flex: 1, padding: '11px 0', background: 'linear-gradient(135deg,var(--primary),#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>Schedule</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
+      {/* Study Plan Modal */}
       <AnimatePresence>
         {showStudyPlan && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowStudyPlan(false)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white flex justify-between items-center shrink-0">
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowStudyPlan(false)}
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+              style={{ position: 'relative', width: '100%', maxWidth: 560, ...card, borderRadius: 20, overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+              {/* Modal header */}
+              <div style={{ background: 'linear-gradient(135deg,#6366f1,#7c3aed)', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">Neural AI Powered</p>
-                  <h3 className="text-xl font-bold mt-1">7-Day Study Plan Generator</h3>
+                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.65)', margin: '0 0 4px' }}>Neural AI Powered</p>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>7-Day Study Plan Generator</h3>
                 </div>
-                <button onClick={() => setShowStudyPlan(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5" /></button>
+                <button onClick={() => setShowStudyPlan(false)} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: 7, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center' }}>
+                  <X size={16} />
+                </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+              {/* Modal body */}
+              <div style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {studyPlan.length === 0 ? (
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Focus Topic (optional)</label>
-                      <input type="text" value={studyPlanTopic} onChange={(e) => setStudyPlanTopic(e.target.value)}
-                        placeholder="e.g., Machine Learning, Python, History..."
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                      <p className="text-xs text-slate-400">Leave empty to base the plan on all your saved memories</p>
+                  <>
+                    <div>
+                      <label style={labelStyle}>Focus Topic (optional)</label>
+                      <input type="text" value={studyPlanTopic} onChange={e => setStudyPlanTopic(e.target.value)}
+                        placeholder="e.g., Machine Learning, Python, History…"
+                        style={inputStyle} />
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '6px 0 0' }}>Leave empty to base the plan on all your saved memories</p>
                     </div>
                     <button onClick={handleGeneratePlan} disabled={planLoading}
-                      className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-50">
-                      {planLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Generating Plan...</> : <><GraduationCap className="w-5 h-5" />Generate 7-Day Study Plan</>}
+                      style={{ padding: '13px 0', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 11, color: '#fff', fontSize: 14, fontWeight: 700, cursor: planLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: planLoading ? 0.7 : 1, boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+                      {planLoading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Plan…</> : <><GraduationCap size={16} /> Generate 7-Day Study Plan</>}
                     </button>
-                  </div>
+                  </>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-bold text-slate-900">Your Personalized Study Plan</h4>
-                      <button onClick={() => setStudyPlan([])} className="text-sm text-indigo-600 font-bold hover:underline">Generate New</button>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>Your Personalized Study Plan</h4>
+                      <button onClick={() => setStudyPlan([])} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Generate New</button>
                     </div>
                     {studyPlan.map((day: any) => (
-                      <div key={day.day} className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                        <div className="flex items-center justify-between mb-3">
+                      <div key={day.day} style={{ ...card, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                           <div>
-                            <span className="text-xs font-bold text-indigo-600 uppercase">Day {day.day} · {day.date}</span>
-                            <h5 className="font-bold text-slate-900 mt-0.5">{day.title}</h5>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Day {day.day} · {day.date}</span>
+                            <h5 style={{ fontWeight: 700, fontSize: 14, margin: '3px 0 0', color: 'var(--text-1)' }}>{day.title}</h5>
                           </div>
-                          <div className="text-right">
-                            <span className="text-xs text-slate-400">{day.duration_minutes} min</span>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase">{day.focus_area}</p>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{day.duration_minutes} min</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>{day.focus_area}</div>
                           </div>
                         </div>
-                        <ul className="space-y-1.5">
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {day.activities?.map((activity: string, i: number) => (
-                            <li key={i} className="flex items-center gap-2 text-sm text-slate-600">
-                              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full shrink-0" />
+                            <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text-2)' }}>
+                              <CheckCircle2 size={13} color="var(--primary)" style={{ flexShrink: 0, marginTop: 1 }} />
                               {activity}
                             </li>
                           ))}
                         </ul>
                       </div>
                     ))}
-                  </div>
+                  </>
                 )}
               </div>
             </motion.div>

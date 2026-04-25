@@ -5,6 +5,15 @@ An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackatho
 
 **AI Provider:** Google Gemini 2.0 Flash (GOOGLE_API_KEY via OpenAI-compat layer). Auto-falls back to OpenRouter (GEN_APAC_API_KEY) on rate-limit. UI branding: "Powered by Google Gemini 2.0".
 
+## UI Overhaul — Session 2 (April 2026)
+- **TimelinePage** — Complete rewrite. All hardcoded dark colors (`#d1d5db`, `#4b5563`, `#6b7280`) → CSS vars. Added `page-header` layout, improved filter bar, polished empty state with CTA button, `motion.div` hover animation on cards, CSS class `.timeline-line` for responsive date column.
+- **CalendarPage** — Complete rewrite. Replaced all Tailwind light-theme classes (`bg-white`, `text-slate-*`, `rounded-3xl`) with inline styles + CSS vars to match dark glassmorphism design system. Two-panel layout now uses `.calendar-layout` responsive CSS class. Modals use design tokens throughout.
+- **AnalyticsPage** — Fixed both 2-column chart rows (`gridTemplateColumns: '1fr 1fr'`) → `.grid-2col` responsive CSS class (stacks on mobile <700px).
+- **WorkspacePage** — Fixed hardcoded `gridTemplateColumns: '220px 1fr'` → `.workspace-layout` responsive CSS class. Inner 2-col panel → `.workspace-inner` CSS class (collapses on mobile <560px).
+- **VaultPage** — Fixed memory card grid from `repeat(auto-fill,minmax(280px,1fr))` → `.vault-grid` CSS class (1→2→3 col responsive breakpoints).
+- **FlashcardsPage** — Fixed deck grid from `repeat(auto-fill,minmax(240px,1fr))` → `.flashcard-grid` CSS class (1→2→3→4 col responsive breakpoints).
+- **index.css** — Added comprehensive helper classes: `.grid-2col`, `.workspace-layout`, `.workspace-inner`, `.vault-grid`, `.timeline-line`, `.calendar-layout`, `.page-header`, `.flashcard-grid`, `.empty-state`, `.loading-center`, `.section-title`, `.section-sub`.
+
 ## Global Features (April 2026 — Hackathon Upgrade)
 - **Global Toast System** (`App.tsx`) — Event-driven toasts via `window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }))`. Exported `showToast(msg, type)` helper usable from any page. Types: `success` (green), `error` (red), `info` (indigo). Animated slide-in/out, stacked, auto-dismiss at 3.8s.
 - **Floating Quick-Capture FAB** (`App.tsx`) — Purple `+` button fixed at bottom-right. Expands to: Capture URL (→ /capture), Quick Note (inline modal that posts to `/capture` and fires a toast), Agent Hub (→ /agent). Collapses with 45° rotation animation. Shown only when authenticated.
