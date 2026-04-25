@@ -219,14 +219,14 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     if (reduceMotion) return;
     let timeout: ReturnType<typeof setTimeout>;
     if (phase === 'in') {
-      timeout = setTimeout(() => setPhase('hold'), 600);
+      timeout = setTimeout(() => setPhase('hold'), 350);
     } else if (phase === 'hold') {
-      timeout = setTimeout(() => setPhase('out'), 2200);
+      timeout = setTimeout(() => setPhase('out'), 1400);
     } else {
       timeout = setTimeout(() => {
         setWordIdx(i => (i + 1) % HERO_WORDS.length);
         setPhase('in');
-      }, 400);
+      }, 280);
     }
     return () => clearTimeout(timeout);
   }, [phase, reduceMotion]);
@@ -350,10 +350,10 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                 <motion.span
                   key={wordIdx}
                   className="lx-hero-word"
-                  initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+                  initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
-                  transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+                  exit={{ opacity: 0, y: -14, filter: 'blur(6px)' }}
+                  transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
                 >
                   {HERO_WORDS[wordIdx]}
                 </motion.span>
