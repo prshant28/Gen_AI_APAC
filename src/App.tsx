@@ -2745,7 +2745,7 @@ interface AgentMsg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  type: 'text' | 'thinking' | 'steps' | 'welcome';
+  type: 'text' | 'thinking' | 'steps' | 'welcome' | 'streaming';
   steps?: AgentStepData[];
   agents?: string[];
   workflow_id?: string;
@@ -2901,6 +2901,14 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         setAgentStatuses(prev => ({ ...prev, [event.agent]: 'idle' }));
         setMessages(prev => prev.map(m => m.id === thinkId
           ? { ...m, steps: (m.steps || []).map(s => s.step_id === event.step_id ? { ...s, status: 'failed', error: event.error } : s) }
+          : m
+        ));
+        break;
+
+      case 'token':
+        // Progressively build up the streaming reply inside the thinking bubble
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, type: 'streaming' as const, content: (m.content || '') + event.text }
           : m
         ));
         break;
@@ -3113,6 +3121,22 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Streaming reply (tokens arriving live) */}
+                {msg.type === 'streaming' && (
+                  <div style={{
+                    padding: '11px 15px',
+                    borderRadius: '4px 14px 14px 14px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  }}>
+                    <p style={{ color: '#0f172a', fontSize: 13, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                      {msg.content}
+                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#6366f1', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'bounce 1s ease-in-out infinite', opacity: 0.8 }} />
+                    </p>
                   </div>
                 )}
 

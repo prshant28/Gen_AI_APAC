@@ -7,9 +7,13 @@ Tracks execution as Workflows with named Steps for full auditability.
 import json
 import asyncio
 import datetime
+import httpx
 from typing import List, Dict, Any, AsyncGenerator
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APITimeoutError, APIConnectionError
 from app.config import settings
+
+# Global timeout applied to every OpenAI call
+_OPENAI_TIMEOUT = httpx.Timeout(connect=8.0, read=50.0, write=10.0, pool=5.0)
 from app.capture_agent import capture, generate_daily_briefing, generate_flashcards, generate_study_plan
 from app.task_agent import create_task, list_tasks, get_tasks_summary
 from app.calendar_agent import create_event, list_upcoming_events
@@ -270,7 +274,8 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     client = AsyncOpenAI(
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers
+        default_headers=settings.openai_extra_headers,
+        timeout=_OPENAI_TIMEOUT
     )
 
     messages = [
@@ -281,12 +286,15 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     reply = ""
     try:
         for _ in range(6):
-            response = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=messages,
-                tools=TOOLS,
-                tool_choice="auto",
-                temperature=0.3
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    temperature=0.3
+                ),
+                timeout=55.0
             )
 
             msg = response.choices[0].message
@@ -375,7 +383,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
     client = AsyncOpenAI(
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers
+        default_headers=settings.openai_extra_headers,
+        timeout=_OPENAI_TIMEOUT
     )
 
     messages = [
@@ -388,21 +397,76 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
         for iteration in range(6):
             yield sse("thinking", {"iteration": iteration})
 
-            response = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=messages,
-                tools=TOOLS,
-                tool_choice="auto",
-                temperature=0.3
-            )
+            # ── Planning call (non-streaming, needs to inspect tool_calls) ──────
+            try:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=settings.OPENAI_MODEL,
+                        messages=messages,
+                        tools=TOOLS,
+                        tool_choice="auto",
+                        temperature=0.3
+                    ),
+                    timeout=55.0
+                )
+            except (asyncio.TimeoutError, APITimeoutError):
+                yield sse("error", {
+                    "message": "The AI took too long to respond. Please try again.",
+                    "workflow_id": workflow.id
+                })
+                workflow.fail("LLM timeout")
+                return
+            except APIConnectionError as e:
+                yield sse("error", {
+                    "message": f"Connection to AI failed: {str(e)}",
+                    "workflow_id": workflow.id
+                })
+                workflow.fail(str(e))
+                return
 
             msg = response.choices[0].message
             messages.append(msg)
 
+            # ── No tool calls → stream final reply word-by-word ──────────────
             if not msg.tool_calls:
-                reply = msg.content or ""
+                raw = msg.content or "All done! Let me know if you need anything else."
+                # Simulate streaming by yielding one word at a time so the
+                # frontend can progressively render instead of waiting for
+                # the full payload.  Then do a real stream call for subsequent
+                # synthesis steps (when tools were already called).
+                if iteration == 0:
+                    # Direct answer — no tools used: stream word-by-word from content
+                    words = raw.split(" ")
+                    for i, word in enumerate(words):
+                        chunk = word + (" " if i < len(words) - 1 else "")
+                        reply += chunk
+                        yield sse("token", {"text": chunk})
+                        await asyncio.sleep(0.01)
+                else:
+                    # Post-tool synthesis: make a streaming call so the user
+                    # sees the reply as it generates
+                    try:
+                        stream = await asyncio.wait_for(
+                            client.chat.completions.create(
+                                model=settings.OPENAI_MODEL,
+                                messages=messages,
+                                stream=True,
+                                temperature=0.3
+                            ),
+                            timeout=55.0
+                        )
+                        async for chunk in stream:
+                            delta = chunk.choices[0].delta.content if chunk.choices else None
+                            if delta:
+                                reply += delta
+                                yield sse("token", {"text": delta})
+                    except Exception:
+                        if not reply:
+                            reply = raw
+                            yield sse("token", {"text": raw})
                 break
 
+            # ── Execute tool calls ─────────────────────────────────────────────
             for tc in msg.tool_calls:
                 tool_name = tc.function.name
                 tool_args = json.loads(tc.function.arguments)
@@ -426,7 +490,7 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                 })
 
                 try:
-                    result = await run_tool(tool_name, tool_args)
+                    result = await asyncio.wait_for(run_tool(tool_name, tool_args), timeout=20.0)
                     step.complete(result)
                     yield sse("agent_complete", {
                         "step_id": step.id,
@@ -435,6 +499,14 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         "name": display_name,
                         "output_summary": _summarize_output(result),
                         "duration_ms": round(step.duration_ms, 1)
+                    })
+                except asyncio.TimeoutError:
+                    step.fail("Tool timed out")
+                    result = {"error": "Tool execution timed out"}
+                    yield sse("agent_error", {
+                        "step_id": step.id,
+                        "agent": agent_name,
+                        "error": "Tool execution timed out"
                     })
                 except Exception as e:
                     step.fail(str(e))
