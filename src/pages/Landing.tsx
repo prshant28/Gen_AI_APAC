@@ -20,11 +20,11 @@ type LandingProps = {
 const HERO_WORDS = ['thinks with you.', 'connects your ideas.', 'plans your week.'];
 
 const AGENTS = [
-  { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#fbbf24', desc: 'Picks the right specialist for every query and streams the answer.' },
-  { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#38bdf8', desc: 'YouTube, web, PDFs, voice, Slack — all turned into clean memory.' },
-  { icon: Search, name: 'Recall', tagline: 'Semantic memory', color: '#34d399', desc: 'Vector + reranking finds meaning, not just keywords.' },
-  { icon: Network, name: 'Graph', tagline: 'Living knowledge', color: '#34d399', desc: 'Auto-links ideas, people and projects into a graph.' },
-  { icon: Calendar, name: 'Planner', tagline: 'Time + tasks', color: '#fbbf24', desc: 'Turns insights into prioritized work and deep-work blocks.' },
+  { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#3b82f6', desc: 'Picks the right specialist for every query and streams the answer.' },
+  { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#22d3ee', desc: 'YouTube, web, PDFs, voice, Slack — all turned into clean memory.' },
+  { icon: Search, name: 'Recall', tagline: 'Semantic memory', color: '#818cf8', desc: 'Vector + reranking finds meaning, not just keywords.' },
+  { icon: Network, name: 'Graph', tagline: 'Living knowledge', color: '#818cf8', desc: 'Auto-links ideas, people and projects into a graph.' },
+  { icon: Calendar, name: 'Planner', tagline: 'Time + tasks', color: '#3b82f6', desc: 'Turns insights into prioritized work and deep-work blocks.' },
   { icon: BookOpen, name: 'Briefing', tagline: 'Daily digest', color: '#fb7185', desc: 'AI brief every morning of yesterday + what to focus on today.' },
   { icon: Shield, name: 'Guardian', tagline: 'Privacy & policy', color: '#60a5fa', desc: 'Encryption, redaction and audit so your second brain stays yours.' },
 ];
@@ -36,7 +36,7 @@ const HOW_IT_WORKS = [
     title: 'Capture anything',
     desc: 'Drop a link, paste a doc, record a voice note, forward an email. Capture Agent ingests and structures it instantly.',
     samples: ['🎙️ Voice memo · 4:12', '📺 YouTube · 47 min lecture', '📄 PDF · Q3 strategy.pdf', '🔗 Article · Stratechery'],
-    accent: '#38bdf8',
+    accent: '#22d3ee',
   },
   {
     step: '02',
@@ -44,7 +44,7 @@ const HOW_IT_WORKS = [
     title: 'Connect everything',
     desc: 'Graph Agent silently links new memories to old ones. Concepts, people, projects, decisions — all wired together.',
     samples: ['"RAG" → linked to 14 memories', '"Maya" → 3 new mentions', 'Cluster: GTM playbook (12)', '+ 8 new edges added'],
-    accent: '#34d399',
+    accent: '#818cf8',
   },
   {
     step: '03',
@@ -52,7 +52,7 @@ const HOW_IT_WORKS = [
     title: 'Recall instantly',
     desc: 'Ask in plain English. Orchestrator routes to the right agents and streams an answer with cited memories.',
     samples: ['→ "What did Maya say about pricing?"', '→ Found 6 memories · 0.4s', '→ Answer streamed with sources', '→ Saved to your daily brief'],
-    accent: '#fbbf24',
+    accent: '#3b82f6',
   },
 ];
 
@@ -60,21 +60,21 @@ const PERSONAS = [
   {
     icon: Rocket,
     name: 'Founders',
-    color: '#fbbf24',
+    color: '#3b82f6',
     promise: 'Never lose a customer insight, investor note, or roadmap idea again.',
     bullets: ['Capture investor calls automatically', 'Daily brief of what your team shipped', 'Recall every customer conversation'],
   },
   {
     icon: Telescope,
     name: 'Researchers',
-    color: '#38bdf8',
+    color: '#22d3ee',
     promise: 'Build a living library of every paper, lecture, and breakthrough you read.',
     bullets: ['Auto-summarize papers + lectures', 'Find connections across fields', 'Cite memories in your writing'],
   },
   {
     icon: Target,
     name: 'Operators',
-    color: '#34d399',
+    color: '#818cf8',
     promise: 'Stop searching docs. Just ask your second brain and get the answer.',
     bullets: ['Index every Notion + Slack thread', 'Surface SOPs the moment you need them', 'Auto-schedule deep-work blocks'],
   },
@@ -88,11 +88,11 @@ const STATS = [
 ];
 
 const TESTIMONIALS = [
-  { quote: 'Recall X247 replaced four apps for me. The multi-agent setup is genuinely magical — like having a team of researchers on call 24/7.', name: 'Maya Rodriguez', role: 'Founder, Lumen Labs', avatar: 'MR', tint: '#fbbf24' },
-  { quote: 'The daily briefings are wild. It surfaces connections between ideas I forgot I had. Felt like cheating my way to a research PhD.', name: 'Aisha Patel', role: 'Independent researcher', avatar: 'AP', tint: '#34d399' },
-  { quote: 'I used to lose 2 hours a day searching old notes. Now I just ask the Orchestrator and it pulls the exact memory in seconds.', name: 'Daniel Park', role: 'Sr. PM at Stripe', avatar: 'DP', tint: '#38bdf8' },
-  { quote: 'Setup took 3 minutes. By day two I had a graph of 800 memories. By week one I felt 30% smarter at work.', name: 'Jordan Lee', role: 'Eng lead, Series B', avatar: 'JL', tint: '#34d399' },
-  { quote: 'The fact that seven specialist agents coordinate behind one chat is pure science fiction. And it just works.', name: 'Priya Suresh', role: 'AI consultant', avatar: 'PS', tint: '#fbbf24' },
+  { quote: 'Recall X247 replaced four apps for me. The multi-agent setup is genuinely magical — like having a team of researchers on call 24/7.', name: 'Maya Rodriguez', role: 'Founder, Lumen Labs', avatar: 'MR', tint: '#3b82f6' },
+  { quote: 'The daily briefings are wild. It surfaces connections between ideas I forgot I had. Felt like cheating my way to a research PhD.', name: 'Aisha Patel', role: 'Independent researcher', avatar: 'AP', tint: '#818cf8' },
+  { quote: 'I used to lose 2 hours a day searching old notes. Now I just ask the Orchestrator and it pulls the exact memory in seconds.', name: 'Daniel Park', role: 'Sr. PM at Stripe', avatar: 'DP', tint: '#22d3ee' },
+  { quote: 'Setup took 3 minutes. By day two I had a graph of 800 memories. By week one I felt 30% smarter at work.', name: 'Jordan Lee', role: 'Eng lead, Series B', avatar: 'JL', tint: '#818cf8' },
+  { quote: 'The fact that seven specialist agents coordinate behind one chat is pure science fiction. And it just works.', name: 'Priya Suresh', role: 'AI consultant', avatar: 'PS', tint: '#3b82f6' },
   { quote: 'I run a 12-person team. Shared graph means we stop re-asking each other the same question. Massive unlock.', name: 'Sam Chen', role: 'COO at Arcfield', avatar: 'SC', tint: '#fb7185' },
 ];
 
@@ -125,56 +125,56 @@ const CHAT_SCRIPT = [
 ];
 
 const TERMINAL_LOGS = [
-  { time: '09:41:03', agent: 'Orchestrator', text: 'Query: "What did Maya say about pricing?"', color: '#fbbf24', bg: 'rgba(167,139,250,0.12)' },
-  { time: '09:41:03', agent: 'Recall', text: 'Searching 2,847 memories for "Maya pricing"…', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  { time: '09:41:04', agent: 'Recall', text: '6 memories found · semantic score 0.94', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  { time: '09:41:04', agent: 'Graph', text: 'Loading memory edges → 14 connected nodes', color: '#34d399', bg: 'rgba(244,114,182,0.1)' },
-  { time: '09:41:04', agent: 'Orchestrator', text: 'Synthesising with 6 citation anchors…', color: '#fbbf24', bg: 'rgba(167,139,250,0.12)' },
+  { time: '09:41:03', agent: 'Orchestrator', text: 'Query: "What did Maya say about pricing?"', color: '#3b82f6', bg: 'rgba(167,139,250,0.12)' },
+  { time: '09:41:03', agent: 'Recall', text: 'Searching 2,847 memories for "Maya pricing"…', color: '#818cf8', bg: 'rgba(52,211,153,0.1)' },
+  { time: '09:41:04', agent: 'Recall', text: '6 memories found · semantic score 0.94', color: '#818cf8', bg: 'rgba(52,211,153,0.1)' },
+  { time: '09:41:04', agent: 'Graph', text: 'Loading memory edges → 14 connected nodes', color: '#818cf8', bg: 'rgba(244,114,182,0.1)' },
+  { time: '09:41:04', agent: 'Orchestrator', text: 'Synthesising with 6 citation anchors…', color: '#3b82f6', bg: 'rgba(167,139,250,0.12)' },
   { time: '09:41:05', agent: 'Briefing', text: 'Flagged for today\'s brief · added to context', color: '#fb7185', bg: 'rgba(251,113,133,0.1)' },
-  { time: '09:41:05', agent: 'Planner', text: 'Scheduling follow-up · Mon 9am deep-work', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-  { time: '09:41:05', agent: 'Orchestrator', text: '✓ Done · 0.41s · 6 citations · 3 agents', color: '#fbbf24', bg: 'rgba(167,139,250,0.12)' },
+  { time: '09:41:05', agent: 'Planner', text: 'Scheduling follow-up · Mon 9am deep-work', color: '#3b82f6', bg: 'rgba(251,191,36,0.1)' },
+  { time: '09:41:05', agent: 'Orchestrator', text: '✓ Done · 0.41s · 6 citations · 3 agents', color: '#3b82f6', bg: 'rgba(167,139,250,0.12)' },
 ];
 
 const TERMINAL_FEATS = [
-  { icon: Zap, label: 'Sub-500ms end-to-end orchestration', detail: '0.41s avg', color: '#fbbf24' },
-  { icon: Network, label: 'Real-time knowledge graph updates', detail: 'live edges', color: '#34d399' },
+  { icon: Zap, label: 'Sub-500ms end-to-end orchestration', detail: '0.41s avg', color: '#3b82f6' },
+  { icon: Network, label: 'Real-time knowledge graph updates', detail: 'live edges', color: '#818cf8' },
   { icon: Shield, label: 'Zero data leakage — private by design', detail: 'encrypted', color: '#60a5fa' },
-  { icon: Activity, label: 'Streaming SSE — words as they generate', detail: 'SSE stream', color: '#34d399' },
+  { icon: Activity, label: 'Streaming SSE — words as they generate', detail: 'SSE stream', color: '#818cf8' },
 ];
 
 const LIVE_FEED = [
-  { icon: Mic, text: 'Voice memo captured', meta: '0.3s · Orchestrator', color: '#fbbf24' },
+  { icon: Mic, text: 'Voice memo captured', meta: '0.3s · Orchestrator', color: '#3b82f6' },
   { icon: Youtube, text: 'YouTube lecture parsed', meta: '12s · 47 memories', color: '#fb7185' },
-  { icon: FileText, text: 'PDF strategy doc ingested', meta: '2.1s · 28 memories', color: '#38bdf8' },
-  { icon: Link2, text: 'Article linked to 8 memories', meta: '0.8s · Graph Agent', color: '#34d399' },
-  { icon: MessageCircle, text: 'Slack thread summarized', meta: '1.4s · 12 memories', color: '#fbbf24' },
-  { icon: Globe, text: 'Web research captured', meta: '3.2s · 19 memories', color: '#34d399' },
+  { icon: FileText, text: 'PDF strategy doc ingested', meta: '2.1s · 28 memories', color: '#22d3ee' },
+  { icon: Link2, text: 'Article linked to 8 memories', meta: '0.8s · Graph Agent', color: '#818cf8' },
+  { icon: MessageCircle, text: 'Slack thread summarized', meta: '1.4s · 12 memories', color: '#3b82f6' },
+  { icon: Globe, text: 'Web research captured', meta: '3.2s · 19 memories', color: '#818cf8' },
   { icon: Send, text: 'Email thread distilled', meta: '0.9s · 6 memories', color: '#60a5fa' },
-  { icon: BrainCircuit, text: 'Knowledge cluster formed', meta: 'Graph · 34 nodes', color: '#fbbf24' },
-  { icon: Zap, text: 'Daily brief generated', meta: 'Briefing Agent · 08:00', color: '#fbbf24' },
-  { icon: Clock, text: 'Deep-work block scheduled', meta: 'Planner · Mon 9am', color: '#34d399' },
+  { icon: BrainCircuit, text: 'Knowledge cluster formed', meta: 'Graph · 34 nodes', color: '#3b82f6' },
+  { icon: Zap, text: 'Daily brief generated', meta: 'Briefing Agent · 08:00', color: '#3b82f6' },
+  { icon: Clock, text: 'Deep-work block scheduled', meta: 'Planner · Mon 9am', color: '#818cf8' },
 ];
 
 const FEATURES = [
   {
     icon: BrainCircuit, title: 'Neural memory graph', size: 'wide',
     desc: 'Every idea becomes a node. Every concept an edge. Watch your second brain wire itself in real time.',
-    color: '#fbbf24', tag: 'Graph Agent',
+    color: '#3b82f6', tag: 'Graph Agent',
   },
   {
     icon: Mic, title: 'Voice-first capture', size: 'tall',
     desc: 'Record a thought, get a structured memory. Works offline, syncs instantly.',
-    color: '#38bdf8', tag: 'Capture Agent',
+    color: '#22d3ee', tag: 'Capture Agent',
   },
   {
     icon: Zap, title: 'Sub-400ms recall', size: 'small',
     desc: 'Semantic search across every memory you\'ve ever captured.',
-    color: '#34d399', tag: 'Recall Agent',
+    color: '#818cf8', tag: 'Recall Agent',
   },
   {
     icon: FlaskConical, title: 'Open model swap', size: 'small',
     desc: 'GPT-4o, Claude, local models — each agent picks the best for its job.',
-    color: '#fbbf24', tag: 'Architecture',
+    color: '#3b82f6', tag: 'Architecture',
   },
   {
     icon: BarChart3, title: 'Daily AI briefings', size: 'tall',
@@ -514,7 +514,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
               <div className="lx-mock-right">
                 <div className="lx-mock-card">
                   <div className="lx-mock-card-head">
-                    <Cpu size={11} style={{ color: '#fbbf24' }} />
+                    <Cpu size={11} style={{ color: '#3b82f6' }} />
                     <span>Agents · active</span>
                   </div>
                   <div className="lx-mock-agents-mini">
@@ -529,14 +529,14 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                 </div>
                 <div className="lx-mock-card">
                   <div className="lx-mock-card-head">
-                    <Network size={11} style={{ color: '#34d399' }} />
+                    <Network size={11} style={{ color: '#818cf8' }} />
                     <span>Graph · live</span>
                   </div>
                   <MiniGraph />
                 </div>
                 <div className="lx-mock-card">
                   <div className="lx-mock-card-head">
-                    <TrendingUp size={11} style={{ color: '#34d399' }} />
+                    <TrendingUp size={11} style={{ color: '#818cf8' }} />
                     <span>This week</span>
                   </div>
                   <div className="lx-mock-stat">
@@ -1182,7 +1182,7 @@ function NeuralCanvas() {
     resize();
     window.addEventListener('resize', resize);
 
-    const COLORS = ['#fbbf24', '#38bdf8', '#34d399', '#34d399', '#fbbf24', '#60a5fa'];
+    const COLORS = ['#3b82f6', '#22d3ee', '#818cf8', '#818cf8', '#3b82f6', '#60a5fa'];
     const pts = Array.from({ length: 60 }, () => ({
       x: Math.random() * (canvas.offsetWidth || 900),
       y: Math.random() * (canvas.offsetHeight || 600),
@@ -1316,8 +1316,8 @@ function MiniGraph() {
         <line key={i} x1={l[0]} y1={l[1]} x2={l[2]} y2={l[3]} stroke="rgba(167,139,250,0.35)" strokeWidth="0.6" />
       ))}
       {[
-        [20, 40, '#38bdf8'], [70, 20, '#fbbf24'], [110, 35, '#34d399'],
-        [50, 65, '#fbbf24'], [90, 60, '#34d399'], [130, 55, '#60a5fa'],
+        [20, 40, '#22d3ee'], [70, 20, '#3b82f6'], [110, 35, '#818cf8'],
+        [50, 65, '#3b82f6'], [90, 60, '#818cf8'], [130, 55, '#60a5fa'],
       ].map((n, i) => (
         <g key={i}>
           <circle cx={n[0]} cy={n[1]} r="6" fill="url(#mgnode)" opacity="0.5" />
@@ -1330,17 +1330,17 @@ function MiniGraph() {
 
 function BigGraph() {
   const nodes = useMemo(() => ([
-    { id: 0, x: 50, y: 50, r: 14, color: '#fbbf24', label: 'You' },
-    { id: 1, x: 20, y: 25, r: 8, color: '#38bdf8' },
-    { id: 2, x: 78, y: 22, r: 9, color: '#34d399' },
-    { id: 3, x: 85, y: 65, r: 7, color: '#34d399' },
-    { id: 4, x: 18, y: 75, r: 8, color: '#fbbf24' },
+    { id: 0, x: 50, y: 50, r: 14, color: '#3b82f6', label: 'You' },
+    { id: 1, x: 20, y: 25, r: 8, color: '#22d3ee' },
+    { id: 2, x: 78, y: 22, r: 9, color: '#818cf8' },
+    { id: 3, x: 85, y: 65, r: 7, color: '#818cf8' },
+    { id: 4, x: 18, y: 75, r: 8, color: '#3b82f6' },
     { id: 5, x: 50, y: 14, r: 6, color: '#60a5fa' },
     { id: 6, x: 50, y: 86, r: 6, color: '#fb7185' },
-    { id: 7, x: 32, y: 50, r: 5, color: '#38bdf8' },
-    { id: 8, x: 68, y: 50, r: 5, color: '#34d399' },
-    { id: 9, x: 8, y: 50, r: 4, color: '#fbbf24' },
-    { id: 10, x: 92, y: 40, r: 4, color: '#34d399' },
+    { id: 7, x: 32, y: 50, r: 5, color: '#22d3ee' },
+    { id: 8, x: 68, y: 50, r: 5, color: '#818cf8' },
+    { id: 9, x: 8, y: 50, r: 4, color: '#3b82f6' },
+    { id: 10, x: 92, y: 40, r: 4, color: '#818cf8' },
     { id: 11, x: 38, y: 30, r: 4, color: '#60a5fa' },
     { id: 12, x: 62, y: 75, r: 4, color: '#fb7185' },
   ]), []);
