@@ -143,16 +143,17 @@ async def health():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
-@app.get("/settings")
-async def settings_endpoint():
+def _settings_payload():
     return {
         "gen_apac_api_key_set": bool(settings.GEN_API_KEY),
-        "openai_api_key_set": bool(settings.OPENAI_API_KEY),
+        "openai_api_key_set": bool(settings.FALLBACK_AI_KEY or settings.OPENAI_API_KEY),
+        "fallback_key_set": bool(settings.FALLBACK_AI_KEY),
         "openai_model": settings.OPENAI_MODEL,
         "gemini_api_key_set": bool(settings.GEMINI_API_KEY),
         "gemini_model": settings.GEMINI_MODEL,
         "ai_provider": "gemini" if settings.USE_GEMINI else ("openrouter" if settings.USE_OPENROUTER else "openai"),
         "ai_provider_name": settings.ai_provider_name,
+        "fallback_provider": settings.FALLBACK_AI_MODEL if settings.has_fallback else None,
         "use_gemini": settings.USE_GEMINI,
         "use_openrouter": settings.USE_OPENROUTER,
         "openai_base_url": settings.openai_base_url,
@@ -161,6 +162,15 @@ async def settings_endpoint():
         "google_calendar_configured": bool(settings.GOOGLE_CALENDAR_ID),
         "status": "online"
     }
+
+@app.get("/settings")
+async def settings_endpoint():
+    return _settings_payload()
+
+@app.get("/config")
+async def config_endpoint():
+    """Alias for /settings — used by frontend to avoid SPA route conflict."""
+    return _settings_payload()
 
 @app.get("/test-ai")
 async def test_ai_endpoint():

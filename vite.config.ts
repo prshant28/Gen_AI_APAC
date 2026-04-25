@@ -64,6 +64,7 @@ export default defineConfig(({mode}) => {
         '/briefing': 'http://127.0.0.1:8000',
         '/study-plan': 'http://127.0.0.1:8000',
         '/test-ai': 'http://127.0.0.1:8000',
+        '/config': 'http://127.0.0.1:8000',
       }
     },
   };
