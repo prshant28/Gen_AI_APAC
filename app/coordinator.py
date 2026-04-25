@@ -9,11 +9,35 @@ import asyncio
 import datetime
 import httpx
 from typing import List, Dict, Any, AsyncGenerator
-from openai import AsyncOpenAI, APITimeoutError, APIConnectionError
-from app.config import settings
+from openai import AsyncOpenAI, APITimeoutError, APIConnectionError, RateLimitError
+from app.config import settings, OPENROUTER_BASE_URL, OPENAI_BASE_URL
 
 # Global timeout applied to every OpenAI call
 _OPENAI_TIMEOUT = httpx.Timeout(connect=8.0, read=50.0, write=10.0, pool=5.0)
+
+
+def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
+    """Create an OpenAI-compatible client. Falls back to OpenRouter on Gemini rate limits."""
+    if use_fallback and settings.FALLBACK_AI_KEY and settings.FALLBACK_AI_KEY != settings.OPENAI_API_KEY:
+        from app.config import _is_openrouter_key
+        fb_key = settings.FALLBACK_AI_KEY
+        base = OPENROUTER_BASE_URL if _is_openrouter_key(fb_key) else OPENAI_BASE_URL
+        extra = {"HTTP-Referer": "https://recall-x247.replit.app", "X-Title": "Recall X247"} if _is_openrouter_key(fb_key) else {}
+        return AsyncOpenAI(api_key=fb_key, base_url=base, default_headers=extra, timeout=_OPENAI_TIMEOUT)
+    return AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.openai_base_url,
+        default_headers=settings.openai_extra_headers,
+        timeout=_OPENAI_TIMEOUT,
+    )
+
+
+def _fallback_model() -> str:
+    from app.config import _is_openrouter_key
+    fb_key = settings.FALLBACK_AI_KEY or ""
+    return "openai/gpt-4o-mini" if _is_openrouter_key(fb_key) else "gpt-4o-mini"
+
+
 from app.capture_agent import capture, generate_daily_briefing, generate_flashcards, generate_study_plan
 from app.task_agent import create_task, list_tasks, get_tasks_summary
 from app.calendar_agent import create_event, list_upcoming_events
@@ -271,12 +295,8 @@ async def run_coordinator(message: str, session_id: str) -> dict:
         session_id=session_id
     )
 
-    client = AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers,
-        timeout=_OPENAI_TIMEOUT
-    )
+    client = _make_client()
+    current_model = settings.OPENAI_MODEL
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
@@ -286,16 +306,35 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     reply = ""
     try:
         for _ in range(6):
-            response = await asyncio.wait_for(
-                client.chat.completions.create(
-                    model=settings.OPENAI_MODEL,
-                    messages=messages,
-                    tools=TOOLS,
-                    tool_choice="auto",
-                    temperature=0.3
-                ),
-                timeout=55.0
-            )
+            try:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=current_model,
+                        messages=messages,
+                        tools=TOOLS,
+                        tool_choice="auto",
+                        temperature=0.3
+                    ),
+                    timeout=55.0
+                )
+            except RateLimitError:
+                if current_model != _fallback_model():
+                    import logging
+                    logging.getLogger("recall-x247").warning("Gemini rate limit hit — falling back to OpenRouter.")
+                    client = _make_client(use_fallback=True)
+                    current_model = _fallback_model()
+                    response = await asyncio.wait_for(
+                        client.chat.completions.create(
+                            model=current_model,
+                            messages=messages,
+                            tools=TOOLS,
+                            tool_choice="auto",
+                            temperature=0.3
+                        ),
+                        timeout=55.0
+                    )
+                else:
+                    raise
 
             msg = response.choices[0].message
             messages.append(msg)
@@ -380,12 +419,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
         "timestamp": workflow.created_at
     })
 
-    client = AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers,
-        timeout=_OPENAI_TIMEOUT
-    )
+    client = _make_client()
+    current_model = settings.OPENAI_MODEL
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
@@ -401,7 +436,7 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
             try:
                 response = await asyncio.wait_for(
                     client.chat.completions.create(
-                        model=settings.OPENAI_MODEL,
+                        model=current_model,
                         messages=messages,
                         tools=TOOLS,
                         tool_choice="auto",
@@ -409,6 +444,31 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                     ),
                     timeout=55.0
                 )
+            except RateLimitError:
+                if current_model != _fallback_model():
+                    import logging
+                    logging.getLogger("recall-x247").warning("Gemini rate limit — falling back to OpenRouter.")
+                    client = _make_client(use_fallback=True)
+                    current_model = _fallback_model()
+                    try:
+                        response = await asyncio.wait_for(
+                            client.chat.completions.create(
+                                model=current_model,
+                                messages=messages,
+                                tools=TOOLS,
+                                tool_choice="auto",
+                                temperature=0.3
+                            ),
+                            timeout=55.0
+                        )
+                    except Exception as fb_err:
+                        yield sse("error", {"message": f"AI unavailable: {str(fb_err)}", "workflow_id": workflow.id})
+                        workflow.fail(str(fb_err))
+                        return
+                else:
+                    yield sse("error", {"message": "AI quota exceeded. Please try again later.", "workflow_id": workflow.id})
+                    workflow.fail("Rate limit")
+                    return
             except (asyncio.TimeoutError, APITimeoutError):
                 yield sse("error", {
                     "message": "The AI took too long to respond. Please try again.",

@@ -3,7 +3,7 @@
 ## Overview
 An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackathon. Implements a **full multi-agent AI system** — a primary Orchestrator coordinates specialized sub-agents via OpenAI function calling with real-time SSE streaming. Captures knowledge from YouTube, web, PDFs, and notes; allows semantic recall; manages tasks; generates flashcards; schedules study sessions; and delivers AI daily briefings.
 
-**AI Provider:** OpenRouter (GEN_APAC_API_KEY) → GPT-4o-mini. Branding shown as "Neural AI".
+**AI Provider:** Google Gemini 2.0 Flash (GOOGLE_API_KEY via OpenAI-compat layer). Auto-falls back to OpenRouter (GEN_APAC_API_KEY) on rate-limit. UI branding: "Powered by Google Gemini 2.0".
 
 ## UI/UX
 - **Light/Dark theme toggle** — Moon/Sun button in header, persisted in localStorage, applies `data-theme="dark"` to `<html>` element. CSS custom properties drive all theme colors.

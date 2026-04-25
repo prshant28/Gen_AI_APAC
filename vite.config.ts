@@ -52,6 +52,11 @@ export default defineConfig(({mode}) => {
         '/health': 'http://127.0.0.1:8000',
         '/agents': 'http://127.0.0.1:8000',
         '/workflows': 'http://127.0.0.1:8000',
+        '/export': 'http://127.0.0.1:8000',
+        '/briefing': 'http://127.0.0.1:8000',
+        '/flashcards': 'http://127.0.0.1:8000',
+        '/study-plan': 'http://127.0.0.1:8000',
+        '/test-ai': 'http://127.0.0.1:8000',
       }
     },
   };

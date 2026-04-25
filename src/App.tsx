@@ -10,7 +10,8 @@ import {
   BarChart2, Workflow, Timer, Layers, Filter, Hash, ChevronDown, CheckCheck,
   Cpu, Boxes, Map, LayoutGrid, SlidersHorizontal, PieChart, CalendarDays, Kanban,
   FolderOpen, PlusCircle, MoreHorizontal, GripVertical, Circle, Square,
-  Moon, Sun, LogOut, Mail, Lock, LogIn, ArrowLeft, User as UserIcon
+  Moon, Sun, LogOut, Mail, Lock, LogIn, ArrowLeft, User as UserIcon,
+  Mic, MicOff
 } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -1016,6 +1017,11 @@ const VaultView = ({ setView }: { setView: (v: View) => void }) => {
           >
             {domains.map(d => <option key={d} value={d}>{d || 'All Domains'}</option>)}
           </select>
+          <a href="/export/vault" download="recall-x247-vault.md"
+            title="Export entire vault as Markdown"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 14px', height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#9333ea)', color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3)', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+            <Download size={14} /> Export
+          </a>
         </div>
       </header>
 
@@ -2811,9 +2817,34 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'running' | 'done'>>({});
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [activePanel, setActivePanel] = useState<'agents' | 'history'>('agents');
+  const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const thinkingIdRef = useRef<string>('');
+  const recognitionRef = useRef<any>(null);
+
+  const toggleVoice = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onresult = (e: any) => {
+      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join('');
+      setInput(transcript);
+    };
+    rec.onend = () => { setIsListening(false); };
+    rec.onerror = () => { setIsListening(false); };
+    recognitionRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  }, [isListening]);
 
   const agentList = [
     { name: 'Orchestrator', role: 'Primary coordinator', color: '#00d4ff', tools: ['plan', 'delegate', 'synthesize'] },
@@ -3221,13 +3252,21 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         )}
 
         {/* Input */}
-        <div style={{ flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ flexShrink: 0, background: 'var(--surface)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`, borderRadius: 13, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'flex-end', boxShadow: isListening ? '0 0 0 3px rgba(239,68,68,0.12)' : 'var(--shadow-sm)', transition: 'all 0.2s' }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-            placeholder="Ask Neural AI anything... (Enter to send, Shift+Enter for new line)"
+            placeholder={isListening ? '🎙 Listening...' : 'Ask Neural AI anything... (Enter to send, Shift+Enter for new line)'}
             disabled={isStreaming}
             rows={1}
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
           />
+          <button onClick={toggleVoice} title={isListening ? 'Stop listening' : 'Voice input'}
+            style={{ width: 34, height: 34, borderRadius: 9, border: 'none', cursor: 'pointer', flexShrink: 0,
+              background: isListening ? 'rgba(239,68,68,0.12)' : 'var(--surface-2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+            {isListening
+              ? <MicOff size={14} color="#ef4444" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
+              : <Mic size={14} color="var(--text-3)" />}
+          </button>
           <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
             style={{ width: 34, height: 34, borderRadius: 9, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0,
               background: input.trim() && !isStreaming ? 'var(--primary)' : 'var(--surface-3)',
@@ -3238,7 +3277,7 @@ const AgentHubView = ({ setView }: { setView: (v: View) => void }) => {
         </div>
 
         <p style={{ color: 'var(--text-3)', fontSize: 9.5, textAlign: 'center', marginTop: 8, flexShrink: 0 }}>
-          Powered by Neural AI · Multi-agent orchestration with real-time SSE streaming
+          Powered by Google Gemini 2.0 · Multi-agent orchestration · Real-time SSE streaming
         </p>
       </div>
     </div>

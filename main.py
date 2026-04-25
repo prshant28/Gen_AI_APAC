@@ -25,7 +25,7 @@ logger = logging.getLogger("recall-x247")
 
 app = FastAPI(
     title="Recall X247 API",
-    description="AI-powered Second Brain — powered by OpenAI GPT",
+    description="AI-powered Second Brain — powered by Google Gemini 2.0",
     version="2.0.0"
 )
 
@@ -109,7 +109,16 @@ class StudyPlanRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info(f"Recall X247 v2.0 started. Using OpenAI: {settings.using_openai}. GCP Project: {settings.GCP_PROJECT_ID}")
+    logger.info(f"Recall X247 v2.0 started. AI: {settings.ai_provider_name}. GCP Project: {settings.GCP_PROJECT_ID}")
+    # Seed demo data so judges see a full brain immediately
+    try:
+        from app.demo_data import seed_demo_data
+        db = await get_db()
+        seeded = await seed_demo_data(db)
+        if seeded:
+            logger.info("Demo data seeded successfully.")
+    except Exception as e:
+        logger.warning(f"Demo seed skipped: {e}")
     logger.info("Startup complete.")
 
 
@@ -142,7 +151,9 @@ async def settings_endpoint():
         "openai_model": settings.OPENAI_MODEL,
         "gemini_api_key_set": bool(settings.GEMINI_API_KEY),
         "gemini_model": settings.GEMINI_MODEL,
-        "ai_provider": "openai" if settings.using_openai else "gemini",
+        "ai_provider": "gemini" if settings.USE_GEMINI else ("openrouter" if settings.USE_OPENROUTER else "openai"),
+        "ai_provider_name": settings.ai_provider_name,
+        "use_gemini": settings.USE_GEMINI,
         "use_openrouter": settings.USE_OPENROUTER,
         "openai_base_url": settings.openai_base_url,
         "gcp_project_id": settings.GCP_PROJECT_ID,
@@ -394,6 +405,64 @@ async def briefing_endpoint():
 
 
 # --- Stats & Logs ---
+
+@app.get("/export/vault")
+async def export_vault():
+    """Export entire knowledge vault as a Markdown file for download."""
+    try:
+        db = await get_db()
+        memories_snapshot = await db.collection("memories").get()
+        memories = [doc.to_dict() | {"id": doc.id} for doc in memories_snapshot]
+
+        lines = [
+            "# 🧠 Recall X247 — Knowledge Vault Export",
+            f"> Exported on {datetime.datetime.now().strftime('%B %d, %Y at %H:%M')}",
+            f"> Total memories: {len(memories)}",
+            "",
+            "---",
+            ""
+        ]
+        by_domain: dict = {}
+        for m in memories:
+            d = m.get("domain", "Other")
+            by_domain.setdefault(d, []).append(m)
+
+        for domain, items in sorted(by_domain.items()):
+            lines.append(f"## {domain} ({len(items)} memories)")
+            lines.append("")
+            for m in items:
+                created = m.get("created_at", "")
+                if hasattr(created, "isoformat"):
+                    created = created.isoformat()[:10]
+                elif isinstance(created, str):
+                    created = created[:10]
+                lines.append(f"### {m.get('title', 'Untitled')}")
+                lines.append(f"**Source:** {m.get('source_type', '').title()} | **Date:** {created}")
+                if m.get("source_url"):
+                    lines.append(f"**URL:** {m.get('source_url')}")
+                lines.append("")
+                lines.append(f"**Summary:** {m.get('summary', '')}")
+                lines.append("")
+                if m.get("key_points"):
+                    lines.append("**Key Points:**")
+                    for kp in m["key_points"]:
+                        lines.append(f"- {kp}")
+                if m.get("tags"):
+                    lines.append(f"\n**Tags:** {', '.join('#' + t for t in m['tags'])}")
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+
+        content = "\n".join(lines)
+        from fastapi.responses import Response
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={"Content-Disposition": 'attachment; filename="recall-x247-vault.md"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
 
 @app.get("/stats")
 async def stats_endpoint():
