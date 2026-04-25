@@ -662,7 +662,7 @@ img { max-width: 100%; }
   grid-template-columns: 1fr;
   gap: 14px;
 }
-@media (min-width: 560px) { .workspace-inner { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 960px) { .workspace-inner { grid-template-columns: 1fr 1fr; } }
 
 /* ── Vault grid ───────────────────────────────────────────────────────────── */
 .vault-grid {
@@ -786,3 +786,60 @@ img { max-width: 100%; }
 .task-delete-btn { opacity: 0; transition: opacity 0.15s; }
 div:hover > div > .task-delete-btn,
 div:hover .task-delete-btn { opacity: 1 !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPACT MODE — small viewport heights (canvas: 543px, mobile landscape)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-height: 620px) {
+  /* Tighter content padding */
+  .responsive-content { padding: 12px 16px !important; }
+
+  /* Compact page section headers */
+  .page-header { margin-bottom: 12px; gap: 8px; }
+
+  /* Smaller stat grid gap & margin */
+  .stat-cards-grid { gap: 8px !important; margin-bottom: 10px !important; }
+
+  /* Compact dashboard chart rows */
+  .dash-chart-row, .dash-bottom-row { gap: 8px; }
+
+  /* Compact empty/loading states */
+  .empty-state  { padding: 28px 16px !important; }
+  .loading-center { padding: 32px 16px !important; }
+
+  /* Compact grid gap */
+  .grid-2col { gap: 8px; margin-bottom: 8px; }
+
+  /* Agent hub and recall: use remaining viewport height more efficiently */
+  .agent-hub-layout { height: calc(100vh - 108px) !important; }
+  .recall-layout    { height: calc(100vh - 108px) !important; }
+}
+
+@media (max-height: 620px) and (min-width: 640px) {
+  .responsive-content { padding: 12px 18px !important; }
+}
+
+/* ── Stat cards: 2 cols on very constrained widths ────────────────────────── */
+@media (min-width: 720px) and (max-width: 830px) {
+  .stat-cards-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── Dashboard chart/bottom rows: don't split at very edge of 860px ────────── */
+@media (min-width: 860px) and (max-width: 900px) {
+  .dash-chart-row  { grid-template-columns: 1fr 240px !important; }
+  .dash-bottom-row { grid-template-columns: 1fr 220px !important; }
+}
+
+/* ── Prevent horizontal overflow everywhere ─────────────────────────────────── */
+.responsive-content > * { min-width: 0; max-width: 100%; }
+table { width: 100%; table-layout: fixed; }
+
+/* ── Settings page max-width ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .settings-inner { max-width: 100% !important; }
+}
+
+/* ── Compact workspace layout at 870px ─────────────────────────────────────── */
+@media (min-width: 640px) and (max-width: 900px) {
+  .workspace-layout { grid-template-columns: 180px 1fr; }
+}

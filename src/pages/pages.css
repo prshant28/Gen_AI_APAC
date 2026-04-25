@@ -2975,4 +2975,31 @@
   :root:not([data-theme="dark"]) .lg-page a:focus-visible {
     outline-color: #7c3aed;
   }
-  
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEIGHT-COMPACT — small viewport heights (canvas 543px, mobile landscape)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-height: 640px) {
+  /* Landing hero: reduce top padding and gaps */
+  .lx-hero {
+    padding: 100px 24px 24px !important;
+  }
+  .lx-hero-inner { gap: 14px !important; }
+  .lx-hero-title { font-size: clamp(36px, 6.5vw, 72px) !important; margin: 4px 0 0 !important; }
+  .lx-hero-sub   { font-size: 13px !important; }
+  .lx-hero-trust { margin-top: 8px !important; }
+  .lx-hero-ticker { display: none !important; }
+  .lx-section { padding: 40px 24px !important; }
+
+  /* Login box: smaller height to fit in 543px viewport */
+  .lg-box { height: min(92vh, 510px) !important; }
+  .lg-box-left { padding: 18px 22px 14px !important; }
+  .lg-heading  { font-size: 32px !important; }
+}
+
+@media (max-height: 640px) and (max-width: 860px) {
+  .lg-box {
+    grid-template-rows: 1fr 140px !important;
+    height: min(96vh, 540px) !important;
+  }
+}
