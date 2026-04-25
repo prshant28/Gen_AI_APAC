@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
 import { motion, useScroll, useSpring, AnimatePresence, useReducedMotion, useInView } from 'framer-motion';
 import {
   Brain, Sparkles, ArrowRight, Shield, Cpu, Search,
@@ -122,6 +122,24 @@ const CHAT_SCRIPT = [
   { role: 'ai', text: 'Found 6 memories. Maya pushed for usage-based pricing tied to query volume. Final note: revisit after 100 paying users.' },
   { role: 'user', text: 'Schedule deep-work for the rewrite.' },
   { role: 'ai', text: 'Booked Mon–Wed 9–11am. Linked to Q3 strategy memory.' },
+];
+
+const TERMINAL_LOGS = [
+  { time: '09:41:03', agent: 'Orchestrator', text: 'Query: "What did Maya say about pricing?"', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { time: '09:41:03', agent: 'Recall', text: 'Searching 2,847 memories for "Maya pricing"…', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+  { time: '09:41:04', agent: 'Recall', text: '6 memories found · semantic score 0.94', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+  { time: '09:41:04', agent: 'Graph', text: 'Loading memory edges → 14 connected nodes', color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
+  { time: '09:41:04', agent: 'Orchestrator', text: 'Synthesising with 6 citation anchors…', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { time: '09:41:05', agent: 'Briefing', text: 'Flagged for today\'s brief · added to context', color: '#fb7185', bg: 'rgba(251,113,133,0.1)' },
+  { time: '09:41:05', agent: 'Planner', text: 'Scheduling follow-up · Mon 9am deep-work', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
+  { time: '09:41:05', agent: 'Orchestrator', text: '✓ Done · 0.41s · 6 citations · 3 agents', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+];
+
+const TERMINAL_FEATS = [
+  { icon: Zap, label: 'Sub-500ms end-to-end orchestration', detail: '0.41s avg', color: '#fbbf24' },
+  { icon: Network, label: 'Real-time knowledge graph updates', detail: 'live edges', color: '#f472b6' },
+  { icon: Shield, label: 'Zero data leakage — private by design', detail: 'encrypted', color: '#60a5fa' },
+  { icon: Activity, label: 'Streaming SSE — words as they generate', detail: 'SSE stream', color: '#34d399' },
 ];
 
 const LIVE_FEED = [
@@ -309,6 +327,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
 
       {/* ── HERO ─────────────────────────────────────────────────── */}
       <section className="lx-hero">
+        <NeuralCanvas />
         <div className="lx-hero-inner">
           <motion.div
             className="lx-eyebrow"
@@ -726,6 +745,45 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         </div>
       </section>
 
+      {/* ── INTELLIGENCE TERMINAL ────────────────────────────────── */}
+      <section className="lx-section">
+        <div className="lx-terminal-wrap">
+          <motion.div
+            className="lx-terminal-text"
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="lx-eyebrow"><span className="lx-eyebrow-dot" />Inside the machine</div>
+            <h2 className="lx-section-title" style={{ textAlign: 'left', fontSize: 'clamp(28px, 3.8vw, 52px)' }}>
+              Watch your agents <span className="lx-grad-silver">think out loud.</span>
+            </h2>
+            <p>Every query routes through a real-time orchestration layer — seven specialists coordinate in under 500ms, so you get answers, not interfaces.</p>
+            <div className="lx-terminal-feat">
+              {TERMINAL_FEATS.map((f, i) => {
+                const Icon = f.icon;
+                return (
+                  <div key={i} className="lx-terminal-feat-row" style={{ ['--fc' as any]: f.color }}>
+                    <span className="lx-terminal-feat-icon"><Icon size={14} /></span>
+                    <span>{f.label}</span>
+                    <em>{f.detail}</em>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.7 }}
+          >
+            <TerminalDemo />
+          </motion.div>
+        </div>
+      </section>
+
       {/* ── USE CASES / PERSONAS ─────────────────────────────────── */}
       <section id="use" className="lx-section">
         <SectionHeader
@@ -1099,6 +1157,147 @@ function PriceCard({
       </ul>
       <button onClick={onCta} className={`${featured ? 'lx-pill-primary' : 'lx-pill-ghost'} lx-pill-block`}>{cta}</button>
     </motion.div>
+  );
+}
+
+// ── NEURAL CANVAS ────────────────────────────────────────────────
+function NeuralCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let animId: number;
+
+    const resize = () => {
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * ratio;
+      canvas.height = canvas.offsetHeight * ratio;
+      ctx.scale(ratio, ratio);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const COLORS = ['#a78bfa', '#22d3ee', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
+    const pts = Array.from({ length: 60 }, () => ({
+      x: Math.random() * (canvas.offsetWidth || 900),
+      y: Math.random() * (canvas.offsetHeight || 600),
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.6 + 0.4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    }));
+
+    const draw = () => {
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      ctx.clearRect(0, 0, W, H);
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x;
+          const dy = pts[i].y - pts[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 120) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(167,139,250,${(1 - d / 120) * 0.13})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+      for (const p of pts) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + '55';
+        ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > W) p.vx *= -1;
+        if (p.y < 0 || p.y > H) p.vy *= -1;
+      }
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
+  }, [reduceMotion]);
+
+  return <canvas ref={canvasRef} className="lx-neural-canvas" />;
+}
+
+// ── TERMINAL DEMO ─────────────────────────────────────────────────
+function TerminalDemo() {
+  const [visibleLines, setVisibleLines] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: false, margin: '-120px' });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCycle = () => {
+    setVisibleLines(0);
+    let i = 0;
+    timerRef.current = setInterval(() => {
+      i++;
+      setVisibleLines(i);
+      if (i >= TERMINAL_LOGS.length) {
+        clearInterval(timerRef.current!);
+        timerRef.current = setTimeout(() => startCycle(), 2800) as unknown as ReturnType<typeof setInterval>;
+      }
+    }, 620);
+  };
+
+  useEffect(() => {
+    if (inView) startCycle();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [inView]);
+
+  return (
+    <div ref={ref} className="lx-terminal-box">
+      <div className="lx-terminal-chrome">
+        <div className="lx-terminal-dots">
+          <span style={{ background: '#ff5f57' }} />
+          <span style={{ background: '#febc2e' }} />
+          <span style={{ background: '#28c840' }} />
+        </div>
+        <div className="lx-terminal-title">agent-orchestrator · live</div>
+        <div className="lx-terminal-live">
+          <span className="lx-terminal-live-dot" />
+          active
+        </div>
+      </div>
+      <div className="lx-terminal-body">
+        {TERMINAL_LOGS.slice(0, visibleLines).map((log, i) => (
+          <motion.div
+            key={`${i}-${visibleLines}`}
+            className="lx-terminal-line"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <span className="lx-terminal-line-time">{log.time}</span>
+            <span className="lx-terminal-line-agent" style={{ color: log.color, background: log.bg }}>
+              {log.agent}
+            </span>
+            <span className="lx-terminal-line-text">
+              {log.text}
+              {i === visibleLines - 1 && <span className="lx-terminal-cursor" />}
+            </span>
+          </motion.div>
+        ))}
+        {visibleLines === 0 && (
+          <div className="lx-terminal-line">
+            <span className="lx-terminal-line-time">—</span>
+            <span className="lx-terminal-line-text" style={{ color: 'var(--lx-text-3)' }}>
+              Waiting for query<span className="lx-terminal-cursor" />
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
