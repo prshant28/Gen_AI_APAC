@@ -177,15 +177,37 @@ const Sidebar = ({ currentView, setView, isCollapsed, setIsCollapsed, user, onSi
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       {/* Logo */}
-      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0, minHeight: 56, boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
-        <img
-          src="/x247-logo.png"
-          alt="x247 AI"
-          className="x247-logo-img"
-          draggable={false}
-          onClick={() => isCollapsed && setIsCollapsed(false)}
-          style={{ height: isCollapsed ? 20 : 22, width: 'auto', cursor: isCollapsed ? 'pointer' : 'default' }}
-        />
+      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', flexShrink: 0, minHeight: 56, boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.03)' }}>
+        {isCollapsed ? (
+          <button
+            onClick={() => setIsCollapsed(false)}
+            title="Expand sidebar"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+          >
+            <ChevronLeft size={15} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+        ) : (
+          <>
+            <img
+              src="/x247-logo.png"
+              alt="x247 AI"
+              className="x247-logo-img"
+              draggable={false}
+              style={{ height: 22, width: 'auto' }}
+            />
+            <button
+              onClick={() => setIsCollapsed(true)}
+              title="Collapse sidebar"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}
+            >
+              <ChevronLeft size={15} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Status badge */}
