@@ -1,35 +1,19 @@
 import json
 import datetime
 from typing import List, Dict, Any, Optional
-from openai import AsyncOpenAI
 from app.db import get_db
 from app.config import settings
+from app.ai_helper import chat_with_fallback, chat_json
 
 STOPWORDS = {"the", "a", "an", "is", "are", "was", "were", "what", "how", "tell", "me", "find", "search", "recall", "about", "i", "my", "do", "know", "have", "can", "you"}
 ALLOWED_DOMAINS = ["AI", "Technology", "Science", "Business", "Health", "History", "Philosophy", "Engineering", "Productivity", "Other"]
 
 
-def get_client() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers
-    )
-
-
 async def recall(query: str) -> dict:
     """
-    Semantic knowledge recall using OpenAI with 3-tier search fallback.
+    Semantic knowledge recall with 3-tier search + AI synthesis.
+    Auto-falls back to OpenAI if primary (Gemini) rate-limits.
     """
-    api_key = settings.OPENAI_API_KEY
-    if not api_key:
-        return {
-            "answer": "AI Service is not configured. Please set OPENAI_API_KEY in Secrets.",
-            "sources": [],
-            "count": 0
-        }
-
-    client = get_client()
     db = await get_db()
     memories = []
 
@@ -47,16 +31,16 @@ async def recall(query: str) -> dict:
 
     if len(memories) < 3:
         try:
-            domain_resp = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
+            domain_content, _ = await chat_with_fallback(
                 messages=[{
                     "role": "user",
                     "content": f"Classify this query into exactly one of these domains: {', '.join(ALLOWED_DOMAINS)}. Query: '{query}'. Return only the domain name, nothing else."
                 }],
+                model=settings.OPENAI_MODEL,
                 temperature=0,
-                max_tokens=20
+                max_tokens=20,
             )
-            classified_domain = domain_resp.choices[0].message.content.strip()
+            classified_domain = domain_content.strip()
             if classified_domain in ALLOWED_DOMAINS:
                 snapshot = await db.collection("memories") \
                     .where("domain", "==", classified_domain) \
@@ -76,17 +60,20 @@ async def recall(query: str) -> dict:
             recent = [doc.to_dict() | {"id": doc.id} for doc in snapshot]
             if recent:
                 scan_data = [{"index": i, "title": m.get("title"), "summary": m.get("summary", "")[:100]} for i, m in enumerate(recent)]
-                scan_resp = await client.chat.completions.create(
-                    model=settings.OPENAI_MODEL,
+                raw_scan = await chat_json(
                     messages=[{
                         "role": "user",
-                        "content": f"Which of these memories are most relevant to the query: '{query}'? Return a JSON array of the top 3 indices only. Memories: {json.dumps(scan_data)}"
+                        "content": f"Which of these memories are most relevant to the query: '{query}'? Return a JSON object with key 'indices' containing an array of the top 3 index numbers. Memories: {json.dumps(scan_data)}"
                     }],
-                    response_format={"type": "json_object"},
-                    temperature=0
+                    model=settings.OPENAI_MODEL,
+                    temperature=0,
                 )
-                raw = json.loads(scan_resp.choices[0].message.content)
-                indices = raw if isinstance(raw, list) else list(raw.values())[0]
+                indices = raw_scan.get("indices", [])
+                if not indices:
+                    for v in raw_scan.values():
+                        if isinstance(v, list):
+                            indices = v
+                            break
                 existing_ids = {m["id"] for m in memories}
                 for idx in indices:
                     if isinstance(idx, int) and 0 <= idx < len(recent):
@@ -124,13 +111,13 @@ Synthesize a comprehensive, helpful answer based on these memories.
 - Use bullet points for clarity when listing multiple points"""
 
     try:
-        resp = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+        answer_raw, _ = await chat_with_fallback(
             messages=[{"role": "user", "content": synthesis_prompt}],
+            model=settings.OPENAI_MODEL,
             temperature=0.3,
-            max_tokens=400
+            max_tokens=400,
         )
-        answer = resp.choices[0].message.content.strip()
+        answer = answer_raw.strip()
     except Exception as e:
         print(f"Synthesis Error: {e}")
         answer = "I found relevant memories but encountered an error synthesizing the answer."

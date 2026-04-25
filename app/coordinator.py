@@ -17,15 +17,15 @@ _OPENAI_TIMEOUT = httpx.Timeout(connect=8.0, read=50.0, write=10.0, pool=5.0)
 
 
 def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
-    """Create an OpenAI-compatible client. Falls back to OpenRouter on Gemini rate limits."""
-    if use_fallback and settings.FALLBACK_AI_KEY and settings.FALLBACK_AI_KEY != settings.OPENAI_API_KEY:
+    """Create an OpenAI-compatible client. Falls back to OpenAI on Gemini rate limits."""
+    if use_fallback and settings.FALLBACK_AI_KEY:
         from app.config import _is_openrouter_key
         fb_key = settings.FALLBACK_AI_KEY
-        base = OPENROUTER_BASE_URL if _is_openrouter_key(fb_key) else OPENAI_BASE_URL
+        base = settings.FALLBACK_AI_BASE_URL
         extra = {"HTTP-Referer": "https://recall-x247.replit.app", "X-Title": "Recall X247"} if _is_openrouter_key(fb_key) else {}
         return AsyncOpenAI(api_key=fb_key, base_url=base, default_headers=extra, timeout=_OPENAI_TIMEOUT)
     return AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
+        api_key=settings.PRIMARY_AI_KEY or settings.OPENAI_API_KEY,
         base_url=settings.openai_base_url,
         default_headers=settings.openai_extra_headers,
         timeout=_OPENAI_TIMEOUT,
@@ -33,9 +33,7 @@ def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
 
 
 def _fallback_model() -> str:
-    from app.config import _is_openrouter_key
-    fb_key = settings.FALLBACK_AI_KEY or ""
-    return "openai/gpt-4o-mini" if _is_openrouter_key(fb_key) else "gpt-4o-mini"
+    return settings.FALLBACK_AI_MODEL
 
 
 from app.capture_agent import capture, generate_daily_briefing, generate_flashcards, generate_study_plan

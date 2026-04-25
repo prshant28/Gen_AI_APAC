@@ -10,18 +10,14 @@ from pypdf import PdfReader
 from openai import AsyncOpenAI
 from app.db import get_db
 from app.config import settings
+from app.ai_helper import chat_with_fallback, chat_json, get_primary_client
 
 
 def get_openai_client() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.openai_base_url,
-        default_headers=settings.openai_extra_headers
-    )
+    return get_primary_client()
 
 
 async def analyze_with_openai(raw_text: str, model: str) -> dict:
-    client = get_openai_client()
     prompt = f"""Analyze this content and return a JSON object with these exact keys:
 - summary (string, 3 sentences)
 - key_points (array of 5 strings)
@@ -32,13 +28,11 @@ Content: {raw_text if raw_text else "No content available."}
 
 Return only valid JSON."""
 
-    response = await client.chat.completions.create(
-        model=model,
+    return await chat_json(
         messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-        temperature=0.2
+        model=model,
+        temperature=0.2,
     )
-    return json.loads(response.choices[0].message.content)
 
 
 async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes: bytes = None, user_id: str = "demo_user", preview: bool = False) -> dict:
@@ -205,9 +199,8 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
 
 async def generate_flashcards(memory_id: str) -> dict:
     """Generate Q&A flashcards from a saved memory."""
-    api_key = settings.OPENAI_API_KEY
-    if not api_key:
-        return {"error": "OPENAI_API_KEY not found."}
+    if not (settings.PRIMARY_AI_KEY or settings.OPENAI_API_KEY):
+        return {"error": "No AI key configured. Set OPENAI_API_KEY in Secrets."}
 
     try:
         db = await get_db()
@@ -218,22 +211,25 @@ async def generate_flashcards(memory_id: str) -> dict:
         memory = doc.to_dict()
         content = f"Title: {memory.get('title')}\nSummary: {memory.get('summary')}\nKey Points: {', '.join(memory.get('key_points', []))}"
 
-        client = get_openai_client()
         prompt = f"""Create 5 educational flashcards from this content. Return JSON with key "flashcards" containing an array of objects with "question" and "answer" fields.
 
 Content:
 {content}"""
 
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+        result = await chat_json(
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.4
+            model=settings.OPENAI_MODEL,
+            temperature=0.4,
         )
-        result = json.loads(response.choices[0].message.content)
+        cards = result.get("flashcards", [])
+        if not cards:
+            for v in result.values():
+                if isinstance(v, list) and v:
+                    cards = v
+                    break
         return {
             "memory_title": memory.get("title"),
-            "flashcards": result.get("flashcards", [])
+            "flashcards": cards,
         }
     except Exception as e:
         return {"error": str(e)}
@@ -241,10 +237,6 @@ Content:
 
 async def generate_study_plan(topic: str = "", days: int = 7) -> dict:
     """Generate a structured study plan based on saved memories."""
-    api_key = settings.OPENAI_API_KEY
-    if not api_key:
-        return {"error": "OPENAI_API_KEY not found."}
-
     try:
         db = await get_db()
         snapshot = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(10).get()
@@ -252,7 +244,6 @@ async def generate_study_plan(topic: str = "", days: int = 7) -> dict:
 
         memory_summary = "\n".join([f"- {m.get('title')}: {m.get('summary', '')[:100]}" for m in memories])
 
-        client = get_openai_client()
         prompt = f"""Create a {days}-day study plan based on these saved knowledge items{f' focusing on: {topic}' if topic else ''}.
 
 Saved Knowledge:
@@ -266,13 +257,11 @@ Return JSON with key "plan" containing an array of objects with:
 - duration_minutes (number)
 - focus_area (string)"""
 
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+        result = await chat_json(
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.5
+            model=settings.OPENAI_MODEL,
+            temperature=0.5,
         )
-        result = json.loads(response.choices[0].message.content)
         return {
             "topic": topic or "General Knowledge Review",
             "days": days,
@@ -284,10 +273,6 @@ Return JSON with key "plan" containing an array of objects with:
 
 async def generate_daily_briefing() -> dict:
     """Generate an AI daily briefing based on recent activity."""
-    api_key = settings.OPENAI_API_KEY
-    if not api_key:
-        return {"briefing": "Configure OPENAI_API_KEY to enable AI briefings.", "date": datetime.date.today().isoformat()}
-
     try:
         db = await get_db()
         memories_snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(5).get()
@@ -299,7 +284,6 @@ async def generate_daily_briefing() -> dict:
         memories_text = "\n".join([f"- {m.get('title')}" for m in memories]) or "No memories yet."
         tasks_text = "\n".join([f"- {t.get('title')} (Priority: {t.get('priority', 'medium')})" for t in tasks]) or "No pending tasks."
 
-        client = get_openai_client()
         prompt = f"""You are a personal AI assistant. Generate a brief, motivating daily briefing for today ({datetime.date.today().strftime('%A, %B %d, %Y')}).
 
 Recent Knowledge Captured:
@@ -310,14 +294,14 @@ Pending Tasks:
 
 Write a 2-3 sentence briefing that summarizes their knowledge state and motivates them for today. Be concise and upbeat."""
 
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+        content, _ = await chat_with_fallback(
             messages=[{"role": "user", "content": prompt}],
+            model=settings.OPENAI_MODEL,
             temperature=0.7,
-            max_tokens=150
+            max_tokens=150,
         )
         return {
-            "briefing": response.choices[0].message.content.strip(),
+            "briefing": content.strip(),
             "date": datetime.date.today().isoformat()
         }
     except Exception as e:

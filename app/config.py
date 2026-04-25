@@ -27,7 +27,16 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gemini-2.0-flash"
     USE_OPENROUTER: bool = False
     USE_GEMINI: bool = False
+
+    # Primary client key (Gemini or fallback)
+    PRIMARY_AI_KEY: Optional[str] = None
+    PRIMARY_AI_BASE_URL: Optional[str] = None
+    PRIMARY_AI_MODEL: Optional[str] = None
+
+    # Fallback key (real OpenAI or OpenRouter) — used when primary 429s
     FALLBACK_AI_KEY: Optional[str] = None
+    FALLBACK_AI_BASE_URL: str = OPENAI_BASE_URL
+    FALLBACK_AI_MODEL: str = "gpt-4o-mini"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -51,6 +60,14 @@ class Settings(BaseSettings):
         if not self.FIREBASE_DATABASE_ID:
             self.FIREBASE_DATABASE_ID = os.getenv("FIREBASE_DATABASE_ID", "(default)")
 
+        # Save the RAW OPENAI_API_KEY before anything overwrites it
+        raw_openai_key = (
+            os.getenv("OPENAI_API_KEY")
+            or os.getenv("FALLBACK_AI_KEY")
+            or os.getenv("GEN_APAC_API_KEY")
+            or os.getenv("GEN_API_KEY")
+        )
+
         # Resolve Gemini API key
         gemini_key = (
             os.getenv("GOOGLE_API_KEY")
@@ -61,41 +78,49 @@ class Settings(BaseSettings):
             self.GEMINI_API_KEY = gemini_key
             self.GOOGLE_API_KEY = gemini_key
 
-        # Fallback key — OpenRouter/OpenAI for when Gemini rate-limits
-        self.FALLBACK_AI_KEY = (
-            os.getenv("GEN_APAC_API_KEY")
-            or os.getenv("GEN_API_KEY")
-            or os.getenv("OPENAI_API_KEY")
-        )
-
-        # Resolve the AI key — prefer Gemini for Google Cloud, fall back to OpenRouter
+        # --- Build PRIMARY client config ---
         if self.GEMINI_API_KEY:
-            # Use Gemini via OpenAI-compatible endpoint
-            self.OPENAI_API_KEY = self.GEMINI_API_KEY
-            self.OPENAI_MODEL = self.GEMINI_MODEL
+            self.PRIMARY_AI_KEY = self.GEMINI_API_KEY
+            self.PRIMARY_AI_BASE_URL = GEMINI_COMPAT_URL
+            self.PRIMARY_AI_MODEL = self.GEMINI_MODEL
             self.USE_GEMINI = True
             self.USE_OPENROUTER = False
+            # Keep OPENAI_API_KEY pointing at Gemini for backward compat
+            self.OPENAI_API_KEY = self.GEMINI_API_KEY
+            self.OPENAI_MODEL = self.GEMINI_MODEL
         else:
-            resolved_key = (
-                os.getenv("GEN_APAC_API_KEY")
-                or os.getenv("GEN_API_KEY")
-                or self.OPENAI_API_KEY
-                or os.getenv("OPENAI_API_KEY")
-            )
+            # No Gemini — use OpenAI / OpenRouter as primary
+            resolved_key = raw_openai_key
             if resolved_key:
-                self.OPENAI_API_KEY = resolved_key
+                self.PRIMARY_AI_KEY = resolved_key
                 if _is_openrouter_key(resolved_key):
+                    self.PRIMARY_AI_BASE_URL = OPENROUTER_BASE_URL
+                    self.PRIMARY_AI_MODEL = "openai/gpt-4o-mini"
                     self.USE_OPENROUTER = True
-                    self.OPENAI_MODEL = "openai/gpt-4o-mini"
                 else:
-                    self.USE_OPENROUTER = False
-                    self.OPENAI_MODEL = "gpt-4o-mini"
+                    self.PRIMARY_AI_BASE_URL = OPENAI_BASE_URL
+                    self.PRIMARY_AI_MODEL = "gpt-4o-mini"
+                self.OPENAI_API_KEY = resolved_key
+                self.OPENAI_MODEL = self.PRIMARY_AI_MODEL
+
+        # --- Build FALLBACK client config ---
+        # Fallback = real OpenAI key (distinct from Gemini key)
+        # Only set FALLBACK if there's a separate non-Gemini key available
+        if self.USE_GEMINI and raw_openai_key:
+            # We have both Gemini (primary) and an OpenAI key (fallback)
+            self.FALLBACK_AI_KEY = raw_openai_key
+            if _is_openrouter_key(raw_openai_key):
+                self.FALLBACK_AI_BASE_URL = OPENROUTER_BASE_URL
+                self.FALLBACK_AI_MODEL = "openai/gpt-4o-mini"
+            else:
+                self.FALLBACK_AI_BASE_URL = OPENAI_BASE_URL
+                self.FALLBACK_AI_MODEL = "gpt-4o-mini"
+        elif not self.USE_GEMINI:
+            self.FALLBACK_AI_KEY = None
 
     @property
     def openai_base_url(self) -> str:
-        if self.USE_GEMINI:
-            return GEMINI_COMPAT_URL
-        return OPENROUTER_BASE_URL if self.USE_OPENROUTER else OPENAI_BASE_URL
+        return self.PRIMARY_AI_BASE_URL or (GEMINI_COMPAT_URL if self.USE_GEMINI else OPENAI_BASE_URL)
 
     @property
     def openai_extra_headers(self) -> dict:
@@ -110,16 +135,21 @@ class Settings(BaseSettings):
 
     @property
     def active_ai_key(self) -> Optional[str]:
-        return self.OPENAI_API_KEY or self.GEMINI_API_KEY
+        return self.PRIMARY_AI_KEY or self.OPENAI_API_KEY or self.GEMINI_API_KEY
 
     @property
     def using_openai(self) -> bool:
         return bool(self.OPENAI_API_KEY)
 
     @property
+    def has_fallback(self) -> bool:
+        return bool(self.FALLBACK_AI_KEY)
+
+    @property
     def ai_provider_name(self) -> str:
         if self.USE_GEMINI:
-            return f"Google Gemini ({self.GEMINI_MODEL})"
+            fallback_info = " + OpenAI fallback" if self.has_fallback else ""
+            return f"Google Gemini ({self.GEMINI_MODEL}){fallback_info}"
         if self.USE_OPENROUTER:
             return f"OpenRouter ({self.OPENAI_MODEL})"
         return f"OpenAI ({self.OPENAI_MODEL})"
@@ -130,3 +160,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 print(f"AI Provider: {settings.ai_provider_name}")
+if settings.has_fallback:
+    print(f"Fallback AI: OpenAI ({settings.FALLBACK_AI_MODEL}) ready")
+else:
+    print("Warning: No fallback AI key configured (set OPENAI_API_KEY for 429 resilience)")
