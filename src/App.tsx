@@ -379,7 +379,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: 8, gap: 8 }}>
 
       {/* Desktop Sidebar */}
-      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="hidden md:block">
+      <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="desktop-sidebar">
         <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} user={user} onSignOut={onSignOut} />
       </div>
 
@@ -389,12 +389,10 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(2px)', zIndex: 60 }}
-              className="md:hidden" />
+              style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(2px)', zIndex: 60 }} />
             <motion.div initial={{ x: -240 }} animate={{ x: 0 }} exit={{ x: -240 }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 220 }}
-              className="md:hidden">
+              style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 70, width: 220 }}>
               <Sidebar isCollapsed={false} setIsCollapsed={() => {}} user={user} onSignOut={() => { onSignOut(); setIsMobileMenuOpen(false); }} />
             </motion.div>
           </>
@@ -405,8 +403,8 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)' }}>
         <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 16px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 10, borderRadius: '14px 14px 0 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden"
-              style={{ padding: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="mobile-only"
+              style={{ padding: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-2)', alignItems: 'center', flexShrink: 0 }}>
               <Menu size={16} />
             </button>
             <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 440 }}>
@@ -423,13 +421,13 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
               <Cpu size={11} color="var(--primary)" />
-              <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="hidden sm:inline">Neural AI</span>
+              <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="desktop-text">Neural AI</span>
             </div>
             <button onClick={() => navigate('/capture')}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
-              <Plus size={14} /> <span className="hidden sm:inline">Capture</span>
+              <Plus size={14} /> <span className="desktop-text">Capture</span>
             </button>
           </div>
         </header>

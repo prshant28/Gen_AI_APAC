@@ -542,6 +542,16 @@ input:focus, textarea:focus, select:focus {
 .sidebar-backdrop { display: none; }
 @media (max-width: 1023px) { .sidebar-backdrop { display: block; } }
 
+/* ── Responsive visibility helpers (replaces broken Tailwind md:/sm: classes) ── */
+.desktop-sidebar { display: block; }
+@media (max-width: 767px) { .desktop-sidebar { display: none !important; } }
+
+.mobile-only { display: flex; }
+@media (min-width: 768px) { .mobile-only { display: none !important; } }
+
+.desktop-text { display: inline; }
+@media (max-width: 639px) { .desktop-text { display: none !important; } }
+
 /* ── Agent Hub Responsive ─────────────────────────────────────────────────── */
 .agent-hub-layout {
   display: flex;
