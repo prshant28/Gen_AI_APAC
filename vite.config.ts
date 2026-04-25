@@ -46,12 +46,14 @@ export default defineConfig(({mode}) => {
             });
           },
         },
-        // Routes that are BOTH SPA pages (GET) and API endpoints (POST/PUT/DELETE)
-        '/recall': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
-        '/capture': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
-        '/tasks': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
-        '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
-        '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        // Routes that are BOTH SPA pages (GET nav) and API endpoints (fetch/POST/DELETE)
+        // Only bypass to SPA when the browser is doing real page navigation (Accept: text/html).
+        // JavaScript fetch() calls send Accept: */* and must be proxied to the backend.
+        '/recall': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/capture': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/tasks': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         // Pure API endpoints (no SPA page conflict)
         '/memories': 'http://127.0.0.1:8000',
         '/schedule': 'http://127.0.0.1:8000',

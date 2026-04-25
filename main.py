@@ -477,24 +477,38 @@ async def export_vault():
 @app.get("/stats")
 async def stats_endpoint():
     try:
-        total_memories = await get_collection_count("memories")
-        pending_tasks = await get_collection_count("tasks")
+        from datetime import date
         total_interactions = await get_collection_count("interaction_logs")
         db = await get_db()
+
+        # Memories: count + domains + captured today
         memories_snapshot = await db.collection("memories").get()
         domains = {}
+        captured_today = 0
+        today_str = date.today().isoformat()
         for doc in memories_snapshot:
             data = doc.to_dict()
             domain = data.get("domain", "Other")
             domains[domain] = domains.get(domain, 0) + 1
+            created = data.get("created_at", "")
+            if created and str(created)[:10] == today_str:
+                captured_today += 1
+        total_memories = len(memories_snapshot)
         domain_list = [{"name": k, "value": v} for k, v in domains.items()]
-        if not domain_list:
-            domain_list = []
+
+        # Tasks: count only pending ones
+        pending_tasks_list = await list_tasks(status="pending", limit=200)
+        pending_tasks = len(pending_tasks_list)
+
         return {
             "total_memories": total_memories,
             "pending_tasks": pending_tasks,
             "ai_interactions": total_interactions,
-            "knowledge_domains": domain_list
+            "knowledge_domains": domain_list,
+            "captured_today": captured_today,
+            "flashcards": total_memories,
+            "streak_days": 0,
+            "focus_sessions": 0,
         }
     except Exception as e:
         logger.error(f"Stats error: {e}")
@@ -502,7 +516,11 @@ async def stats_endpoint():
             "total_memories": 0,
             "pending_tasks": 0,
             "ai_interactions": 0,
-            "knowledge_domains": []
+            "knowledge_domains": [],
+            "captured_today": 0,
+            "flashcards": 0,
+            "streak_days": 0,
+            "focus_sessions": 0,
         }
 
 @app.get("/logs")
