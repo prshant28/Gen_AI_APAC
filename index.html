@@ -64,15 +64,18 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      function hideSplash() {
+        var s = document.getElementById('x247-splash');
+        if (s && !s.classList.contains('hide')) {
+          s.classList.add('hide');
+          setTimeout(function () { s && s.parentNode && s.parentNode.removeChild(s); }, 500);
+        }
+      }
       window.addEventListener('load', function () {
-        setTimeout(function () {
-          var s = document.getElementById('x247-splash');
-          if (s) {
-            s.classList.add('hide');
-            setTimeout(function () { s.parentNode && s.parentNode.removeChild(s); }, 500);
-          }
-        }, 400);
+        setTimeout(hideSplash, 400);
       });
+      // Hard fallback — never block mobile for more than 4s
+      setTimeout(hideSplash, 4000);
     </script>
   </body>
 </html>

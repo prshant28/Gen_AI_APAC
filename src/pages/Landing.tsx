@@ -17,7 +17,7 @@ type LandingProps = {
 };
 
 // ── DATA ─────────────────────────────────────────────────────────
-const HERO_WORDS = ['thinks with you.', 'remembers everything.', 'connects your ideas.', 'plans your week.'];
+const HERO_WORDS = ['thinks with you.', 'connects your ideas.', 'plans your week.'];
 
 const AGENTS = [
   { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#a78bfa', desc: 'Picks the right specialist for every query and streams the answer.' },
