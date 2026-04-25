@@ -419,10 +419,13 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
             <button onClick={toggleTheme} className="theme-toggle" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
               {isDark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20 }}>
+            <button onClick={() => navigate('/agent')}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.22)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.5)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; }}>
               <Cpu size={11} color="var(--primary)" />
               <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="desktop-text">Neural AI</span>
-            </div>
+            </button>
             <button onClick={() => navigate('/capture')}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
