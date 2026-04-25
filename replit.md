@@ -18,6 +18,8 @@ An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackatho
   - Fixed AgentHub agent name `#1e293b` → `var(--text-1)`, idle dot → `var(--border-2)`
   - Fixed Calendar/Study Plan modals — covered by comprehensive Tailwind class overrides in CSS
   - Upgraded `text-slate-400` dark override to proper visible value
+  - **Login page full light-theme** (pages.css): `.lg-box` white glass panel, `.lg-heading` dark→indigo gradient, `.lg-field` light bg + visible border, `.lg-divider` dark lines, `.lg-label`/`.lg-eyebrow` visible gray, `.lg-alert-*` light-on-brand colors, `.lg-trust-*` muted gray, `.lg-google-btn` outlined, focus ring indigo, autofill text visible
+  - **Landing page light-theme additions**: `.lx-feed-item` pills dark borders, `.lx-bento-card` white glass, `.lx-tmarquee-card` white glass, `.lx-terminal-box` light bg, `.lx-final-cta` light gradient, `.lx-hero-word` vivid indigo gradient, `.lx-final-grad` gradient text
 - **CI/CD** — `.github/workflows/deploy.yml` auto-deploys to Google Cloud Run on push to `main`.
 
 ## Multi-Agent Architecture

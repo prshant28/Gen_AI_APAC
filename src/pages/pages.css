@@ -2169,6 +2169,90 @@
   }
   :root:not([data-theme="dark"]) .lx-trust-avatar { border-color: white; }
 
+  /* Live feed pills */
+  :root:not([data-theme="dark"]) .lx-feed-item {
+    background: rgba(15,17,24,0.04);
+    border-color: rgba(15,17,24,0.1);
+  }
+  :root:not([data-theme="dark"]) .lx-feed-meta {
+    border-left-color: rgba(15,17,24,0.1);
+  }
+  :root:not([data-theme="dark"]) .lx-feed-track-wrap::before,
+  :root:not([data-theme="dark"]) .lx-feed-track-wrap::after {
+    background: linear-gradient(90deg, var(--lx-bg), transparent);
+  }
+
+  /* Bento cards */
+  :root:not([data-theme="dark"]) .lx-bento-card {
+    background: linear-gradient(160deg, rgba(255,255,255,0.9) 0%, rgba(244,246,251,0.95) 100%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  :root:not([data-theme="dark"]) .lx-bento-card:hover {
+    box-shadow: 0 16px 48px -16px rgba(0,0,0,0.12);
+  }
+
+  /* Testimonial marquee cards */
+  :root:not([data-theme="dark"]) .lx-tmarquee-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(244,246,251,0.96) 100%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* Terminal box */
+  :root:not([data-theme="dark"]) .lx-terminal-box {
+    background: rgba(244,246,251,0.98);
+    border-color: rgba(15,17,24,0.1);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  :root:not([data-theme="dark"]) .lx-terminal-chrome {
+    background: rgba(15,17,24,0.03);
+    border-bottom-color: rgba(15,17,24,0.08);
+  }
+  :root:not([data-theme="dark"]) .lx-terminal-line-text { color: #4a5167; }
+
+  /* Final CTA */
+  :root:not([data-theme="dark"]) .lx-final-cta {
+    background: linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(34,211,238,0.06) 100%), #f4f6fb;
+    border-color: rgba(167,139,250,0.22);
+    box-shadow: 0 40px 80px -30px rgba(99,102,241,0.18);
+  }
+  :root:not([data-theme="dark"]) .lx-final-grad {
+    background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  :root:not([data-theme="dark"]) .lx-final-title {
+    color: #0a0c12;
+  }
+
+  /* Hero ticker */
+  :root:not([data-theme="dark"]) .lx-hero-ticker {
+    background: rgba(15,17,24,0.04);
+    border-color: rgba(15,17,24,0.08);
+  }
+  :root:not([data-theme="dark"]) .lx-hero-ticker-text { color: #4a5167; }
+
+  /* Hero word gradient */
+  :root:not([data-theme="dark"]) .lx-hero-word {
+    background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #22d3ee 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Terminal feat rows */
+  :root:not([data-theme="dark"]) .lx-terminal-feat-row {
+    background: rgba(255,255,255,0.8);
+  }
+  :root:not([data-theme="dark"]) .lx-terminal-feat-row:hover {
+    background: rgba(255,255,255,0.98);
+  }
+
+  /* Graph canvas */
+  :root:not([data-theme="dark"]) .lx-graph-wrap {
+    background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(244,246,251,0.95) 100%);
+  }
+
 
   /* ============================================================
      LOGIN PAGE — clean two-pane (form + 3D keyhole)
@@ -2745,22 +2829,150 @@
     }
   }
 
-  /* ── LIGHT THEME ────────────────────────────────────────── */
+  /* ── LIGHT THEME ─────────────────────────────────────────── */
+
+  /* Page wrapper */
   :root:not([data-theme="dark"]) .lg-page {
-    background: #fafbfc;
+    background:
+      radial-gradient(ellipse 70% 50% at 30% 20%, rgba(99,102,241,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 90%, rgba(167,139,250,0.05) 0%, transparent 65%),
+      #f4f6fb;
     color: #0a0c12;
   }
-  :root:not([data-theme="dark"]) .lg-heading { color: #0a0c12; }
+  :root:not([data-theme="dark"]) .lg-page::before {
+    background-image: radial-gradient(circle at 1px 1px, rgba(15,17,24,0.06) 1px, transparent 0);
+  }
+
+  /* Box */
+  :root:not([data-theme="dark"]) .lg-box {
+    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,246,251,0.98) 100%);
+    border-color: rgba(15,17,24,0.08);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.9) inset,
+      0 28px 70px -16px rgba(0,0,0,0.12),
+      0 50px 130px -30px rgba(99,102,241,0.1);
+  }
+  :root:not([data-theme="dark"]) .lg-box::before {
+    background: linear-gradient(140deg,
+      rgba(167,139,250,0.3) 0%,
+      rgba(99,102,241,0.08) 25%,
+      rgba(0,0,0,0.04) 50%,
+      rgba(34,211,238,0.08) 80%,
+      rgba(167,139,250,0.2) 100%);
+  }
+  :root:not([data-theme="dark"]) .lg-box-right {
+    background: #eef0f7;
+    border-left-color: rgba(15,17,24,0.06);
+  }
+  :root:not([data-theme="dark"]) .lg-right-vignette {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(238,240,247,0.4) 100%),
+      linear-gradient(90deg, rgba(238,240,247,0.5) 0%, transparent 18%);
+  }
+
+  /* Home button */
+  :root:not([data-theme="dark"]) .lg-home-btn {
+    color: #4a5167;
+    background: rgba(15,17,24,0.04);
+    border-color: rgba(15,17,24,0.09);
+  }
+  :root:not([data-theme="dark"]) .lg-home-btn:hover {
+    color: #0a0c12;
+    background: rgba(15,17,24,0.07);
+    border-color: rgba(15,17,24,0.14);
+  }
+
+  /* Heading */
+  :root:not([data-theme="dark"]) .lg-heading {
+    background: linear-gradient(170deg, #0a0c12 0%, #2d3555 50%, #4f46e5 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+  }
+
+  /* Text */
   :root:not([data-theme="dark"]) .lg-sub { color: #4a5167; }
-  :root:not([data-theme="dark"]) .lg-input { color: #0a0c12; }
-  :root:not([data-theme="dark"]) .lg-input::placeholder { color: #94a3b8; }
-  :root:not([data-theme="dark"]) .lg-field {
-    background: rgba(15, 17, 24, 0.03);
-    border-color: rgba(15, 17, 24, 0.08);
+  :root:not([data-theme="dark"]) .lg-eyebrow { color: #6b7388; }
+  :root:not([data-theme="dark"]) .lg-label { color: #6b7388; }
+
+  /* Divider */
+  :root:not([data-theme="dark"]) .lg-divider::before,
+  :root:not([data-theme="dark"]) .lg-divider::after {
+    background: rgba(15,17,24,0.1);
   }
+  :root:not([data-theme="dark"]) .lg-divider span { color: #9aa3b8; }
+
+  /* Google button */
   :root:not([data-theme="dark"]) .lg-google-btn {
-    background: rgba(15, 17, 24, 0.03);
-    border-color: rgba(15, 17, 24, 0.08);
+    background: rgba(15,17,24,0.04);
+    border-color: rgba(15,17,24,0.1);
     color: #0a0c12;
+  }
+  :root:not([data-theme="dark"]) .lg-google-btn:hover:not(:disabled) {
+    background: rgba(15,17,24,0.07);
+    border-color: rgba(15,17,24,0.16);
+  }
+
+  /* Input fields */
+  :root:not([data-theme="dark"]) .lg-field {
+    background: rgba(15,17,24,0.04);
+    border-color: rgba(15,17,24,0.1);
+  }
+  :root:not([data-theme="dark"]) .lg-field:focus-within {
+    background: #ffffff;
+    border-color: rgba(167,139,250,0.55);
+    box-shadow: 0 0 0 3px rgba(167,139,250,0.14);
+  }
+  :root:not([data-theme="dark"]) .lg-input {
+    color: #0a0c12;
+  }
+  :root:not([data-theme="dark"]) .lg-input::placeholder { color: #94a3b8; }
+  :root:not([data-theme="dark"]) .lg-input:-webkit-autofill,
+  :root:not([data-theme="dark"]) .lg-input:-webkit-autofill:hover,
+  :root:not([data-theme="dark"]) .lg-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #0a0c12;
+  }
+  :root:not([data-theme="dark"]) .lg-field-icon { color: #9aa3b8; }
+  :root:not([data-theme="dark"]) .lg-field-toggle { color: #9aa3b8; }
+  :root:not([data-theme="dark"]) .lg-field-toggle:hover {
+    color: #0a0c12;
+    background: rgba(15,17,24,0.06);
+  }
+
+  /* Alerts */
+  :root:not([data-theme="dark"]) .lg-alert-error {
+    background: rgba(239,68,68,0.07);
+    border-color: rgba(239,68,68,0.22);
+    color: #b91c1c;
+  }
+  :root:not([data-theme="dark"]) .lg-alert-success {
+    background: rgba(16,185,129,0.07);
+    border-color: rgba(16,185,129,0.22);
+    color: #047857;
+  }
+
+  /* Trust bar */
+  :root:not([data-theme="dark"]) .lg-trust {
+    border-top-color: rgba(15,17,24,0.07);
+  }
+  :root:not([data-theme="dark"]) .lg-trust-item {
+    color: #6b7388;
+    letter-spacing: 0.1em;
+  }
+  :root:not([data-theme="dark"]) .lg-trust-dot {
+    background: rgba(15,17,24,0.15);
+  }
+
+  /* Corner logo */
+  :root:not([data-theme="dark"]) .lg-corner-logo {
+    filter: invert(1) brightness(0.3) contrast(1.5);
+    opacity: 0.35;
+  }
+
+  /* Focus ring */
+  :root:not([data-theme="dark"]) .lg-page button:focus-visible,
+  :root:not([data-theme="dark"]) .lg-page a:focus-visible {
+    outline-color: #7c3aed;
   }
   
