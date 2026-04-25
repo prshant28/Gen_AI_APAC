@@ -542,13 +542,16 @@ input:focus, textarea:focus, select:focus {
 .sidebar-backdrop { display: none; }
 @media (max-width: 1023px) { .sidebar-backdrop { display: block; } }
 
-/* ── Responsive visibility helpers (replaces broken Tailwind md:/sm: classes) ── */
+/* ── Responsive visibility helpers ────────────────────────────────────────── */
+/* Sidebar: hidden on canvas/tablet (≤900px), hamburger takes over */
 .desktop-sidebar { display: block; }
-@media (max-width: 767px) { .desktop-sidebar { display: none !important; } }
+@media (max-width: 900px) { .desktop-sidebar { display: none !important; } }
 
+/* Hamburger: shown on canvas/tablet (≤900px) */
 .mobile-only { display: flex; }
-@media (min-width: 768px) { .mobile-only { display: none !important; } }
+@media (min-width: 901px) { .mobile-only { display: none !important; } }
 
+/* Short text labels: hide only on very small screens */
 .desktop-text { display: inline; }
 @media (max-width: 639px) { .desktop-text { display: none !important; } }
 
@@ -556,7 +559,7 @@ input:focus, textarea:focus, select:focus {
 .agent-hub-layout {
   display: flex;
   gap: 16px;
-  height: calc(100vh - 130px);
+  height: calc(100vh - 122px);
   min-height: 0;
 }
 .agent-hub-left { display: flex; flex-direction: column; }
@@ -705,7 +708,7 @@ img { max-width: 100%; }
 .recall-layout {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 130px);
+  height: calc(100vh - 122px);
   min-height: 400px;
   gap: 0;
 }
@@ -811,8 +814,8 @@ div:hover .task-delete-btn { opacity: 1 !important; }
   .grid-2col { gap: 8px; margin-bottom: 8px; }
 
   /* Agent hub and recall: use remaining viewport height more efficiently */
-  .agent-hub-layout { height: calc(100vh - 108px) !important; }
-  .recall-layout    { height: calc(100vh - 108px) !important; }
+  .agent-hub-layout { height: calc(100vh - 100px) !important; }
+  .recall-layout    { height: calc(100vh - 100px) !important; }
 }
 
 @media (max-height: 620px) and (min-width: 640px) {

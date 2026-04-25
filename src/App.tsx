@@ -376,7 +376,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
   }, []);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: 8, gap: 8 }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: '8px 12px', gap: 8 }}>
 
       {/* Desktop Sidebar */}
       <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, borderRadius: 14, border: '1px solid var(--border)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', height: '100%', width: isCollapsed ? 60 : 220, minWidth: isCollapsed ? 60 : 220, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden' }} className="desktop-sidebar">
@@ -401,36 +401,36 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
 
       {/* Main content */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minWidth: 0, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)' }}>
-        <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 16px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 10, borderRadius: '14px 14px 0 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+        <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 14px', height: 46, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8, borderRadius: '14px 14px 0 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <button onClick={() => setIsMobileMenuOpen(true)} className="mobile-only"
-              style={{ padding: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-2)', alignItems: 'center', flexShrink: 0 }}>
-              <Menu size={16} />
+              style={{ padding: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-2)', alignItems: 'center', flexShrink: 0 }}>
+              <Menu size={15} />
             </button>
-            <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 440 }}>
-              <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            <div className="header-search" style={{ position: 'relative', flex: 1, maxWidth: 400 }}>
+              <Search size={12} color="var(--text-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input readOnly onFocus={() => setShowCommandPalette(true)}
                 placeholder="Search memories, tasks... (⌘K)"
-                style={{ width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-3)', fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 6, paddingBottom: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 12, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               />
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <button onClick={toggleTheme} className="theme-toggle" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-              {isDark ? <Sun size={15} /> : <Moon size={15} />}
+              {isDark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
             <button onClick={() => navigate('/agent')}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.22)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.5)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; }}>
-              <Cpu size={11} color="var(--primary)" />
-              <span style={{ color: 'var(--primary)', fontSize: 11, fontWeight: 600 }} className="desktop-text">Neural AI</span>
+              <Cpu size={10} color="var(--primary)" />
+              <span style={{ color: 'var(--primary)', fontSize: 10.5, fontWeight: 600 }} className="desktop-text">Neural AI</span>
             </button>
             <button onClick={() => navigate('/capture')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
-              <Plus size={14} /> <span className="desktop-text">Capture</span>
+              <Plus size={13} /> <span className="desktop-text">Capture</span>
             </button>
           </div>
         </header>
