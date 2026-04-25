@@ -549,6 +549,7 @@ input:focus, textarea:focus, select:focus {
   height: calc(100vh - 130px);
   min-height: 0;
 }
+.agent-hub-left { display: flex; flex-direction: column; }
 @media (max-width: 1023px) {
   .agent-hub-layout {
     flex-direction: column;

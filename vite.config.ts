@@ -33,6 +33,11 @@ export default defineConfig(({mode}) => {
           target: 'http://127.0.0.1:8000',
           changeOrigin: true,
           selfHandleResponse: false,
+          bypass: (req) => {
+            // /agent (exact) is the SPA page — let it through on GET
+            if (req.method === 'GET' && req.url === '/agent') return req.url;
+            return null;
+          },
           configure: (proxy) => {
             proxy.on('proxyReq', (_proxyReq, req) => {
               if (req.url?.includes('/stream')) {
@@ -41,20 +46,22 @@ export default defineConfig(({mode}) => {
             });
           },
         },
-        '/capture': 'http://127.0.0.1:8000',
-        '/recall': 'http://127.0.0.1:8000',
+        // Routes that are BOTH SPA pages (GET) and API endpoints (POST/PUT/DELETE)
+        '/recall': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        '/capture': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        '/tasks': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => req.method === 'GET' ? req.url : null },
+        // Pure API endpoints (no SPA page conflict)
         '/memories': 'http://127.0.0.1:8000',
-        '/tasks': 'http://127.0.0.1:8000',
         '/schedule': 'http://127.0.0.1:8000',
         '/stats': 'http://127.0.0.1:8000',
-        '/settings': 'http://127.0.0.1:8000',
         '/logs': 'http://127.0.0.1:8000',
         '/health': 'http://127.0.0.1:8000',
         '/agents': 'http://127.0.0.1:8000',
         '/workflows': 'http://127.0.0.1:8000',
         '/export': 'http://127.0.0.1:8000',
         '/briefing': 'http://127.0.0.1:8000',
-        '/flashcards': 'http://127.0.0.1:8000',
         '/study-plan': 'http://127.0.0.1:8000',
         '/test-ai': 'http://127.0.0.1:8000',
       }

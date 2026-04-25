@@ -1,139 +1,325 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Brain, Plus, Send } from 'lucide-react';
-import { cn } from '../lib/utils';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Brain, Send, Search, Sparkles, Clock, Database,
+  Youtube, Globe, FileText, StickyNote, Loader2,
+  ArrowRight, Zap, BookOpen, ChevronRight, Mic, MicOff, X
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+interface RecallMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: any[];
+  agents?: string[];
+  ts: string;
+  streaming?: boolean;
+}
+
+const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
+const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
+
+const SUGGESTIONS = [
+  { icon: Brain, label: 'What have I learned recently?', q: 'What are the most important things I have captured and learned recently?' },
+  { icon: Youtube, label: 'Key points from YouTube captures', q: 'What are the key points and insights from my YouTube video captures?' },
+  { icon: BookOpen, label: 'Summarize my knowledge base', q: 'Give me a comprehensive summary of everything in my knowledge base.' },
+  { icon: Sparkles, label: 'AI & ML insights', q: 'What have I saved about AI, machine learning, or technology?' },
+  { icon: Zap, label: 'Productivity notes summary', q: 'Summarize my saved notes about productivity and personal development.' },
+  { icon: Clock, label: 'Recent captures', q: 'What memories have I added most recently? Give me a quick recap.' },
+];
+
+const FeatureBadge = ({ icon: Icon, label, color }: { icon: any; label: string; color: string }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: `${color}12`, border: `1px solid ${color}25`, borderRadius: 20 }}>
+    <Icon size={11} color={color} />
+    <span style={{ color, fontSize: 10.5, fontWeight: 600 }}>{label}</span>
+  </div>
+);
 
 const RecallView = () => {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; sources?: any[]; agents?: string[] }[]>([]);
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState<RecallMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [memCount, setMemCount] = useState<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [showDiff, setShowDiff] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    fetch('/stats').then(r => r.ok ? r.json() : null).then(s => { if (s) setMemCount(s.total_memories); }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
-    const userMsg = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setIsTyping(true);
+  const toggleVoice = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
+    const rec = new SR();
+    rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
+    rec.onresult = (e: any) => setInput(Array.from(e.results).map((r: any) => r[0].transcript).join(''));
+    rec.onend = () => setIsListening(false);
+    rec.onerror = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start(); setIsListening(true);
+  }, [isListening]);
+
+  const handleSend = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || isLoading) return;
+
+    const userId = `u-${Date.now()}`;
+    const aiId = `a-${Date.now()}`;
+    setMessages(prev => [...prev,
+      { id: userId, role: 'user', content: msg, ts: new Date().toISOString() },
+      { id: aiId, role: 'assistant', content: '', ts: new Date().toISOString(), streaming: true }
+    ]);
+    setInput(''); setIsLoading(true); setShowDiff(false);
 
     try {
       const res = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, session_id: 'web_session_' + Date.now() })
+        body: JSON.stringify({ message: msg, session_id: 'recall_' + Date.now() })
       });
-      if (res.status === 401) {
-        const data = await res.json();
-        setMessages(prev => [...prev, { role: 'assistant', content: `Authorization Error: ${data.error || 'Check API configuration.'}` }]);
-        return;
-      }
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, sources: data.sources, agents: data.agents_called }]);
+      setMessages(prev => prev.map(m => m.id === aiId
+        ? { ...m, content: data.reply || data.error || 'No response received.', sources: data.sources, agents: data.agents_called, streaming: false }
+        : m
+      ));
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+      setMessages(prev => prev.map(m => m.id === aiId
+        ? { ...m, content: 'Connection error — please try again.', streaming: false }
+        : m
+      ));
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 
-  const suggestions = [
-    'What have I learned about AI recently?',
-    'Summarize my saved notes on productivity',
-    'What are the key points from my YouTube captures?',
-    'Create a task to review my recent memories',
-  ];
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-10rem)] flex flex-col animate-in slide-in-from-bottom-4 duration-500">
-      <header className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-slate-900">Recall AI</h2>
-        <p className="text-slate-500 mt-2">Powered by Neural AI — ask anything about your saved knowledge.</p>
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 8rem)', gap: 0, padding: '20px 0 0' }}>
 
-      <div className="flex-1 bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-slate-50/30">
-          {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
-              <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center">
-                <Brain className="w-10 h-10 text-indigo-400" />
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 16, flexShrink: 0, padding: '0 2px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(147,51,234,0.15))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(99,102,241,0.2)' }}>
+                <Search size={17} color="#818cf8" />
               </div>
               <div>
-                <p className="font-bold text-slate-700 text-lg">Ask your Second Brain</p>
-                <p className="text-sm text-slate-400 max-w-sm mt-1">The AI will search through all your saved memories, tasks, and notes to answer your questions.</p>
+                <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Neural Recall</h1>
+                <p style={{ color: 'var(--text-3)', fontSize: 11.5, margin: 0 }}>Search & query your personal knowledge base</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                {suggestions.map((s) => (
-                  <button key={s} onClick={() => setInput(s)}
-                    className="p-3 bg-white rounded-xl border border-slate-200 text-sm text-left text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-medium">
-                    {s}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <FeatureBadge icon={Database} label={`${memCount ?? '—'} memories indexed`} color="#6366f1" />
+              <FeatureBadge icon={Brain} label="Semantic search" color="#9333ea" />
+              <FeatureBadge icon={Zap} label="Instant answers" color="#10b981" />
+            </div>
+          </div>
+
+          {/* Differentiation card — dismissible */}
+          <AnimatePresence>
+            {showDiff && messages.length === 0 && (
+              <motion.div initial={{ opacity: 0, x: 20, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 20, scale: 0.97 }}
+                style={{ ...card, padding: '12px 14px', maxWidth: 300, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.05)', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setShowDiff(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex' }}>
+                  <X size={12} />
+                </button>
+                <div style={{ color: '#818cf8', fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 6 }}>💡 RECALL vs AGENT HUB</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ padding: '7px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
+                    <div style={{ color: '#818cf8', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>⚡ Neural Recall (here)</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Fast Q&A from your saved memories. Single AI, instant answers.</div>
+                  </div>
+                  <div style={{ padding: '7px 10px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 8 }}>
+                    <div style={{ color: '#a78bfa', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>🤖 Agent Hub</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 10 }}>7 specialized agents for complex tasks: capture, schedule, analyze & more.</div>
+                  </div>
+                  <button onClick={() => navigate('/agent')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center', padding: '5px 10px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 8, color: '#a78bfa', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Try Agent Hub <ArrowRight size={10} />
                   </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+
+      {/* Chat Area */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', ...card, overflow: 'hidden', border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.2)' }}>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 16 }} className="scroll-custom">
+
+          {/* Empty state */}
+          {messages.length === 0 && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 0 10px', gap: 28 }}>
+              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.15 }}
+                style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(147,51,234,0.1))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 32px rgba(99,102,241,0.2)' }}>
+                <Search size={30} color="#818cf8" />
+              </motion.div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--text-1)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Ask your Second Brain</div>
+                <div style={{ color: 'var(--text-3)', fontSize: 13, lineHeight: 1.6, maxWidth: 380 }}>
+                  Neural Recall searches through all your saved memories, YouTube captures, web articles, and notes to give you instant, intelligent answers.
+                </div>
+              </div>
+
+              {/* Suggestion grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, width: '100%', maxWidth: 580 }}>
+                {SUGGESTIONS.map((s, i) => (
+                  <motion.button key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}
+                    onClick={() => handleSend(s.q)}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.18s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.35)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.07)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <s.icon size={13} color="#818cf8" />
+                    </div>
+                    <span style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>{s.label}</span>
+                  </motion.button>
                 ))}
               </div>
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <div key={i} className={cn('flex gap-4', msg.role === 'user' ? 'flex-row-reverse' : '')}>
-              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm', msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gradient-to-br from-slate-800 to-indigo-900 text-white')}>
-                {msg.role === 'user' ? <Plus className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
-              </div>
-              <div className="space-y-2 max-w-[80%]">
-                <div className={cn('p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap', msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-800 rounded-tl-none border border-slate-100')}>
-                  {msg.content}
-                </div>
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {msg.sources.map((source: any) => (
-                      <div key={source.id} className="px-2 py-1 bg-indigo-50 border border-indigo-100 rounded text-[10px] font-bold text-indigo-500 flex items-center gap-1">
-                        <Brain className="w-3 h-3" />{source.title}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {msg.agents && msg.agents.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {msg.agents.map(a => (
-                      <span key={a} className="px-2 py-0.5 bg-purple-50 text-purple-500 rounded text-[9px] font-bold uppercase">🤖 {a}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+          {/* Message history */}
+          {messages.map((msg) => (
+            <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
 
-          {isTyping && (
-            <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-indigo-900 text-white flex items-center justify-center shrink-0">
-                <Brain className="w-4 h-4" />
+              {/* Avatar */}
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'linear-gradient(135deg,#1e1b4b,#312e81)', border: `1px solid ${msg.role === 'user' ? 'rgba(99,102,241,0.5)' : 'rgba(99,102,241,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: msg.role === 'user' ? '0 2px 8px rgba(99,102,241,0.35)' : 'none' }}>
+                {msg.role === 'user' ? <ChevronRight size={15} color="#fff" /> : <Brain size={15} color="#818cf8" />}
               </div>
-              <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 flex gap-1.5 shadow-sm items-center">
-                {[0, 1, 2].map(i => <span key={i} className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />)}
+
+              <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{
+                  padding: '11px 15px',
+                  borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
+                  background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'var(--surface-2)',
+                  border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
+                  boxShadow: msg.role === 'user' ? '0 2px 12px rgba(99,102,241,0.3)' : 'none',
+                }}>
+                  {msg.streaming ? (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', height: 20 }}>
+                      {[0,1,2].map(i => (
+                        <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#818cf8', animation: `bounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
+                      ))}
+                      <span style={{ color: '#818cf8', fontSize: 11, marginLeft: 4 }}>Searching your knowledge base...</span>
+                    </div>
+                  ) : (
+                    <p style={{ color: msg.role === 'user' ? '#fff' : 'var(--text-1)', fontSize: 13.5, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                  )}
+                </div>
+
+                {/* Sources */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', paddingLeft: 2 }}>Sources used</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {msg.sources.slice(0, 4).map((src: any) => {
+                        const Icon = SRC_ICON[src.source_type] ?? Brain;
+                        const clr = SRC_CLR[src.source_type] ?? '#6366f1';
+                        return (
+                          <div key={src.id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: `${clr}10`, border: `1px solid ${clr}25`, borderRadius: 20 }}>
+                            <Icon size={10} color={clr} />
+                            <span style={{ color: clr, fontSize: 10, fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{src.title}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Agents */}
+                {msg.agents && msg.agents.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {msg.agents.map(a => (
+                      <span key={a} style={{ padding: '2px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, color: '#818cf8', fontSize: 9.5, fontWeight: 700 }}>
+                        🤖 {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {msg.role === 'assistant' && !msg.streaming && (
+                  <div style={{ color: 'var(--text-3)', fontSize: 10, paddingLeft: 2 }}>
+                    {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            </motion.div>
+          ))}
+          <div ref={bottomRef} />
         </div>
 
-        <div className="p-4 border-t border-slate-100 bg-white">
-          <div className="relative flex items-end gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Ask your Second Brain... (Enter to send)"
+        {/* Divider */}
+        <div style={{ height: 1, background: 'var(--border)', flexShrink: 0 }} />
+
+        {/* Input */}
+        <div style={{ padding: '14px 16px', flexShrink: 0 }}>
+          {/* Suggested follow-ups when there are messages */}
+          {messages.length > 0 && messages.length <= 4 && !isLoading && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              {SUGGESTIONS.slice(0, 3).map(s => (
+                <button key={s.label} onClick={() => handleSend(s.q)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', fontWeight: 500 }}
+                  onMouseEnter={e => { (e.currentTarget).style.color = '#818cf8'; (e.currentTarget).style.borderColor = 'rgba(99,102,241,0.3)'; }}
+                  onMouseLeave={e => { (e.currentTarget).style.color = 'var(--text-3)'; (e.currentTarget).style.borderColor = 'var(--border)'; }}>
+                  <s.icon size={10} /> {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--surface-2)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 13, padding: '10px 12px', transition: 'border-color 0.2s', boxShadow: isListening ? '0 0 0 3px rgba(239,68,68,0.1)' : '0 0 0 1px rgba(99,102,241,0.05)' }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'center' }}>
+              <Search size={13} color="#818cf8" />
+            </div>
+            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder={isListening ? '🎙 Listening...' : 'Ask your Second Brain anything... (Enter to send)'}
+              disabled={isLoading}
               rows={1}
-              className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm transition-all resize-none text-sm"
-              style={{ minHeight: '48px', maxHeight: '120px' }}
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto' }}
             />
-            <button onClick={handleSend} disabled={!input.trim() || isTyping}
-              className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-lg shadow-indigo-600/20 shrink-0">
-              <Send className="w-4 h-4" />
+            <button onClick={toggleVoice}
+              style={{ width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer', background: isListening ? 'rgba(239,68,68,0.12)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+              {isListening ? <MicOff size={14} color="#ef4444" style={{ animation: 'pulse 1s ease-in-out infinite' }} /> : <Mic size={14} color="var(--text-3)" />}
+            </button>
+            <button onClick={() => handleSend()} disabled={!input.trim() || isLoading}
+              style={{ width: 36, height: 36, borderRadius: 10, border: 'none', cursor: input.trim() && !isLoading ? 'pointer' : 'default', background: input.trim() && !isLoading ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s', boxShadow: input.trim() && !isLoading ? '0 2px 10px rgba(99,102,241,0.4)' : 'none', fontFamily: 'inherit' }}>
+              {isLoading ? <Loader2 size={15} color="var(--text-3)" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} color={input.trim() ? '#fff' : 'var(--text-3)'} />}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+            <p style={{ color: 'var(--text-3)', fontSize: 10, margin: 0 }}>
+              Powered by Neural AI · Searches {memCount ?? '—'} memories · Enter to send
+            </p>
+            <button onClick={() => navigate('/agent')}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: 10, fontWeight: 600, fontFamily: 'inherit' }}
+              title="Need multi-step tasks? Try Agent Hub">
+              Need agents? Try Agent Hub <ArrowRight size={10} />
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
