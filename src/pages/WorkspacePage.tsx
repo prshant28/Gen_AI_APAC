@@ -106,12 +106,12 @@ const WorkspaceView = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <motion.div key={activeProject} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             style={{ ...card, padding: '16px 20px', border: `1px solid ${project.color}25` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: project.color, boxShadow: `0 0 12px ${project.color}` }} />
-              <h2 style={{ color: 'var(--text-1)', fontSize: 18, fontWeight: 700, margin: 0 }}>{project.name}</h2>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-                <span style={{ color: 'var(--text-3)', fontSize: 11 }}>{project.tasks.filter(t => !t.done).length} pending tasks</span>
-                <span style={{ color: project.color, fontSize: 11, fontWeight: 600 }}>{Math.round(project.tasks.length > 0 ? (project.tasks.filter(t => t.done).length / project.tasks.length) * 100 : 0)}% complete</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: project.color, boxShadow: `0 0 12px ${project.color}`, flexShrink: 0 }} />
+              <h2 style={{ color: 'var(--text-1)', fontSize: 16, fontWeight: 700, margin: 0, flex: 1, minWidth: 120 }}>{project.name}</h2>
+              <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                <span style={{ color: 'var(--text-3)', fontSize: 11 }}>{project.tasks.filter(t => !t.done).length} pending</span>
+                <span style={{ color: project.color, fontSize: 11, fontWeight: 600 }}>{Math.round(project.tasks.length > 0 ? (project.tasks.filter(t => t.done).length / project.tasks.length) * 100 : 0)}% done</span>
               </div>
             </div>
             {project.description && <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '8px 0 0 20px' }}>{project.description}</p>}
@@ -161,8 +161,8 @@ const WorkspaceView = () => {
                   return (
                     <div key={m.id} style={{ display: 'flex', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', alignItems: 'flex-start' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: clr, marginTop: 4, flexShrink: 0 }} />
-                      <div>
-                        <div style={{ color: 'var(--text-1)', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{m.title}</div>
+                      <div style={{ minWidth: 0, overflow: 'hidden', flex: 1 }}>
+                        <div style={{ color: 'var(--text-1)', fontSize: 12, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</div>
                         <div style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 2 }}>{m.domain}</div>
                       </div>
                     </div>

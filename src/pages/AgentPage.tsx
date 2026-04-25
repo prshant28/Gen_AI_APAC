@@ -174,7 +174,7 @@ const AgentHubView = () => {
   const activeAgentCount = Object.values(agentStatuses).filter(s => s === 'running').length;
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 8rem)', gap: 12, padding: '20px 0 0' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 8rem)', gap: 12, padding: '20px 0 0' }} className="agent-hub-layout">
 
       {/* ── Left Panel ── */}
       <div style={{ width: 248, flexShrink: 0, flexDirection: 'column', gap: 10 }} className="agent-hub-left">
@@ -311,7 +311,7 @@ const AgentHubView = () => {
       </div>
 
       {/* ── Right Panel: Chat ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 12 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 12 }} className="agent-hub-right">
 
         {/* Header + diff banner */}
         <div style={{ flexShrink: 0 }}>

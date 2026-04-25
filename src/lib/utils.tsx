@@ -41,7 +41,7 @@ export const YouTubeThumbnail = ({ url, onClick }: { url: string; onClick?: () =
   return (
     <div onClick={onClick} style={{ position: 'relative', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#000', cursor: onClick ? 'pointer' : 'default' }}>
       <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="YouTube thumbnail"
-        style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block', opacity: 0.85 }} />
+        className="yt-thumb-img" />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(239,68,68,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(239,68,68,0.5)' }}>
           <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>

@@ -43,7 +43,7 @@ const RecallView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [memCount, setMemCount] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [showDiff, setShowDiff] = useState(true);
+  const [showDiff, setShowDiff] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
