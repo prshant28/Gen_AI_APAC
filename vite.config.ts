@@ -29,6 +29,18 @@ export default defineConfig(({mode}) => {
       proxy: {
         '/api': 'http://127.0.0.1:8000',
         '/chat': 'http://127.0.0.1:8000',
+        '/agent': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+          selfHandleResponse: false,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (_proxyReq, req) => {
+              if (req.url?.includes('/stream')) {
+                _proxyReq.setHeader('Accept', 'text/event-stream');
+              }
+            });
+          },
+        },
         '/capture': 'http://127.0.0.1:8000',
         '/recall': 'http://127.0.0.1:8000',
         '/memories': 'http://127.0.0.1:8000',
@@ -38,6 +50,8 @@ export default defineConfig(({mode}) => {
         '/settings': 'http://127.0.0.1:8000',
         '/logs': 'http://127.0.0.1:8000',
         '/health': 'http://127.0.0.1:8000',
+        '/agents': 'http://127.0.0.1:8000',
+        '/workflows': 'http://127.0.0.1:8000',
       }
     },
   };
