@@ -41,17 +41,17 @@ const NAV_GROUPS = [
     label: 'Core',
     items: [
       { id: 'dashboard',  label: 'Dashboard',    path: '/dashboard', icon: LayoutDashboard, color: '#00d4ff' },
-      { id: 'agent',      label: 'Agent Hub',    path: '/agent',     icon: Cpu,             color: '#a78bfa' },
-      { id: 'capture',    label: 'Capture',      path: '/capture',   icon: Plus,            color: '#8b5cf6' },
-      { id: 'vault',      label: 'Vault',        path: '/vault',     icon: Database,        color: '#f472b6' },
+      { id: 'agent',      label: 'Agent Hub',    path: '/agent',     icon: Cpu,             color: '#fbbf24' },
+      { id: 'capture',    label: 'Capture',      path: '/capture',   icon: Plus,            color: '#f59e0b' },
+      { id: 'vault',      label: 'Vault',        path: '/vault',     icon: Database,        color: '#34d399' },
       { id: 'recall',     label: 'Neural Recall', path: '/recall',   icon: Bot,             color: '#00d4ff' },
     ]
   },
   {
     label: 'Explore',
     items: [
-      { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#f472b6' },
-      { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#8b5cf6' },
+      { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#34d399' },
+      { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#f59e0b' },
       { id: 'analytics',  label: 'Analytics',    path: '/analytics', icon: BarChart2,  color: '#10b981' },
       { id: 'workspace',  label: 'Workspace',    path: '/workspace', icon: Kanban,     color: '#f59e0b' },
     ]
@@ -61,7 +61,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'tasks',      label: 'Tasks',       path: '/tasks',      icon: CheckSquare,   color: '#10b981' },
       { id: 'flashcards', label: 'Flashcards',  path: '/flashcards', icon: FlipHorizontal, color: '#f59e0b' },
-      { id: 'calendar',   label: 'Calendar',    path: '/calendar',   icon: CalendarIcon,  color: '#f472b6' },
+      { id: 'calendar',   label: 'Calendar',    path: '/calendar',   icon: CalendarIcon,  color: '#34d399' },
     ]
   },
   {
@@ -170,7 +170,7 @@ const Sidebar = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
           {user?.photoURL
             ? <img src={user.photoURL} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
-            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px' }}>
+            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#d97706,#92400e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px' }}>
                 {user?.displayName?.[0]?.toUpperCase() ?? 'U'}
               </div>
           }
@@ -219,7 +219,7 @@ const TOAST_ICONS: Record<ToastType, React.ReactNode> = {
 const TOAST_COLORS: Record<ToastType, { bg: string; border: string; text: string }> = {
   success: { bg: 'linear-gradient(135deg,#10b981,#059669)', border: 'rgba(16,185,129,0.4)', text: '#fff' },
   error:   { bg: 'linear-gradient(135deg,#ef4444,#dc2626)', border: 'rgba(239,68,68,0.4)',  text: '#fff' },
-  info:    { bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'rgba(99,102,241,0.4)', text: '#fff' },
+  info:    { bg: 'linear-gradient(135deg,#d97706,#b45309)', border: 'rgba(217,119,6,0.4)', text: '#fff' },
 };
 
 const GlobalToast = () => {
@@ -291,7 +291,7 @@ const QuickCaptureFAB = () => {
   const ACTIONS = [
     { icon: Globe, label: 'Capture URL', color: '#00d4ff', action: () => { navigate('/capture'); setOpen(false); } },
     { icon: StickyNote, label: 'Quick Note', color: '#f59e0b', action: () => { setShowNote(true); setOpen(false); } },
-    { icon: Bot, label: 'Agent Hub', color: '#a78bfa', action: () => { navigate('/agent'); setOpen(false); } },
+    { icon: Bot, label: 'Agent Hub', color: '#fbbf24', action: () => { navigate('/agent'); setOpen(false); } },
   ];
 
   return (
@@ -349,7 +349,7 @@ const QuickCaptureFAB = () => {
         <motion.button
           onClick={() => setOpen(o => !o)}
           whileTap={{ scale: 0.93 }}
-          style={{ width: 52, height: 52, borderRadius: '50%', background: open ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: open ? '1px solid var(--border)' : '1px solid rgba(99,102,241,0.4)', boxShadow: open ? 'none' : '0 8px 24px rgba(99,102,241,0.5), 0 0 0 1px rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.25s' }}>
+          style={{ width: 52, height: 52, borderRadius: '50%', background: open ? 'var(--surface-2)' : 'linear-gradient(135deg,#d97706,#f59e0b)', border: open ? '1px solid var(--border)' : '1px solid rgba(217,119,6,0.4)', boxShadow: open ? 'none' : '0 8px 24px rgba(217,119,6,0.5), 0 0 0 1px rgba(217,119,6,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.25s' }}>
           <motion.div animate={{ rotate: open ? 45 : 0 }} transition={{ duration: 0.2 }}>
             <Plus size={22} color={open ? 'var(--text-2)' : '#fff'} />
           </motion.div>
@@ -421,15 +421,15 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
             </button>
             <button onClick={() => navigate('/agent')}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.22)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.5)'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(217,119,6,0.22)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(217,119,6,0.5)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; }}>
               <Cpu size={10} color="var(--primary)" />
               <span style={{ color: 'var(--primary)', fontSize: 10.5, fontWeight: 600 }} className="desktop-text">Neural AI</span>
             </button>
             <button onClick={() => navigate('/capture')}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'linear-gradient(135deg,#d97706,#b45309)', border: '1px solid rgba(217,119,6,0.4)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(217,119,6,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(217,119,6,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(217,119,6,0.3), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
               <Plus size={13} /> <span className="desktop-text">Capture</span>
             </button>
           </div>
