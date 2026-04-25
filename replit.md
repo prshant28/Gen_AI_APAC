@@ -97,13 +97,34 @@ Frontend Agent Hub (/agent) — real-time chat UI
 - **Workspace** — Kanban project board with linked memories
 - **Settings** — API configuration and testing
 
-### Key Architecture
-- `src/App.tsx` — ~3200 lines, all views, SSE streaming, YouTube helpers
+### Key Architecture (refactored April 2026)
+- `src/App.tsx` — Routing shell only (~280 lines). `BrowserRouter` + `Routes` + auth guard. Sidebar uses `useLocation`/`useNavigate` from react-router-dom.
+- `src/lib/types.ts` — Shared TypeScript types: `Memory`, `Flashcard`, `AgentMsg`, `AgentStepData`, `View`
+- `src/lib/utils.tsx` — Shared utilities: `cn()`, `getYouTubeId()`, `YouTubeEmbed`, `YouTubeThumbnail`
+- `src/pages/` — One file per route (13 page components)
 - `src/index.css` — Dark neural theme, responsive breakpoints, animations
+- **Routing:** react-router-dom v7, all routes URL-based (`/dashboard`, `/agent`, `/capture`, etc.)
+- **Auth guard:** Unauthenticated users see Landing (`/`) or Login (`/login`). Authenticated users get AppShell with Sidebar + nested Routes.
 - **Design System:** `#05050f` bg, Space Grotesk, cyan/purple glassmorphism
-- **Animations:** NeuralBackground canvas particles, ambient blobs, agent status pulsing
-- **YouTube:** `getYouTubeId()`, `YouTubeEmbed`, `YouTubeThumbnail` components
+- **YouTube:** `getYouTubeId()`, `YouTubeEmbed`, `YouTubeThumbnail` in `src/lib/utils.tsx`
 - **Responsive:** `.responsive-content` class, mobile hamburger menu, sm: breakpoints
+
+### Page → Route Map
+| Page | Route | File |
+|------|-------|------|
+| Dashboard | /dashboard | src/pages/DashboardPage.tsx |
+| Agent Hub | /agent | src/pages/AgentPage.tsx |
+| Capture | /capture | src/pages/CapturePage.tsx |
+| Vault | /vault | src/pages/VaultPage.tsx |
+| Neural Recall | /recall | src/pages/RecallPage.tsx |
+| Tasks | /tasks | src/pages/TasksPage.tsx |
+| Flashcards | /flashcards | src/pages/FlashcardsPage.tsx |
+| Calendar | /calendar | src/pages/CalendarPage.tsx |
+| Timeline | /timeline | src/pages/TimelinePage.tsx |
+| Mind Graph | /graph | src/pages/GraphPage.tsx |
+| Analytics | /analytics | src/pages/AnalyticsPage.tsx |
+| Workspace | /workspace | src/pages/WorkspacePage.tsx |
+| Settings | /settings | src/pages/SettingsPage.tsx |
 
 ## Development Setup
 
