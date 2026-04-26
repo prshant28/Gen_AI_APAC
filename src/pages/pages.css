@@ -3074,3 +3074,19 @@
     height: min(96vh, 540px) !important;
   }
 }
+
+/* ───────── Agent Hub v2: responsive grid ───────── */
+@media (max-width: 1080px) {
+  .agent-hub-v2 .agent-body-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .agent-hub-v2 .agent-body-grid > div:first-child {
+    max-height: 380px;
+  }
+}
+
+@media (max-width: 720px) {
+  .agent-hub-v2 .agent-hero h2 {
+    font-size: 22px !important;
+  }
+}
