@@ -251,6 +251,8 @@ export default function Login({
             )}
           </div>
 
+          <div className="lg-guest-sep">or</div>
+
           <button
             type="button"
             onClick={handleGuest}
@@ -258,8 +260,8 @@ export default function Login({
             className="lg-guest-btn"
             data-testid="button-guest"
           >
-            {guestLoading ? <Loader2 size={13} className="lg-spin" /> : <UserIcon size={13} />}
-            <span>Continue as guest</span>
+            {guestLoading ? <Loader2 size={14} className="lg-spin" /> : <UserIcon size={14} />}
+            <span>Continue as Guest</span>
           </button>
 
           <div className="lg-trust">

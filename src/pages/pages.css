@@ -2724,24 +2724,59 @@
 
   /* Guest */
   .lg-guest-btn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    align-self: center;
-    padding: 6px 12px;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7388;
-    background: transparent;
-    border: 0;
-    border-radius: 999px;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 18px;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #c2c9dd;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.22s;
+    position: relative;
+    overflow: hidden;
   }
-  .lg-guest-btn:hover:not(:disabled) { color: #a3acc2; }
-  .lg-guest-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .lg-guest-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(34,211,238,0.06) 100%);
+    opacity: 0;
+    transition: opacity 0.22s;
+  }
+  .lg-guest-btn:hover:not(:disabled) {
+    color: #e8ecf7;
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.12);
+  }
+  .lg-guest-btn:hover:not(:disabled)::before { opacity: 1; }
+  .lg-guest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .lg-guest-sep {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #4a5168;
+    font-size: 11px;
+    font-family: 'Alegreya Sans SC', 'Geist', 'Inter', sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .lg-guest-sep::before,
+  .lg-guest-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+  }
 
   /* Trust */
   .lg-trust {
@@ -2993,8 +3028,11 @@
 
   /* Login box: smaller height to fit in 543px viewport */
   .lg-box { height: min(92vh, 510px) !important; }
-  .lg-box-left { padding: 18px 22px 14px !important; }
-  .lg-heading  { font-size: 32px !important; }
+  .lg-box-left { padding: 58px 26px 14px !important; }
+  .lg-heading  { font-size: 30px !important; }
+  .lg-form-card { gap: 10px !important; }
+  .lg-sub { font-size: 12px !important; margin: 2px 0 0 !important; }
+  .lg-trust { display: none !important; }
 }
 
 @media (max-height: 640px) and (max-width: 860px) {
