@@ -547,6 +547,19 @@ function AppRouter() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Hide splash only after auth is resolved AND the page has painted
+  useEffect(() => {
+    if (authLoading || !isReady) return;
+    // Wait for the browser to paint the actual page content
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof (window as any).hideSplash === 'function') {
+          (window as any).hideSplash();
+        }
+      });
+    });
+  }, [authLoading, isReady]);
+
   const handleGuestSignIn = async () => {
     const guestUser = { uid: `guest-${Date.now()}`, displayName: 'Guest User', email: 'guest@recall-x247.local', photoURL: null, isAnonymous: true, isGuest: true };
     localStorage.setItem(GUEST_USER_KEY, JSON.stringify(guestUser));
@@ -566,7 +579,7 @@ function AppRouter() {
 
   if (authLoading || !isReady) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#07080c' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#03080f' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
           <img src="/x247-logo.png" alt="x247 AI" style={{ width: 'clamp(120px,15vw,180px)', height: 'auto', userSelect: 'none' }} draggable={false} />
           <div style={{ display: 'flex', gap: 6 }}>

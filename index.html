@@ -64,18 +64,15 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      function hideSplash() {
+      window.hideSplash = function () {
         var s = document.getElementById('x247-splash');
         if (s && !s.classList.contains('hide')) {
           s.classList.add('hide');
           setTimeout(function () { s && s.parentNode && s.parentNode.removeChild(s); }, 500);
         }
-      }
-      window.addEventListener('load', function () {
-        setTimeout(hideSplash, 400);
-      });
-      // Hard fallback — never block mobile for more than 4s
-      setTimeout(hideSplash, 4000);
+      };
+      // Absolute safety-net: hide after 8s no matter what
+      setTimeout(window.hideSplash, 8000);
     </script>
   </body>
 </html>
