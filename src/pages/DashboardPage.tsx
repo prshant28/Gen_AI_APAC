@@ -9,7 +9,7 @@ const DOMAIN_COLORS = ['#6366f1', '#9333ea', '#f472b6', '#10b981', '#f59e0b', '#
 const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
 const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
 
-const Dashboard = ({ isDark }: { isDark?: boolean }) => {
+const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<Memory[]>([]);
@@ -17,6 +17,9 @@ const Dashboard = ({ isDark }: { isDark?: boolean }) => {
   const [briefing, setBriefing] = useState('');
   const [briefingLoading, setBriefingLoading] = useState(true);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const rawName = (user?.displayName ?? '').trim();
+  const firstName = rawName ? rawName.split(/\s+/)[0] : (user?.isAnonymous || user?.isGuest ? 'there' : 'there');
 
   useEffect(() => {
     Promise.all([
@@ -65,7 +68,7 @@ const Dashboard = ({ isDark }: { isDark?: boolean }) => {
               <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
             </div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
-              Welcome back, <span style={{ color: 'var(--primary)' }}>Prashant</span>
+              {totalMem === 0 ? <>Welcome, <span style={{ color: 'var(--primary)' }}>{firstName}</span></> : <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span></>}
             </h1>
             <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{today}</p>
           </div>
@@ -87,6 +90,66 @@ const Dashboard = ({ isDark }: { isDark?: boolean }) => {
           </motion.div>
         </div>
       </motion.div>
+
+      {stats && totalMem === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          style={{
+            position: 'relative',
+            background: 'linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(34,211,238,0.06) 50%, rgba(129,140,248,0.08) 100%)',
+            border: '1px solid rgba(59,130,246,0.28)',
+            borderRadius: 18,
+            padding: '24px 26px',
+            marginBottom: 18,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px -10px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.06)',
+          }}
+        >
+          <div aria-hidden style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, background: 'radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Sparkles size={14} color="var(--primary)" />
+              <span style={{ fontSize: 10.5, letterSpacing: '0.18em', color: 'var(--primary)', fontWeight: 700 }}>GET STARTED</span>
+            </div>
+            <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700, color: 'var(--text-1)', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+              Capture your first memory in 30 seconds
+            </h2>
+            <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--text-2)', maxWidth: 560, lineHeight: 1.55 }}>
+              Pick any source — your 7 AI agents will read, summarize, tag and link it to your knowledge graph automatically.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              {[
+                { label: 'Save a Website', sub: 'Paste a URL', icon: Globe, color: '#22d3ee', path: '/capture' },
+                { label: 'YouTube Video', sub: 'Auto transcribe', icon: Youtube, color: '#ef4444', path: '/capture' },
+                { label: 'Quick Note', sub: 'Type a thought', icon: StickyNote, color: '#10b981', path: '/capture' },
+                { label: 'Ask Recall AI', sub: 'Try a question', icon: Bot, color: '#818cf8', path: '/recall' },
+              ].map((t) => (
+                <button key={t.label} onClick={() => navigate(t.path)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px',
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.18s', textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${t.color}66`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 6px 18px ${t.color}22`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
+                >
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: `${t.color}1a`, border: `1px solid ${t.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <t.icon size={15} color={t.color} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.2 }}>{t.label}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 2 }}>{t.sub}</div>
+                  </div>
+                  <ArrowUpRight size={13} color="var(--text-3)" style={{ flexShrink: 0 }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="stat-cards-grid">
         {statCards.map((s, i) => (

@@ -6,8 +6,9 @@ import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu,
-  CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap
+  CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle
 } from 'lucide-react';
+import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   auth,
@@ -366,6 +367,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -375,6 +377,16 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    try {
+      if (!localStorage.getItem('recall-x247-onboarded')) {
+        const t = setTimeout(() => setShowTour(true), 600);
+        return () => clearTimeout(t);
+      }
+    } catch {}
+  }, [user?.uid]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: '8px 12px', gap: 8 }}>
@@ -417,6 +429,9 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <button onClick={() => setShowTour(true)} className="theme-toggle" title="Take the tour">
+              <HelpCircle size={14} />
+            </button>
             <button onClick={toggleTheme} className="theme-toggle" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
               {isDark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
@@ -435,7 +450,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
               <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} />} />
+                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} />} />
                   <Route path="/agent" element={<AgentPage />} />
                   <Route path="/capture" element={<CapturePage />} />
                   <Route path="/vault" element={<VaultPage />} />
@@ -460,6 +475,9 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
       {/* Global Toast + FAB */}
       <GlobalToast />
       <QuickCaptureFAB />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour open={showTour} onClose={() => setShowTour(false)} />
 
       {/* Command Palette */}
       <AnimatePresence>
