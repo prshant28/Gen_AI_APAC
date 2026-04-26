@@ -1,14 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Globe, StickyNote, FileText, Sparkles, Loader2, CheckCircle2, X, Brain,
   Tag, ExternalLink, Save, Upload, Mic, MicOff, Code2, Twitter, Clipboard,
-  Youtube, Link2, ArrowRight, Zap, Clock, Shield, Network, Search, Layers,
-  ChevronRight, SquareStack, AlertCircle,
+  Youtube, Link2, Zap, Shield, Network, Search, Layers,
+  AlertCircle, Eye, FileDigit,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { YouTubeEmbed } from '../lib/utils';
+import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
+
+/* ── Helpers ───────────────────────────────────────────────────── */
+const safeHostname = (raw: string): string | null => {
+  try {
+    const u = new URL(raw.trim());
+    return u.hostname.replace(/^www\./, '');
+  } catch { return null; }
+};
+const faviconUrl = (host: string) => `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
 
 /* ── Source types ───────────────────────────────────────────────── */
 const SOURCES = [
@@ -74,12 +83,25 @@ const CaptureView = () => {
   const [preview, setPreview]           = useState<Memory | null>(null);
   const [previewUrl, setPreviewUrl]     = useState('');
   const [pdfFile, setPdfFile]           = useState<File | null>(null);
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string>('');
   const [dragOver, setDragOver]         = useState(false);
   const [agentState, setAgentState]     = useState<Record<string, AgentStatus>>({});
   const [activeAgentDesc, setActiveAgentDesc] = useState('');
-  const [queue, setQueue]               = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceRecorder();
+
+  /* Local PDF preview (object URL) */
+  useEffect(() => {
+    if (!pdfFile) { if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl); setPdfObjectUrl(''); return; }
+    const u = URL.createObjectURL(pdfFile);
+    setPdfObjectUrl(u);
+    return () => URL.revokeObjectURL(u);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfFile]);
+
+  /* Live previews for URL inputs */
+  const ytId = useMemo(() => (source === 'youtube' ? getYouTubeId(input) : null), [source, input]);
+  const urlHost = useMemo(() => (source === 'web' && input.startsWith('http') ? safeHostname(input) : null), [source, input]);
 
   const currentSource = SOURCES.find(s => s.id === source)!;
 
@@ -118,17 +140,26 @@ const CaptureView = () => {
     if (source === 'pdf' && pdfFile) {
       setIsProcessing(true);
       setAgentState({});
-      const pipelinePromise = runAgentPipeline(2400);
+      const pipelinePromise = runAgentPipeline(2800);
       try {
         const formData = new FormData();
         formData.append('file', pdfFile);
-        const res = await fetch('/capture/upload', { method: 'POST', body: formData });
+        const res = await fetch('/capture/upload?preview=true', { method: 'POST', body: formData });
+        if (!res.ok) {
+          let detail = `HTTP ${res.status}`;
+          try { const j = await res.json(); detail = j.error || j.detail || detail; } catch {}
+          throw new Error(detail);
+        }
         const data = await res.json();
         if (data.error) throw new Error(data.error);
+        if (!data.title || data.title === 'PDF Document') {
+          data.title = pdfFile.name.replace(/\.pdf$/i, '');
+        }
+        data.source_type = 'pdf';
         await pipelinePromise;
-        showToast('PDF captured and saved to Vault!');
-        setPdfFile(null);
+        setPreview(data);
       } catch (err: any) {
+        await pipelinePromise.catch(() => {});
         AGENTS.forEach(a => setAgentState(s => ({ ...s, [a.id]: s[a.id] === 'active' ? 'error' : s[a.id] })));
         showToast(err.message || 'Failed to process PDF.');
       } finally { setIsProcessing(false); }
@@ -183,11 +214,14 @@ const CaptureView = () => {
       if (res.ok) {
         setPreview(null);
         setInput('');
+        setPdfFile(null);
         voice.setTranscript('');
         setAgentState({});
         showToast('Saved to Vault!');
+      } else {
+        showToast('Failed to save', 'error');
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast('Failed to save', 'error'); }
     finally { setIsProcessing(false); }
   };
 
@@ -294,6 +328,36 @@ const CaptureView = () => {
                       onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
+
+                  {/* Live YouTube thumbnail */}
+                  <AnimatePresence>
+                    {ytId && (
+                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        style={{ marginTop: 8, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(239,68,68,0.25)', boxShadow: '0 6px 20px rgba(239,68,68,0.10)' }}>
+                        <YouTubeThumbnail url={input} />
+                        <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
+                          <Eye size={12} color="var(--text-3)" />
+                          <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>Live preview · video ID</span>
+                          <code style={{ fontSize: 10.5, color: 'var(--text-2)', background: 'var(--surface-3)', padding: '2px 6px', borderRadius: 4, fontFamily: "'JetBrains Mono',monospace" }}>{ytId}</code>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Live web URL preview (favicon + host) */}
+                  <AnimatePresence>
+                    {!ytId && urlHost && (
+                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        style={{ marginTop: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, borderRadius: 11, border: '1px solid var(--primary-border)', background: 'var(--primary-bg)' }}>
+                        <img src={faviconUrl(urlHost)} alt="" width={20} height={20} style={{ borderRadius: 4, flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.2 }}>{urlHost}</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{input}</div>
+                        </div>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px', padding: '2px 6px', background: 'var(--surface)', borderRadius: 4, border: '1px solid var(--primary-border)' }}>READY</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 
@@ -359,27 +423,46 @@ const CaptureView = () => {
 
               {/* PDF drop zone */}
               {source === 'pdf' && (
-                <div
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f?.type === 'application/pdf') setPdfFile(f); }}
-                  onClick={() => !pdfFile && fileInputRef.current?.click()}
-                  style={{ border: `2px dashed ${dragOver ? 'var(--primary)' : pdfFile ? '#10b981' : 'var(--border-2)'}`, borderRadius: 16, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: dragOver ? 'var(--primary-bg)' : pdfFile ? 'rgba(16,185,129,0.06)' : 'var(--surface-2)' }}>
-                  <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && setPdfFile(e.target.files[0])} />
-                  <div style={{ width: 52, height: 52, background: pdfFile ? 'rgba(16,185,129,0.12)' : 'var(--surface-3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                    {pdfFile ? <CheckCircle2 size={26} color="#10b981" /> : <Upload size={26} color="var(--text-3)" />}
-                  </div>
-                  {pdfFile ? (
-                    <div>
-                      <p style={{ fontWeight: 700, color: '#10b981', margin: '0 0 4px' }}>{pdfFile.name}</p>
-                      <p style={{ fontSize: 12, color: '#10b981', margin: '0 0 8px' }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                      <button onClick={e => { e.stopPropagation(); setPdfFile(null); }} style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {!pdfFile ? (
+                    <div
+                      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f?.type === 'application/pdf') setPdfFile(f); else if (f) showToast('Please drop a PDF file', 'error'); }}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border-2)'}`, borderRadius: 16, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: dragOver ? 'var(--primary-bg)' : 'var(--surface-2)' }}>
+                      <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { if (f.size > 15 * 1024 * 1024) { showToast('PDF too large (max 15MB)', 'error'); return; } setPdfFile(f); } }} />
+                      <div style={{ width: 52, height: 52, background: 'var(--surface-3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                        <Upload size={26} color="var(--text-3)" />
+                      </div>
+                      <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Drop PDF or click to upload</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>AI extracts and structures all content · Max 15 MB</p>
                     </div>
                   ) : (
-                    <div>
-                      <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Drop PDF or click to upload</p>
-                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>AI extracts and structures all content · Max 10 MB</p>
-                    </div>
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      style={{ borderRadius: 14, border: '1.5px solid #10b981', overflow: 'hidden', background: 'var(--surface-2)' }}>
+                      {/* PDF file header */}
+                      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)', background: 'rgba(16,185,129,0.06)' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(16,185,129,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FileDigit size={18} color="#10b981" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · ready to process</p>
+                        </div>
+                        <button onClick={() => setPdfFile(null)}
+                          style={{ padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <X size={11} /> Remove
+                        </button>
+                      </div>
+                      {/* Inline PDF preview */}
+                      {pdfObjectUrl && (
+                        <div style={{ height: 280, background: '#1a1a1a' }}>
+                          <iframe src={pdfObjectUrl} title="PDF preview"
+                            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+                        </div>
+                      )}
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -475,6 +558,17 @@ const CaptureView = () => {
           {preview.source_type === 'youtube' && (previewUrl || preview.source_url) && (
             <div style={{ padding: '16px 20px 0' }}>
               <YouTubeEmbed url={previewUrl || preview.source_url!} />
+            </div>
+          )}
+
+          {preview.source_type === 'pdf' && pdfObjectUrl && (
+            <div style={{ padding: '16px 20px 0' }}>
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', height: 360, background: '#1a1a1a' }}>
+                <iframe src={pdfObjectUrl} title="PDF preview" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FileDigit size={11} /> Embedded preview · {pdfFile?.name}
+              </p>
             </div>
           )}
 

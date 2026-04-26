@@ -5,7 +5,7 @@ import {
 import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
-  Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu,
+  Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
@@ -36,6 +36,7 @@ import GraphPage from './pages/GraphPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import WorkspacePage from './pages/WorkspacePage';
 import MemoryDetailPage from './pages/MemoryDetailPage';
+import DeckPage from './pages/DeckPage';
 import './pages/pages.css';
 
 const NAV_GROUPS = [
@@ -69,7 +70,8 @@ const NAV_GROUPS = [
   {
     label: 'System',
     items: [
-      { id: 'settings', label: 'Settings', path: '/settings', icon: Settings, color: '#6b7280' },
+      { id: 'deck',     label: 'Pitch Deck', path: '/deck',     icon: Presentation, color: '#22d3ee' },
+      { id: 'settings', label: 'Settings',   path: '/settings', icon: Settings,     color: '#6b7280' },
     ]
   },
 ];
@@ -266,10 +268,14 @@ export const showToast = (msg: string, type: ToastType = 'success') => {
 ────────────────────────────────────────────── */
 const QuickCaptureFAB = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Hide FAB on the Capture page itself (you're already there) and on Pitch Deck
+  const hideFab = location.pathname.startsWith('/capture') || location.pathname.startsWith('/deck');
 
   const saveNote = async () => {
     if (!note.trim() || saving) return;
@@ -295,6 +301,8 @@ const QuickCaptureFAB = () => {
     { icon: StickyNote, label: 'Quick Note', color: '#06b6d4', action: () => { setShowNote(true); setOpen(false); } },
     { icon: Bot, label: 'Agent Hub', color: '#3b82f6', action: () => { navigate('/agent'); setOpen(false); } },
   ];
+
+  if (hideFab) return null;
 
   return (
     <>
@@ -464,6 +472,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/workspace" element={<WorkspacePage />} />
                   <Route path="/memory/:id" element={<MemoryDetailPage />} />
+                  <Route path="/deck" element={<DeckPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>

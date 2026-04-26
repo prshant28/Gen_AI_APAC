@@ -287,8 +287,8 @@ async def capture_endpoint(request: CaptureRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/capture/upload")
-async def capture_upload_endpoint(file: UploadFile = File(...)):
-    """Upload and capture a PDF file."""
+async def capture_upload_endpoint(file: UploadFile = File(...), preview: bool = Query(False)):
+    """Upload and capture a PDF file. Supports preview mode (preview=true) so the UI can show a confirm-before-save card."""
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     try:
@@ -297,10 +297,13 @@ async def capture_upload_endpoint(file: UploadFile = File(...)):
             source_type="pdf",
             pdf_bytes=pdf_bytes,
             user_id="demo_user",
-            preview=False
+            preview=preview,
         )
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
+        # Pass through original filename for nicer UI titles
+        if isinstance(result, dict) and not result.get("title", "").strip().lower().startswith(file.filename.lower()[:6]):
+            result.setdefault("source_filename", file.filename)
         return result
     except HTTPException as he:
         raise he
