@@ -419,13 +419,6 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
             <button onClick={toggleTheme} className="theme-toggle" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
               {isDark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
-            <button onClick={() => navigate('/agent')}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(37,99,235,0.22)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(37,99,235,0.5)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--primary-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary-border)'; }}>
-              <Cpu size={10} color="var(--primary)" />
-              <span style={{ color: 'var(--primary)', fontSize: 10.5, fontWeight: 600 }} className="desktop-text">Neural AI</span>
-            </button>
             <button onClick={() => navigate('/capture')}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', border: '1px solid rgba(37,99,235,0.4)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.3), inset 0 1px 0 rgba(255,255,255,0.15)', fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(37,99,235,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
