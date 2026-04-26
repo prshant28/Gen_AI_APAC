@@ -2999,6 +2999,39 @@
     background: rgba(15,17,24,0.15);
   }
 
+  /* Guest button + separator (light mode) */
+  :root:not([data-theme="dark"]) .lg-guest-sep {
+    color: #94a3b8;
+  }
+  :root:not([data-theme="dark"]) .lg-guest-sep::before,
+  :root:not([data-theme="dark"]) .lg-guest-sep::after {
+    background: rgba(15,17,24,0.10);
+  }
+  :root:not([data-theme="dark"]) .lg-guest-btn {
+    color: #1e293b;
+    background: #ffffff;
+    border-color: rgba(15,17,24,0.14);
+    box-shadow: 0 1px 2px rgba(15,17,24,0.04);
+  }
+  :root:not([data-theme="dark"]) .lg-guest-btn::before {
+    background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(34,211,238,0.08) 100%);
+  }
+  :root:not([data-theme="dark"]) .lg-guest-btn:hover:not(:disabled) {
+    color: #1d4ed8;
+    background: #ffffff;
+    border-color: rgba(59,130,246,0.45);
+    box-shadow: 0 4px 14px rgba(59,130,246,0.14);
+  }
+
+  /* Mode toggle text in light mode */
+  :root:not([data-theme="dark"]) .lg-mode-toggle {
+    color: #6b7388;
+  }
+  :root:not([data-theme="dark"]) .lg-mode-toggle button {
+    color: #1d4ed8;
+  }
+  :root:not([data-theme="dark"]) .lg-mode-toggle button:hover { color: #1e3a8a; }
+
   /* Corner logo */
   :root:not([data-theme="dark"]) .lg-corner-logo {
     filter: invert(1) brightness(0.3) contrast(1.5);
