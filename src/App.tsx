@@ -34,6 +34,7 @@ import TimelinePage from './pages/TimelinePage';
 import GraphPage from './pages/GraphPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import WorkspacePage from './pages/WorkspacePage';
+import MemoryDetailPage from './pages/MemoryDetailPage';
 import './pages/pages.css';
 
 const NAV_GROUPS = [
@@ -447,6 +448,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/graph" element={<GraphPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/workspace" element={<WorkspacePage />} />
+                  <Route path="/memory/:id" element={<MemoryDetailPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>

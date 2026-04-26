@@ -250,8 +250,8 @@ const VaultView = () => {
                     </div>
                   </div>
 
-                  <h4 onClick={() => setSelectedMemory(memory)} style={{ color: 'var(--text-1)', fontSize: 13.5, fontWeight: 700, lineHeight: 1.4, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer', transition: 'color 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#f472b6'; }}
+                  <h4 onClick={() => navigate(`/memory/${memory.id}`)} style={{ color: 'var(--text-1)', fontSize: 13.5, fontWeight: 700, lineHeight: 1.4, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer', transition: 'color 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; }}
                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-1)'; }}>
                     {memory.title}
                   </h4>
@@ -268,8 +268,8 @@ const VaultView = () => {
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)', fontSize: 10 }}>
                       <Clock size={10} />{new Date(memory.created_at).toLocaleDateString()}
                     </span>
-                    <button onClick={() => setSelectedMemory(memory)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f472b6', fontSize: 10.5, fontWeight: 700, fontFamily: 'inherit' }}>
-                      View details →
+                    <button onClick={() => navigate(`/memory/${memory.id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, fontFamily: 'inherit' }}>
+                      Deep Dive →
                     </button>
                   </div>
                 </div>
