@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalIcon, Plus, Loader2, GraduationCap, X, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar as CalIcon, Plus, Loader2, GraduationCap, X, Compass, Link as LinkIcon, Check, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const CalendarModule = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewEvent, setShowNewEvent] = useState(false);
-  const [showStudyPlan, setShowStudyPlan] = useState(false);
+  const [showSubscribe, setShowSubscribe] = useState(false);
+  const [icsCopied, setIcsCopied] = useState(false);
   const [newEvent, setNewEvent] = useState({ title: '', date: '', time: '', duration_minutes: 60 });
-  const [studyPlanTopic, setStudyPlanTopic] = useState('');
-  const [studyPlan, setStudyPlan] = useState<any[]>([]);
-  const [planLoading, setPlanLoading] = useState(false);
   const today = new Date();
 
   const fetchEvents = () => {
@@ -33,14 +33,15 @@ const CalendarModule = () => {
     } catch (err) { console.error(err); }
   };
 
-  const handleGeneratePlan = async () => {
-    setPlanLoading(true);
+  const icsUrl = `${window.location.origin}/calendar.ics`;
+  const webcalUrl = icsUrl.replace(/^https?:/, 'webcal:');
+
+  const copyIcs = async (url: string) => {
     try {
-      const res = await fetch('/study-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: studyPlanTopic, days: 7 }) });
-      const data = await res.json();
-      if (data.plan) setStudyPlan(data.plan);
-    } catch (err) { console.error(err); }
-    finally { setPlanLoading(false); }
+      await navigator.clipboard.writeText(url);
+      setIcsCopied(true);
+      setTimeout(() => setIcsCopied(false), 2000);
+    } catch {}
   };
 
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -67,7 +68,15 @@ const CalendarModule = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setShowStudyPlan(true)}
+          <button onClick={() => navigate('/discover')} title="Find external articles & videos"
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Compass size={14} /> Discover
+          </button>
+          <button onClick={() => setShowSubscribe(true)} title="Subscribe in Google/Apple/Outlook"
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <LinkIcon size={14} /> Subscribe (ICS)
+          </button>
+          <button onClick={() => navigate('/plan')}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10, color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
             <GraduationCap size={14} /> AI Study Plan
           </button>
@@ -150,9 +159,9 @@ const CalendarModule = () => {
             <div className="empty-state" style={{ ...card, borderStyle: 'dashed', borderRadius: 12, padding: '36px 16px' }}>
               <CalIcon size={28} color="var(--text-3)" />
               <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>No upcoming events</p>
-              <button onClick={() => setShowNewEvent(true)}
+              <button onClick={() => navigate('/plan')}
                 style={{ padding: '6px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8, color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Add first event
+                Generate study plan
               </button>
             </div>
           )}
@@ -203,73 +212,59 @@ const CalendarModule = () => {
         )}
       </AnimatePresence>
 
-      {/* Study Plan Modal */}
+      {/* Subscribe (ICS) Modal */}
       <AnimatePresence>
-        {showStudyPlan && (
+        {showSubscribe && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowStudyPlan(false)}
+              onClick={() => setShowSubscribe(false)}
               style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              style={{ position: 'relative', width: '100%', maxWidth: 560, ...card, borderRadius: 20, overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
-              {/* Modal header */}
-              <div style={{ background: 'linear-gradient(135deg,#6366f1,#7c3aed)', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.65)', margin: '0 0 4px' }}>Neural AI Powered</p>
-                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>7-Day Study Plan Generator</h3>
+              style={{ position: 'relative', width: '100%', maxWidth: 520, ...card, padding: '28px 26px', borderRadius: 20, boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <LinkIcon size={16} color="#fff" />
+                  </div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Subscribe to your Calendar</h3>
                 </div>
-                <button onClick={() => setShowStudyPlan(false)} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: 7, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center' }}>
+                <button onClick={() => setShowSubscribe(false)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center' }}>
                   <X size={16} />
                 </button>
               </div>
+              <p style={{ color: 'var(--text-3)', fontSize: 12.5, margin: '0 0 16px', lineHeight: 1.55 }}>
+                Add this read-only feed to Google, Apple or Outlook to see your Recall events and open tasks alongside your other calendars. Updates automatically when your provider refreshes (usually every few hours).
+              </p>
 
-              {/* Modal body */}
-              <div style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {studyPlan.length === 0 ? (
-                  <>
-                    <div>
-                      <label style={labelStyle}>Focus Topic (optional)</label>
-                      <input type="text" value={studyPlanTopic} onChange={e => setStudyPlanTopic(e.target.value)}
-                        placeholder="e.g., Machine Learning, Python, History…"
-                        style={inputStyle} />
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '6px 0 0' }}>Leave empty to base the plan on all your saved memories</p>
-                    </div>
-                    <button onClick={handleGeneratePlan} disabled={planLoading}
-                      style={{ padding: '13px 0', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 11, color: '#fff', fontSize: 14, fontWeight: 700, cursor: planLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: planLoading ? 0.7 : 1, boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
-                      {planLoading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Plan…</> : <><GraduationCap size={16} /> Generate 7-Day Study Plan</>}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h4 style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>Your Personalized Study Plan</h4>
-                      <button onClick={() => setStudyPlan([])} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Generate New</button>
-                    </div>
-                    {studyPlan.map((day: any) => (
-                      <div key={day.day} style={{ ...card, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <div>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Day {day.day} · {day.date}</span>
-                            <h5 style={{ fontWeight: 700, fontSize: 14, margin: '3px 0 0', color: 'var(--text-1)' }}>{day.title}</h5>
-                          </div>
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{day.duration_minutes} min</div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>{day.focus_area}</div>
-                          </div>
-                        </div>
-                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {day.activities?.map((activity: string, i: number) => (
-                            <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text-2)' }}>
-                              <CheckCircle2 size={13} color="var(--primary)" style={{ flexShrink: 0, marginTop: 1 }} />
-                              {activity}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </>
-                )}
+              <label style={labelStyle}>Subscription URL</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                <input readOnly value={icsUrl} onClick={e => (e.target as HTMLInputElement).select()}
+                  style={{ ...inputStyle, fontSize: 12, fontFamily: 'monospace', flex: 1 }} />
+                <button onClick={() => copyIcs(icsUrl)}
+                  style={{ padding: '0 14px', background: icsCopied ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,#06b6d4,#0891b2)', border: icsCopied ? '1px solid rgba(16,185,129,0.4)' : 'none', borderRadius: 10, color: icsCopied ? '#10b981' : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                  {icsCopied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+                </button>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                <a href={webcalUrl}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 12, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>
+                  Open in Apple Calendar
+                </a>
+                <a href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(icsUrl)}`} target="_blank" rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 12, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>
+                  Add to Google Calendar
+                </a>
+              </div>
+
+              <details style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55 }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>Manual setup instructions</summary>
+                <ul style={{ margin: '8px 0 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <li><strong>Google:</strong> Other calendars → + → From URL → paste the link above.</li>
+                  <li><strong>Apple:</strong> Calendar app → File → New Calendar Subscription → paste the link.</li>
+                  <li><strong>Outlook:</strong> Add calendar → Subscribe from web → paste the link.</li>
+                </ul>
+              </details>
             </motion.div>
           </div>
         )}

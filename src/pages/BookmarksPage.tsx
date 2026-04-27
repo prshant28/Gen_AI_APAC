@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bookmark, Plus, Search, Trash2, ExternalLink, Globe, Tag as TagIcon,
   CheckCircle2, Clock, BookOpen, Filter, Hash, X, Link as LinkIcon,
-  Star, Eye, Archive
+  Star, Eye, Archive, Youtube, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getYouTubeId } from '../lib/utils';
 
 interface BM {
   id: string;
@@ -184,11 +185,27 @@ const BookmarksPage: React.FC = () => {
         ) : filtered.map(bm => {
           const meta = STATUS_META[bm.status] || STATUS_META.unread;
           const StatusIcon = meta.icon;
+          const ytId = getYouTubeId(bm.url);
           return (
             <motion.div key={bm.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -1 }}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, transition: 'all 0.15s' }}>
-              <img src={bm.favicon} alt="" style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', flexShrink: 0 }}
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface)', border: `1px solid ${ytId ? 'rgba(239,68,68,0.22)' : 'var(--border)'}`, borderRadius: 12, transition: 'all 0.15s' }}>
+              {ytId ? (
+                <a href={bm.url} target="_blank" rel="noreferrer" title={`Play "${bm.title}" on YouTube`}
+                  style={{ position: 'relative', width: 96, height: 54, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#000', display: 'block', textDecoration: 'none' }}>
+                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={bm.title} loading="lazy"
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Play size={11} color="#fff" fill="#fff" style={{ marginLeft: 1 }} />
+                    </div>
+                  </div>
+                  <span style={{ position: 'absolute', top: 3, left: 3, padding: '1px 5px', background: 'rgba(239,68,68,0.92)', borderRadius: 3, color: '#fff', fontSize: 7.5, fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1.1 }}>YT</span>
+                </a>
+              ) : (
+                <img src={bm.favicon} alt="" style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', flexShrink: 0 }}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <a href={bm.url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-1)', fontSize: 13.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>

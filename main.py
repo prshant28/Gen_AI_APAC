@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import uuid
@@ -8,7 +9,7 @@ import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Request, Body, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,7 +19,8 @@ from app.coordinator import run_coordinator, run_coordinator_stream, clear_sessi
 from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
-from app.calendar_agent import create_event, list_upcoming_events
+from app.calendar_agent import create_event, list_upcoming_events, delete_event
+from app.discover_agent import discover_resources
 from app.workflow_engine import list_workflows, get_workflow, AGENT_REGISTRY
 from app.extras_agent import (
     list_notes, create_note, update_note, delete_note,
@@ -506,6 +508,218 @@ async def study_plan_endpoint(request: StudyPlanRequest):
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
+
+
+class StudyPlanDay(BaseModel):
+    day: Optional[int] = None
+    date: str
+    title: Optional[str] = ""
+    duration_minutes: Optional[int] = 60
+    activities: Optional[List[str]] = None
+
+
+class StudyPlanSaveRequest(BaseModel):
+    topic: str = ""
+    plan: List[StudyPlanDay]
+    create_events: bool = True
+    create_tasks: bool = True
+    start_time: str = "18:00"
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+@app.post("/study-plan/save")
+async def study_plan_save_endpoint(request: StudyPlanSaveRequest):
+    """Persist a generated plan: create one calendar event + one task per day.
+    Atomic at application level: pre-validates everything, then on any failure
+    compensates by deleting what was already created and surfaces an error."""
+    if not request.plan:
+        raise HTTPException(status_code=400, detail="plan is required")
+    if not (request.create_events or request.create_tasks):
+        raise HTTPException(status_code=400, detail="at least one of create_events or create_tasks must be true")
+    if not _TIME_RE.match(request.start_time or ""):
+        raise HTTPException(status_code=400, detail="start_time must be HH:MM (24h)")
+
+    topic_label = (request.topic or "Study Plan").strip()
+    normalized: List[Dict[str, Any]] = []
+    for idx, day in enumerate(request.plan):
+        date_str = (day.date or "").strip()[:10]
+        if not _DATE_RE.match(date_str):
+            raise HTTPException(status_code=400, detail=f"plan[{idx}].date must be YYYY-MM-DD (got: {day.date!r})")
+        try:
+            datetime.datetime.fromisoformat(date_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"plan[{idx}].date is not a valid calendar date")
+        try:
+            duration = int(day.duration_minutes or 60)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"plan[{idx}].duration_minutes must be an integer")
+        if duration <= 0 or duration > 24 * 60:
+            raise HTTPException(status_code=400, detail=f"plan[{idx}].duration_minutes must be 1..1440")
+        title = (day.title or f"Day {day.day or idx + 1} — {topic_label}").strip()
+        activities = [a for a in (day.activities or []) if isinstance(a, str) and a.strip()]
+        normalized.append({"date": date_str, "title": title, "duration": duration, "activities": activities})
+
+    created_events: List[dict] = []
+    created_tasks: List[dict] = []
+    try:
+        for d in normalized:
+            description = " | ".join(d["activities"][:4]) if d["activities"] else ""
+            if request.create_events:
+                ev = await create_event(
+                    title=f"[{topic_label}] {d['title']}",
+                    date=d["date"],
+                    time=request.start_time,
+                    duration_minutes=d["duration"],
+                )
+                if not isinstance(ev, dict) or not ev.get("id"):
+                    raise RuntimeError(f"create_event returned no id for {d['date']}")
+                created_events.append(ev)
+            if request.create_tasks:
+                tk = await create_task(
+                    title=f"{d['title']} ({d['duration']}m)" + (f" — {description}" if description else ""),
+                    due_date=d["date"],
+                    priority="medium",
+                )
+                if not isinstance(tk, dict) or not tk.get("id"):
+                    raise RuntimeError(f"create_task returned no id for {d['date']}")
+                created_tasks.append(tk)
+    except Exception as e:
+        logger.warning(f"study-plan/save failed mid-flight, compensating: {e}")
+        for ev in created_events:
+            try:
+                await delete_event(ev.get("id"))
+            except Exception as ce:
+                logger.error(f"compensation delete_event failed: {ce}")
+        for tk in created_tasks:
+            try:
+                await delete_task(tk.get("id"))
+            except Exception as ce:
+                logger.error(f"compensation delete_task failed: {ce}")
+        raise HTTPException(status_code=500, detail=f"Save failed and was rolled back: {e}")
+
+    return {
+        "topic": topic_label,
+        "events_created": len(created_events),
+        "tasks_created": len(created_tasks),
+        "events": created_events,
+        "tasks": created_tasks,
+    }
+
+
+# --- Discover external resources ---
+
+class DiscoverRequest(BaseModel):
+    topic: str
+    kinds: Optional[List[str]] = None
+
+
+@app.post("/discover")
+async def discover_endpoint(request: DiscoverRequest):
+    if not (request.topic or "").strip():
+        raise HTTPException(status_code=400, detail="topic is required")
+    result = await discover_resources(topic=request.topic, kinds=request.kinds)
+    if "error" in result and not result.get("items"):
+        raise HTTPException(status_code=502, detail=result["error"])
+    return result
+
+
+# --- Calendar ICS subscription feed ---
+
+def _ics_escape(text: str) -> str:
+    """Escape per RFC 5545: backslash, comma, semicolon, newline. Strip CR and other
+    control chars first to prevent header/property injection via CRLF."""
+    s = text or ""
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    s = "".join(ch for ch in s if ch == "\n" or ch == "\t" or ord(ch) >= 0x20)
+    return s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
+
+
+def _ics_dt(date_str: str, time_str: str = "09:00") -> str:
+    try:
+        d = datetime.datetime.fromisoformat(f"{date_str}T{time_str}:00")
+        return d.strftime("%Y%m%dT%H%M%S")
+    except Exception:
+        return datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+
+
+@app.get("/calendar.ics")
+async def calendar_ics():
+    """Read-only iCal feed of upcoming events + open tasks. Subscribe in Google/Apple/Outlook."""
+    events = await list_upcoming_events(days=180)
+    open_tasks = await list_tasks(status="pending", limit=100)
+    now_stamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Recall X247//AI Second Brain//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:Recall X247",
+        "X-WR-CALDESC:Events and tasks from your AI Second Brain",
+    ]
+
+    for ev in events or []:
+        if not isinstance(ev, dict):
+            continue
+        eid = ev.get("id") or str(uuid.uuid4())
+        title = ev.get("title") or "Event"
+        date_s = ev.get("date") or ""
+        time_s = ev.get("time") or "09:00"
+        dur = int(ev.get("duration_minutes") or 60)
+        if not date_s:
+            continue
+        start = _ics_dt(date_s, time_s)
+        try:
+            start_dt = datetime.datetime.strptime(start, "%Y%m%dT%H%M%S")
+            end_dt = start_dt + datetime.timedelta(minutes=dur)
+            end = end_dt.strftime("%Y%m%dT%H%M%S")
+        except Exception:
+            end = start
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:{eid}@recall-x247",
+            f"DTSTAMP:{now_stamp}",
+            f"DTSTART:{start}",
+            f"DTEND:{end}",
+            f"SUMMARY:{_ics_escape(title)}",
+            f"DESCRIPTION:{_ics_escape('Event from Recall X247')}",
+            "END:VEVENT",
+        ]
+
+    for tk in open_tasks or []:
+        if not isinstance(tk, dict):
+            continue
+        tid = tk.get("id") or str(uuid.uuid4())
+        title = tk.get("title") or "Task"
+        due = tk.get("due_date") or ""
+        if not due:
+            continue
+        try:
+            d = datetime.datetime.fromisoformat(due[:10])
+            dval = d.strftime("%Y%m%d")
+        except Exception:
+            continue
+        lines += [
+            "BEGIN:VTODO",
+            f"UID:t-{tid}@recall-x247",
+            f"DTSTAMP:{now_stamp}",
+            f"DUE;VALUE=DATE:{dval}",
+            f"SUMMARY:{_ics_escape('[Task] ' + title)}",
+            f"PRIORITY:{5 if tk.get('priority') == 'medium' else (3 if tk.get('priority') == 'high' else 7)}",
+            "STATUS:NEEDS-ACTION",
+            "END:VTODO",
+        ]
+
+    lines.append("END:VCALENDAR")
+    body = "\r\n".join(lines) + "\r\n"
+    return Response(content=body, media_type="text/calendar; charset=utf-8", headers={
+        "Content-Disposition": 'inline; filename="recall-x247.ics"',
+        "Cache-Control": "no-cache",
+    })
 
 _BRIEFING_CACHE: Dict[str, Any] = {"data": None, "expires_at": 0.0}
 

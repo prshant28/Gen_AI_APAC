@@ -7,7 +7,7 @@ import {
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  User as UserIcon, Plug, Bookmark, Flame
+  User as UserIcon, Plug, Bookmark, Flame, GraduationCap, Compass
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -44,6 +44,8 @@ import NotesPage from './pages/NotesPage';
 import BookmarksPage from './pages/BookmarksPage';
 import HabitsPage from './pages/HabitsPage';
 import SharePage from './pages/SharePage';
+import StudyPlanPage from './pages/StudyPlanPage';
+import DiscoverPage from './pages/DiscoverPage';
 import './pages/pages.css';
 
 const NAV_GROUPS = [
@@ -75,6 +77,8 @@ const NAV_GROUPS = [
       { id: 'flashcards', label: 'Flashcards',  path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
       { id: 'habits',     label: 'Habits',      path: '/habits',     icon: Flame,         color: '#10b981' },
       { id: 'calendar',   label: 'Calendar',    path: '/calendar',   icon: CalendarIcon,  color: '#818cf8' },
+      { id: 'plan',       label: 'Study Plan',  path: '/plan',       icon: GraduationCap, color: '#7c3aed' },
+      { id: 'discover',   label: 'Discover',    path: '/discover',   icon: Compass,       color: '#06b6d4' },
     ]
   },
   {
@@ -492,6 +496,8 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/notes" element={<NotesPage />} />
                   <Route path="/bookmarks" element={<BookmarksPage />} />
                   <Route path="/habits" element={<HabitsPage />} />
+                  <Route path="/plan" element={<StudyPlanPage />} />
+                  <Route path="/discover" element={<DiscoverPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>
