@@ -4,6 +4,9 @@ import httpx
 import datetime
 import io
 import os
+import hashlib
+from urllib.parse import urlsplit, urlunsplit
+from typing import Optional
 from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 from pypdf import PdfReader
@@ -150,16 +153,24 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
         }
         memory_doc["title"] = title
 
-        if not preview:
+        duplicate_of = None
+        if url:
             try:
-                db = await get_db()
-                _, doc_ref = await db.collection("memories").add(memory_doc)
-                memory_doc["id"] = doc_ref.id
-            except Exception as db_e:
-                print(f"Firestore Save Error: {db_e}")
-                memory_doc["id"] = f"mock_id_{int(datetime.datetime.now().timestamp())}"
+                duplicate_of = await _find_duplicate_by_url(user_id, url)
+            except Exception as dup_e:
+                print(f"Duplicate check failed: {dup_e}")
+
+        if not preview:
+            if duplicate_of:
+                memory_doc["id"] = duplicate_of["id"]
+                memory_doc["duplicate"] = True
+                memory_doc["existing"] = duplicate_of
+            else:
+                memory_doc = await _atomic_create_memory(memory_doc, user_id, url)
         else:
             memory_doc["id"] = "preview_id"
+            if duplicate_of:
+                memory_doc["duplicate_of"] = duplicate_of
 
         if hasattr(memory_doc["created_at"], "isoformat"):
             memory_doc["created_at"] = memory_doc["created_at"].isoformat()
@@ -170,12 +181,168 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
         return {"error": str(e)}
 
 
-async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
+def _normalize_url(raw: str) -> str:
+    """Lowercase scheme/host, strip default ports, drop trailing slash on path,
+    drop common tracking params (utm_*, fbclid, gclid, ref, ref_src). Returns ''
+    if input is falsy or unparseable."""
+    if not raw:
+        return ""
+    try:
+        s = raw.strip()
+        if not s:
+            return ""
+        parts = urlsplit(s)
+        scheme = (parts.scheme or "https").lower()
+        netloc = parts.netloc.lower()
+        # strip default ports
+        if netloc.endswith(":80") and scheme == "http":
+            netloc = netloc[:-3]
+        if netloc.endswith(":443") and scheme == "https":
+            netloc = netloc[:-4]
+        path = parts.path or ""
+        if path.endswith("/") and len(path) > 1:
+            path = path[:-1]
+        # filter tracking params
+        TRACKER_PREFIXES = ("utm_",)
+        TRACKER_KEYS = {"fbclid", "gclid", "ref", "ref_src", "mc_cid", "mc_eid"}
+        if parts.query:
+            kept = []
+            for kv in parts.query.split("&"):
+                if not kv:
+                    continue
+                k = kv.split("=", 1)[0].lower()
+                if k in TRACKER_KEYS or any(k.startswith(p) for p in TRACKER_PREFIXES):
+                    continue
+                kept.append(kv)
+            query = "&".join(kept)
+        else:
+            query = ""
+        # drop fragment for dedup purposes
+        return urlunsplit((scheme, netloc, path, query, ""))
+    except Exception:
+        return raw.strip()
+
+
+def _memory_doc_id(user_id: str, source_url: str) -> Optional[str]:
+    """Return a deterministic Firestore document ID for a (user, normalized_url)
+    pair, or None if URL is empty (notes/voice/PDF without URL get random IDs)."""
+    norm = _normalize_url(source_url)
+    if not norm:
+        return None
+    digest = hashlib.sha1(f"{user_id}|{norm}".encode("utf-8")).hexdigest()[:24]
+    return f"u_{digest}"
+
+
+async def _doc_to_memory_dict(doc) -> Optional[dict]:
+    """Convert a Firestore snapshot to the standard duplicate metadata dict, or None."""
+    if not getattr(doc, "exists", False):
+        return None
+    data = doc.to_dict() or {}
+    created = data.get("created_at")
+    if hasattr(created, "isoformat"):
+        created = created.isoformat()
+    return {
+        "id": doc.id,
+        "title": data.get("title", "Untitled"),
+        "domain": data.get("domain", ""),
+        "source_type": data.get("source_type", ""),
+        "source_url": data.get("source_url", ""),
+        "created_at": created,
+    }
+
+
+async def _find_duplicate_by_url(user_id: str, source_url: str) -> Optional[dict]:
+    """Return an existing memory dict (id+title+created_at) matching userId+source_url.
+    Fast path: deterministic doc lookup. Fallback: legacy `where(userId, source_url)` query
+    for older docs with random IDs."""
+    if not source_url:
+        return None
     try:
         db = await get_db()
+        # Fast path: deterministic ID
+        det_id = _memory_doc_id(user_id, source_url)
+        if det_id:
+            doc = await db.collection("memories").document(det_id).get()
+            md = await _doc_to_memory_dict(doc)
+            if md:
+                return md
+        # Legacy fallback for memories saved before deterministic IDs existed,
+        # and for URLs that share normalized form but were stored with raw URL
+        norm = _normalize_url(source_url)
+        for candidate_url in {source_url, norm}:
+            if not candidate_url:
+                continue
+            query = db.collection("memories") \
+                .where("userId", "==", user_id) \
+                .where("source_url", "==", candidate_url) \
+                .limit(1)
+            docs = await query.get()
+            for d in docs:
+                data = d.to_dict() or {}
+                created = data.get("created_at")
+                if hasattr(created, "isoformat"):
+                    created = created.isoformat()
+                return {
+                    "id": d.id,
+                    "title": data.get("title", "Untitled"),
+                    "domain": data.get("domain", ""),
+                    "source_type": data.get("source_type", ""),
+                    "source_url": data.get("source_url", ""),
+                    "created_at": created,
+                }
+    except Exception as e:
+        print(f"_find_duplicate_by_url error: {e}")
+    return None
+
+
+async def _atomic_create_memory(memory_doc: dict, user_id: str, source_url: str) -> dict:
+    """Insert a memory doc atomically. For URL-bearing memories we use a deterministic
+    document ID (sha1 of userId|normalized_url) so two concurrent saves of the same URL
+    end up overwriting the SAME doc instead of creating two records. For URL-less
+    memories (notes, voice, PDF without URL) we fall back to auto-generated IDs."""
+    try:
+        db = await get_db()
+        det_id = _memory_doc_id(user_id, source_url)
+        if det_id:
+            doc_ref = db.collection("memories").document(det_id)
+            existing = await doc_ref.get()
+            if getattr(existing, "exists", False):
+                md = await _doc_to_memory_dict(existing) or {"id": det_id}
+                memory_doc["id"] = det_id
+                memory_doc["duplicate"] = True
+                memory_doc["existing"] = md
+                return memory_doc
+            # Persist a normalized source_url so legacy `where` queries also hit this row
+            memory_doc["source_url"] = _normalize_url(source_url) or source_url
+            await doc_ref.set(memory_doc)
+            memory_doc["id"] = det_id
+            return memory_doc
+        # No URL → auto-id
+        _, doc_ref = await db.collection("memories").add(memory_doc)
+        memory_doc["id"] = doc_ref.id
+        return memory_doc
+    except Exception as db_e:
+        print(f"Firestore Save Error: {db_e}")
+        memory_doc["id"] = f"mock_id_{int(datetime.datetime.now().timestamp())}"
+        return memory_doc
+
+
+async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
+    try:
+        source_url = memory_data.get("source_url", "")
+
+        # Duplicate guard: if this URL is already saved for this user, return existing
+        existing = await _find_duplicate_by_url(user_id, source_url) if source_url else None
+        if existing:
+            return {
+                **existing,
+                "duplicate": True,
+                "existing": existing,
+            }
+
         memory_doc = {
             "source_type": memory_data.get("source_type", "note"),
-            "source_url": memory_data.get("source_url", ""),
+            "source_url": source_url,
             "title": memory_data.get("title", "Untitled"),
             "summary": memory_data.get("summary", ""),
             "key_points": memory_data.get("key_points", []),
@@ -184,14 +351,10 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
             "userId": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc)
         }
-        try:
-            _, doc_ref = await db.collection("memories").add(memory_doc)
-            memory_doc["id"] = doc_ref.id
-        except Exception as db_e:
-            print(f"Firestore Save Error: {db_e}")
-            memory_doc["id"] = f"mock_id_{int(datetime.datetime.now().timestamp())}"
+        memory_doc = await _atomic_create_memory(memory_doc, user_id, source_url)
 
-        memory_doc["created_at"] = memory_doc["created_at"].isoformat()
+        if hasattr(memory_doc.get("created_at"), "isoformat"):
+            memory_doc["created_at"] = memory_doc["created_at"].isoformat()
         return memory_doc
     except Exception as e:
         return {"error": str(e)}

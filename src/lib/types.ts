@@ -10,6 +10,15 @@ export interface Memory {
   source_type: 'youtube' | 'web' | 'pdf' | 'note';
   source_url?: string;
   created_at: string;
+  duplicate?: boolean;
+  duplicate_of?: {
+    id: string;
+    title: string;
+    domain?: string;
+    source_type?: string;
+    source_url?: string;
+    created_at?: string;
+  };
 }
 
 export interface Flashcard {

@@ -9,6 +9,15 @@ export interface Memory {
   domain: string;
   created_at: string;
   userId: string;
+  duplicate?: boolean;
+  duplicate_of?: {
+    id: string;
+    title: string;
+    domain?: string;
+    source_type?: string;
+    source_url?: string;
+    created_at?: string;
+  };
 }
 
 export interface Task {
