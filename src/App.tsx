@@ -619,6 +619,12 @@ function AppRouter() {
 
   const handleSignOut = async () => {
     localStorage.removeItem(GUEST_USER_KEY);
+    // Clear per-user transient state so the next user starts fresh
+    try {
+      localStorage.removeItem('agent-hub-current-chat-v1');
+      localStorage.removeItem('agent-hub-current-session-id-v1');
+      localStorage.removeItem('agent-hub-sessions-v1');
+    } catch {}
     try { await firebaseSignOut(); } catch {}
     setUser(null);
     navigate('/', { replace: true });

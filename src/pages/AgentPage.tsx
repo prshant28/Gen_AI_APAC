@@ -8,13 +8,54 @@ import {
   Workflow as WorkflowIcon, Gauge, Eye, EyeOff, Pin, PinOff,
   Download, Copy, Check, Hash, Rocket, Radio, Flame, Wand2,
   Terminal, Code2, Settings as SettingsIcon, Maximize2, Minimize2,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, MessageSquare, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg } from '../lib/types';
 import MarkdownMessage from '../components/MarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards from '../components/ActionResultCards';
+
+// ─── Persisted chat storage (cleared on sign-out by App.handleSignOut) ────
+const STORAGE_KEY_CURRENT = 'agent-hub-current-chat-v1';
+const STORAGE_KEY_CURRENT_SESSION_ID = 'agent-hub-current-session-id-v1';
+const STORAGE_KEY_SESSIONS = 'agent-hub-sessions-v1';
+const MAX_SESSIONS = 25;
+const MAX_MSGS_PER_SESSION = 80;       // cap conversation length we store
+const MAX_CONTENT_CHARS = 8000;        // truncate oversized assistant content
+const SIDEBAR_COLLAPSE_BREAKPOINT = 1100;
+
+// Trim a message for storage: drop bulky internal fields, cap content length.
+function trimMessageForStorage(m: AgentMsg): AgentMsg {
+  const content = (m.content || '').length > MAX_CONTENT_CHARS
+    ? (m.content || '').slice(0, MAX_CONTENT_CHARS) + '\n\n…[truncated for storage]'
+    : m.content;
+  // Steps with very large input/output_summary can balloon storage; trim them.
+  const steps = m.steps?.map(s => ({
+    ...s,
+    input: typeof s.input === 'string' && s.input.length > 400 ? s.input.slice(0, 400) + '…' : s.input,
+    output_summary: typeof s.output_summary === 'string' && s.output_summary.length > 400 ? s.output_summary.slice(0, 400) + '…' : s.output_summary,
+  }));
+  return { ...m, content, ...(steps ? { steps } : {}) };
+}
+
+function trimMessagesForStorage(msgs: AgentMsg[]): AgentMsg[] {
+  const capped = msgs.length > MAX_MSGS_PER_SESSION ? msgs.slice(-MAX_MSGS_PER_SESSION) : msgs;
+  return capped.map(trimMessageForStorage);
+}
+
+type ChatSession = {
+  id: string;
+  title: string;
+  ts: string;
+  msg_count: number;
+  messages: AgentMsg[];
+};
+
+const buildWelcomeMsg = (): AgentMsg => ({
+  id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(),
+  content: `Hello! I'm the Neural AI Orchestrator — your central command for the 7-agent AI system.\n\nUnlike Recall AI (which answers quick questions from your knowledge base), I coordinate a team of specialised agents to help you with complex, multi-step workflows:\n\n• Capture new knowledge from YouTube, web or notes\n• Deep-search and analyse your memory bank\n• Manage and prioritise your task list\n• Schedule study sessions on your calendar\n• Generate detailed learning insights\n• Create personalised daily briefings\n\nWhat would you like to accomplish today?`
+});
 
 const AGENT_COLORS: Record<string, string> = {
   Orchestrator: '#00d4ff', CaptureAgent: '#f43f5e', RecallAgent: '#8b5cf6',
@@ -47,12 +88,31 @@ const QUICK_TEMPLATES = [
 
 const AgentHubView = () => {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<AgentMsg[]>([
-    {
-      id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(),
-      content: `Hello! I'm the Neural AI Orchestrator — your central command for the 7-agent AI system.\n\nUnlike Recall AI (which answers quick questions from your knowledge base), I coordinate a team of specialised agents to help you with complex, multi-step workflows:\n\n• Capture new knowledge from YouTube, web or notes\n• Deep-search and analyse your memory bank\n• Manage and prioritise your task list\n• Schedule study sessions on your calendar\n• Generate detailed learning insights\n• Create personalised daily briefings\n\nWhat would you like to accomplish today?`
-    }
-  ]);
+  const [messages, setMessages] = useState<AgentMsg[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_CURRENT);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [buildWelcomeMsg()];
+  });
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    try { return localStorage.getItem(STORAGE_KEY_CURRENT_SESSION_ID) || `s-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; }
+    catch { return `s-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; }
+  });
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_SESSIONS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [historySubTab, setHistorySubTab] = useState<'chats' | 'workflows'>('chats');
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'running' | 'done'>>({});
@@ -92,6 +152,74 @@ const AgentHubView = () => {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { fetchWorkflows(); }, []);
+
+  // Persist current chat to localStorage on every change so the conversation
+  // survives page reloads, route navigation and app remounts. Cleared by
+  // App.handleSignOut when the user signs out. Messages are trimmed to keep
+  // localStorage usage bounded (caps + content truncation).
+  useEffect(() => {
+    try {
+      const trimmed = trimMessagesForStorage(messages);
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(trimmed));
+      localStorage.setItem(STORAGE_KEY_CURRENT_SESSION_ID, currentSessionId);
+    } catch (e: any) {
+      // Surface quota errors so we can debug, but never block the UI.
+      console.warn('[agent-hub] failed to persist current chat:', e?.message || e);
+    }
+  }, [messages, currentSessionId]);
+
+  // On narrow viewports the sidebar stacks below the chat which can crowd the
+  // input bar — collapse it on mount AND whenever the viewport shrinks below
+  // the breakpoint at runtime (resize, tablet rotate). Restore expanded state
+  // when the user widens the window again so wide-screen UX stays unchanged.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const apply = () => {
+      const narrow = window.innerWidth < SIDEBAR_COLLAPSE_BREAKPOINT;
+      setSidebarCollapsed(prev => (narrow !== prev ? narrow : prev));
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, []);
+
+  const archiveCurrentSession = useCallback((overrideMsgs?: AgentMsg[]) => {
+    const src = overrideMsgs || messages;
+    const userMsgs = src.filter(m => m.role === 'user');
+    if (userMsgs.length === 0) return;
+    const firstUser = (userMsgs[0]?.content || '').trim().slice(0, 80) || 'Untitled chat';
+    const lastTs = src[src.length - 1]?.ts || new Date().toISOString();
+    const trimmed = trimMessagesForStorage(src);
+    setChatSessions(prev => {
+      const next: ChatSession[] = [
+        { id: currentSessionId, title: firstUser, ts: lastTs, msg_count: userMsgs.length, messages: trimmed },
+        ...prev.filter(s => s.id !== currentSessionId),
+      ].slice(0, MAX_SESSIONS);
+      try { localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(next)); }
+      catch (e: any) { console.warn('[agent-hub] failed to persist sessions:', e?.message || e); }
+      return next;
+    });
+  }, [messages, currentSessionId]);
+
+  const loadSession = useCallback((s: ChatSession) => {
+    if (s.id === currentSessionId) return;
+    archiveCurrentSession();
+    activeRequestRef.current = null;
+    if (abortRef.current) { try { abortRef.current.abort(); } catch {} abortRef.current = null; }
+    setIsStreaming(false);
+    setCurrentSessionId(s.id);
+    setMessages(s.messages && s.messages.length > 0 ? s.messages : [buildWelcomeMsg()]);
+    setAgentStatuses({});
+    window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Loaded chat: ${s.title.slice(0, 40)}`, type: 'info' } }));
+  }, [currentSessionId, archiveCurrentSession]);
+
+  const deleteSession = useCallback((sessionId: string) => {
+    setChatSessions(prev => {
+      const next = prev.filter(s => s.id !== sessionId);
+      try { localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   const fetchWorkflows = async () => {
     try {
@@ -245,6 +373,9 @@ const AgentHubView = () => {
       abortRef.current = null;
     }
     setIsStreaming(false);
+    // Archive the current conversation into the sessions list so the user
+    // can reopen it from the History panel later.
+    archiveCurrentSession();
     try {
       await fetch('/agent/chat/clear', {
         method: 'POST',
@@ -252,6 +383,7 @@ const AgentHubView = () => {
         body: JSON.stringify({ message: '', session_id: 'agent-hub' }),
       });
     } catch {}
+    setCurrentSessionId(`s-${Date.now()}-${Math.random().toString(36).slice(2,6)}`);
     setMessages([{
       id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(),
       content: `New chat started. I'm your Neural AI Orchestrator — ready to capture, recall, plan or schedule. What's next?`
@@ -260,7 +392,7 @@ const AgentHubView = () => {
     setTokensUsed(0);
     setLatencies([]);
     inputRef.current?.focus();
-  }, []);
+  }, [archiveCurrentSession]);
 
   const activeAgentCount = Object.values(agentStatuses).filter(s => s === 'running').length;
   const completedAgentCount = Object.values(agentStatuses).filter(s => s === 'done').length;
@@ -638,10 +770,15 @@ const AgentHubView = () => {
             <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0 }}>
               <Radio size={10} style={{ verticalAlign: 'middle', color: '#10b981' }} /> Powered by Google Gemini 2.0 · Multi-agent · Real-time SSE
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => { setSidebarCollapsed(false); setActivePanel('history'); setHistorySubTab('chats'); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                title="Open chat history">
+                <MessageSquare size={11} /> Chats {chatSessions.length > 0 && <span style={{ marginLeft: 2, padding: '1px 6px', borderRadius: 8, background: 'rgba(99,102,241,0.15)', color: '#a78bfa', fontSize: 10 }}>{chatSessions.length}</span>}
+              </button>
               <button onClick={startNewChat} disabled={isStreaming}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: '#a78bfa', fontSize: 11, fontWeight: 700, cursor: isStreaming ? 'default' : 'pointer', opacity: isStreaming ? 0.5 : 1, fontFamily: 'inherit' }}
-                title="Start a fresh chat — clears AI memory">
+                title="Start a fresh chat — current chat is saved to history">
                 <Plus size={11} /> New chat
               </button>
               <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0, display: 'flex', gap: 12 }}>
@@ -779,28 +916,79 @@ const AgentHubView = () => {
           {activePanel === 'history' && (
             <div className="view-card" style={{ flex: '1 1 auto', minHeight: 320, maxHeight: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 800, textTransform: 'uppercase' }}>Workflow History</div>
+                <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 800, textTransform: 'uppercase', marginBottom: 8 }}>History</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {([
+                    { key: 'chats', label: 'Chats', icon: MessageSquare, count: chatSessions.length },
+                    { key: 'workflows', label: 'Workflows', icon: Activity, count: workflows.length },
+                  ] as const).map(t => (
+                    <button key={t.key} onClick={() => setHistorySubTab(t.key)}
+                      style={{ flex: 1, padding: '6px 8px', borderRadius: 7, border: '1px solid', borderColor: historySubTab === t.key ? 'var(--primary-border)' : 'var(--border)', background: historySubTab === t.key ? 'var(--primary-bg)' : 'transparent', color: historySubTab === t.key ? 'var(--primary)' : 'var(--text-3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'all 0.15s' }}>
+                      <t.icon size={11} /> {t.label} <span style={{ opacity: 0.7, fontWeight: 600 }}>{t.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 10 }} className="scroll-custom">
-                {workflows.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)', fontSize: 12 }}>
-                    <Activity size={28} color="var(--border-2)" style={{ margin: '0 auto 10px' }} />
-                    <p style={{ margin: 0, fontWeight: 600 }}>No workflows yet</p>
-                    <p style={{ margin: '4px 0 0', fontSize: 11 }}>Send a message to start orchestrating</p>
-                  </div>
-                ) : workflows.map(wf => (
-                  <div key={wf.id} style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary-border)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: wf.status === 'completed' ? '#10b981' : wf.status === 'failed' ? '#ef4444' : '#f59e0b', flexShrink: 0, boxShadow: wf.status === 'completed' ? '0 0 6px #10b981' : 'none' }} />
-                      <span style={{ color: 'var(--text-1)', fontSize: 11.5, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
+                {historySubTab === 'chats' ? (
+                  chatSessions.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 8px', color: 'var(--text-3)', fontSize: 12 }}>
+                      <MessageSquare size={28} color="var(--border-2)" style={{ margin: '0 auto 10px' }} />
+                      <p style={{ margin: 0, fontWeight: 600 }}>No saved chats yet</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 11, lineHeight: 1.45 }}>Your current chat is auto-saved. When you click "New chat", the previous one is archived here so you can come back to it.</p>
                     </div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10.5, lineHeight: 1.4 }}>
-                      {wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps
+                  ) : chatSessions.map(s => {
+                    const isActive = s.id === currentSessionId;
+                    return (
+                      <div key={s.id} role="button" tabIndex={0}
+                        onClick={() => loadSession(s)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') loadSession(s); }}
+                        style={{ padding: '10px 11px 9px', borderRadius: 10, marginBottom: 6, background: isActive ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${isActive ? 'var(--primary-border)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', position: 'relative' }}
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = 'var(--primary-border)'; }}
+                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                          <MessageSquare size={12} color={isActive ? 'var(--primary)' : 'var(--text-3)'} style={{ marginTop: 2, flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: 'var(--text-1)', fontSize: 11.5, fontWeight: 700, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.title}</div>
+                            <div style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Hash size={9} /> {s.msg_count} msg
+                              <span>·</span>
+                              <Clock size={9} /> {new Date(s.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {isActive && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}>active</span>}
+                            </div>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                            title="Delete chat"
+                            style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  workflows.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)', fontSize: 12 }}>
+                      <Activity size={28} color="var(--border-2)" style={{ margin: '0 auto 10px' }} />
+                      <p style={{ margin: 0, fontWeight: 600 }}>No workflows yet</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 11 }}>Send a message to start orchestrating</p>
                     </div>
-                  </div>
-                ))}
+                  ) : workflows.map(wf => (
+                    <div key={wf.id} style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary-border)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: wf.status === 'completed' ? '#10b981' : wf.status === 'failed' ? '#ef4444' : '#f59e0b', flexShrink: 0, boxShadow: wf.status === 'completed' ? '0 0 6px #10b981' : 'none' }} />
+                        <span style={{ color: 'var(--text-1)', fontSize: 11.5, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.description || wf.name}</span>
+                      </div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 10.5, lineHeight: 1.4 }}>
+                        {wf.agents_called?.join(' › ')} · {wf.steps?.length || 0} steps
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
