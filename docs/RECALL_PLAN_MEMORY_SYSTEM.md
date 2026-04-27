@@ -247,3 +247,257 @@ query ─► strip stopwords ("show", "previous", "work", "on", "for", …)
 All four are wired in `main.py`. Underlying logic lives in
 `app/insight_agent.py`, `app/plan_agent.py:breakdown_task`,
 `app/workspace_recall.py`, and the dedup helpers in `app/capture_agent.py`.
+
+
+---
+
+# Folder Timeline (per-folder activity feed with bidirectional links)
+
+**Goal:** Give every workspace folder a single chronological view that answers
+*"what happened in this folder, and how is everything connected?"* — captures,
+extracted insights, applied tasks, saved memories and saved plans, all on one
+spine, with click-to-jump navigation between an insight and the task it
+produced (and back).
+
+## 1. Data sources (no new collection)
+
+The timeline is **derived** at query time from existing collections — no
+parallel "events" table is written, so there is nothing to keep in sync.
+
+| Event type | Source                                                 | Time field        | Folder field             |
+|------------|--------------------------------------------------------|-------------------|--------------------------|
+| `capture`  | `workspace_projects.items[*]`                          | `added_at`        | `folder_id` (`""` = root)|
+| `task`     | `workspace_projects.tasks[*]`                          | `created_at`      | `folder_id`              |
+| `memory`   | `memories` collection where `project_id == pid` and `folder_id` matches | `created_at` | `folder_id`              |
+| `insight`  | `workspace_projects.recent_insights[*]` (capped 50, FIFO) | `created_at`   | `folder_id`              |
+| `plan`     | `workspace_projects.saved_plans[*]` (when present)     | `saved_at`        | project-level            |
+
+`recent_insights[]` was added to the project document in this iteration so the
+historical insight stream survives across sessions; it is appended every time
+`extract_insights` returns suggestions and trimmed to the last 50.
+
+## 2. Connection model — how an insight knows about its task
+
+When the user clicks **Add Task** / **Save to Memory** / **Create Plan** on an
+insight suggestion, the apply handler in `app/insight_agent.py` does two
+writes in one round-trip:
+
+1. The actual artefact (task / memory / plan) is created with a
+   `linked_from = {event_id, type, label, action}` pointer back to the
+   insight that produced it.
+2. The insight's `applied_actions[]` array is appended via
+   `_log_applied_action(...)` with the **same** `event_id` pointing forward
+   to the new artefact.
+
+```
+recent_insights[i] ─────applied_actions[*]─────►  task / memory / plan
+       ▲                                                    │
+       └──────────── linked_from ───────────────────────────┘
+```
+
+`event_id` is always `"{type}:{id}"` — e.g. `task:tk_abc`, `insight:ins_xyz` —
+so the same identifier round-trips through the URL fragment, the React DOM
+anchor and the timeline JSON without any translation.
+
+`add_task` is special: it logs **two** edges (one to the global `task:` and
+one to the workspace `wstask:`) so the link is followable regardless of which
+task list the user is looking at.
+
+## 3. Aggregator — `app/timeline_agent.py::get_folder_timeline`
+
+```python
+get_folder_timeline(project_id, folder_id=None, limit=200) -> {
+    "ok": True,
+    "scope": {"project_id", "project_name", "folder_id", "folder_name"},
+    "events": [ TimelineEvent, ... ],   # newest first
+    "counts": {"capture", "insight", "task", "memory", "plan", "total"},
+    "edges":  int                        # number of linked_to / linked_from pairs
+}
+```
+
+`folder_id` semantics:
+
+| Value     | Scope                                            |
+|-----------|--------------------------------------------------|
+| `None`    | Whole project (every folder + un-foldered)       |
+| `""`      | Root bucket (items with no folder assigned)      |
+| `"f_xyz"` | A specific folder                                |
+
+Each event carries:
+- `id`, `type`, `timestamp`, `title`, `summary`
+- type-specific fields (`priority`, `due_date`, `status`, `insight_type`, …)
+- `linked_from` (the upstream event that spawned this one — at most one)
+- `linked_to[]` (downstream events this one spawned — zero or more)
+- `deeplink: { route, params }` — exact URL the UI should `navigate()` to
+
+The aggregator first collects raw events, then performs an **edge resolution
+pass**: for every artefact that carries a `linked_from`, it appends a mirror
+entry to the source insight's `linked_to` and increments the `edges` counter.
+This is what makes the timeline graph bidirectional even though the underlying
+storage only writes one direction at apply time.
+
+## 4. Endpoint
+
+```
+GET /workspace/projects/{project_id}/timeline?folder_id=<id>
+```
+
+| Query param  | Default | Notes                                      |
+|--------------|---------|--------------------------------------------|
+| `folder_id`  | omitted | Whole project. `""` = root, `f_x` = folder |
+| `limit`      | 200     | Max events returned                        |
+
+### Example response (trimmed)
+
+```json
+{
+  "ok": true,
+  "scope": {
+    "project_id": "ws_f1e1231105",
+    "project_name": "Hackathon prep",
+    "folder_id": "f_demo",
+    "folder_name": "Demo prep"
+  },
+  "counts": { "capture": 2, "insight": 2, "task": 1, "memory": 0, "plan": 0, "total": 5 },
+  "edges": 2,
+  "events": [
+    {
+      "id": "task:tk_a1",
+      "type": "task",
+      "timestamp": "2026-04-27T08:14:02Z",
+      "title": "Record 3-min demo video",
+      "priority": "high",
+      "due_date": "2026-04-29",
+      "status": "pending",
+      "linked_from": { "event_id": "insight:ins_77", "type": "insight",
+                       "label": "High-priority deadline detected", "action": "add_task" },
+      "deeplink": { "route": "/tasks", "params": { "highlight": "tk_a1" } }
+    },
+    {
+      "id": "insight:ins_77",
+      "type": "insight",
+      "timestamp": "2026-04-27T08:13:55Z",
+      "title": "High-priority deadline detected",
+      "insight_type": "deadline",
+      "linked_to": [
+        { "event_id": "task:tk_a1", "type": "task", "label": "Record 3-min demo video",
+          "action": "add_task", "applied_at": "2026-04-27T08:14:02Z" }
+      ],
+      "deeplink": { "route": "/workspace", "params": { "project_id": "ws_f1e1231105" } }
+    }
+  ]
+}
+```
+
+## 5. Frontend
+
+`src/pages/TimelinePage.tsx` now has two modes selected by a tab switcher:
+
+- **Memories** — the existing chronological vault view (unchanged).
+- **Workspace flow** — new view backed by `get_folder_timeline`.
+
+The workspace mode auto-activates when the URL carries
+`?mode=workspace` or `?project_id=...`. It exposes:
+
+- A project picker (lazy-loads folder list per project).
+- A scope picker: *Whole project* / *Root* / each folder.
+- Type filter pills (`All / Capture / Insight / Task / Memory / Plan`)
+  with live counts from the response.
+- A counts strip (captures · insights · tasks · memories · plans · connections).
+- Per-event card with type chip, priority/status/due chips, summary, and:
+  - **`from <Insight>`** dashed pill (when `linked_from` exists) →
+    smooth-scrolls to that insight via `#ev-{id}` DOM anchor.
+  - **`<action> → <target>`** dashed pill for each `linked_to[]` →
+    smooth-scrolls to the spawned artefact.
+  - Click body → `navigate()` to the event's `deeplink` (Tasks page,
+    Memory detail, Workspace project, Plan, …).
+
+Two entry points were added to make the feature discoverable:
+
+- `src/pages/WorkspacePage.tsx` — the project header next to "AI Organize"
+  has a **Timeline** button which deep-links to
+  `/timeline?mode=workspace&project_id=<pid>&folder_id=<active>`.
+- `src/pages/CapturePage.tsx` — after a successful save, a dismissible
+  pill appears with **Open** and **View Timeline** actions.
+
+## 6. End-to-end integrated workflow
+
+```
+┌────────────┐  capture (web/yt/pdf/note)
+│  Capture   │──────────────────────────────────┐
+└────────────┘                                  ▼
+                                       ┌──────────────────┐
+                                       │ workspace_items  │ ← AI Organize folders this
+                                       └──────────────────┘
+                                                │
+                                                ▼
+                                  ┌──────────────────────────┐
+                                  │ extract_insights()       │
+                                  │  → recent_insights[]     │  (persisted, capped 50)
+                                  └──────────────────────────┘
+                                                │  user clicks "Add Task"
+                                                ▼
+                              ┌──────────────────────────────────┐
+                              │ apply: add_task / save_to_memory │
+                              │        / create_plan             │
+                              │ writes linked_from on artefact   │
+                              │ + applied_actions[] on insight   │
+                              └──────────────────────────────────┘
+                                                │
+                                                ▼
+                                  ┌──────────────────────────┐
+                                  │ get_folder_timeline()    │ ← endpoint reads everything,
+                                  │  resolves edges          │   resolves bidirectional edges
+                                  └──────────────────────────┘
+                                                │
+                                                ▼
+                                  ┌──────────────────────────┐
+                                  │ TimelinePage (workspace) │ ← visual jump-to-source flow
+                                  └──────────────────────────┘
+```
+
+A single user gesture in step 4 is the only place an edge is ever
+**created**; everything downstream just **reads** it. That keeps the data
+model simple and the timeline trivially correct under retries / backfills.
+
+## 7. Endpoint reference (additions)
+
+| Method | Path                                                           | Purpose                              |
+|--------|----------------------------------------------------------------|--------------------------------------|
+| GET    | `/workspace/projects/{id}/timeline?folder_id=<id>&limit=<n>`   | Per-folder activity feed with edges  |
+
+## 8. Hardening (post-review fixes)
+
+### Edge canonicalization
+The aggregator rewrites `applied_actions[*]` target ids before resolving them
+to actual rendered events, so the bidirectional links survive the fact that
+each downstream system uses its own id namespace:
+
+| `target_type` written by apply | Resolved event id in timeline                           |
+|--------------------------------|----------------------------------------------------------|
+| `task:<global_task_id>`        | direct match if hydrated from `tasks/<id>`               |
+| `task:<workspace_task_id>`     | direct match against `tasks[*].id` on the project doc    |
+| `memory:<memory_id>`           | rewritten to `item:<workspace_item_id>` via `memory_alias_to_event` (memory pins are always also pinned as workspace items in the same folder by `save_to_memory`) |
+| `plan:<sibling_project_id>` (or legacy `project:<id>` for `create_plan`) | emitted as `plan:<id>` event in section 5 |
+
+Without this rewrite, derived `linked_to[]` entries pointed at IDs the UI never
+rendered, so the click-to-jump was a silent no-op.
+
+### Idempotency at the apply layer
+`apply_insight_action` now short-circuits if `recent_insights[insight_id].applied_actions[]`
+already contains a row whose `action == a_type`. The handler returns
+`{ok: true, idempotent: true, previous: {target_type, target_id, target_label, applied_at}}`
+without creating a second task / memory / plan. This protects against rapid
+double-clicks, retries on flaky network, and reload-then-resubmit.
+
+A second, narrower idempotency check inside `_log_applied_action` (dedup on
+`(action, target_id)`) prevents the edge log itself from growing duplicates if
+two writers slip past the apply guard at the same instant.
+
+### URL parameter contract
+TimelinePage's "Open Workspace" button (empty-state) and the timeline's plan
+deeplink both use `/workspace?project=<id>` to match the actual query param
+WorkspacePage reads (`useSearchParams().get('project')`). The Timeline button
+on WorkspacePage uses `/timeline?mode=workspace&project_id=<id>` because that
+is what TimelinePage's workspace mode reads. Asymmetric but each side owns its
+contract.

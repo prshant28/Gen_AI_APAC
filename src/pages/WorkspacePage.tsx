@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Kanban, PlusCircle, Plus, CheckCheck, Trash2, Loader2, Sparkles, FolderTree,
   Youtube, FileText, ExternalLink, Wand2, X, FolderPlus, Save,
-  StickyNote, CheckSquare, Lightbulb, Link2, Tag, Layers,
+  StickyNote, CheckSquare, Lightbulb, Link2, Tag, Layers, GitBranch,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
@@ -354,6 +354,15 @@ const WorkspacePage: React.FC = () => {
                   <button onClick={runAiOrganize} disabled={organizing}
                     style={{ padding: '7px 12px', background: 'linear-gradient(135deg,#6366f1,#7c3aed)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: organizing ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: organizing ? 0.7 : 1 }}>
                     {organizing ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Organizing…</> : <><Wand2 size={12} /> AI Organize</>}
+                  </button>
+                  <button onClick={() => {
+                      const qs = new URLSearchParams({ mode: 'workspace', project_id: project.id });
+                      if (activeFolder) qs.set('folder_id', activeFolder);
+                      navigate(`/timeline?${qs.toString()}`);
+                    }}
+                    style={{ padding: '7px 12px', background: 'var(--surface-2)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 9, color: '#a78bfa', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                    title="See how capture → insight → task → memory connect for this project">
+                    <GitBranch size={12} /> Timeline
                   </button>
                   <button onClick={() => deleteProject(project.id)}
                     style={{ padding: '7px 9px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: '#ef4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}

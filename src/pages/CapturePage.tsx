@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Globe, StickyNote, FileText, Sparkles, Loader2, CheckCircle2, X, Brain,
   Tag, ExternalLink, Save, Upload, Mic, MicOff, Code2, Twitter, Clipboard,
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
   AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
-  Clock, FolderOpen, Star, ArrowRight,
+  Clock, FolderOpen, Star, ArrowRight, GitBranch,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -105,6 +106,7 @@ function useVoiceRecorder() {
 
 /* ── Main component ─────────────────────────────────────────────── */
 const CaptureView = () => {
+  const navigate = useNavigate();
   const [source, setSource]             = useState<string>('web');
   const [input, setInput]               = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -113,6 +115,7 @@ const CaptureView = () => {
   const [pdfFile, setPdfFile]           = useState<File | null>(null);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string>('');
   const [dragOver, setDragOver]         = useState(false);
+  const [justSavedId, setJustSavedId]   = useState<string | null>(null);
   const [agentState, setAgentState]     = useState<Record<string, AgentStatus>>({});
   const [activeAgentDesc, setActiveAgentDesc] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -408,6 +411,10 @@ const CaptureView = () => {
         } else {
           showToast('Saved to Vault!');
         }
+        if (memId) {
+          setJustSavedId(memId);
+          setTimeout(() => setJustSavedId(prev => prev === memId ? null : prev), 15000);
+        }
         // Skip auto-tag for duplicates (entry already tagged)
         if (memId && !isDup) {
           fetch(`/memories/${memId}/auto-tag`, { method: 'POST' })
@@ -453,6 +460,39 @@ const CaptureView = () => {
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* ── Just-saved pill (jump into timeline) ───────────────── */}
+      <AnimatePresence>
+        {justSavedId && (
+          <motion.div
+            key={justSavedId}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+              background: 'linear-gradient(90deg, rgba(167,139,250,0.10), rgba(244,114,182,0.10))',
+              border: '1px solid rgba(167,139,250,0.35)', borderRadius: 10,
+            }}>
+            <CheckCircle2 size={15} color="#10b981" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)' }}>Saved to your Vault.</span>
+            <span style={{ flex: 1 }} />
+            <button onClick={() => navigate(`/memory/${justSavedId}`)}
+              style={{ padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Eye size={11} /> Open
+            </button>
+            <button onClick={() => navigate('/timeline')}
+              style={{ padding: '5px 11px', background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <GitBranch size={11} /> View Timeline
+            </button>
+            <button onClick={() => setJustSavedId(null)}
+              style={{ padding: 4, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              title="Dismiss">
+              <X size={13} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}

@@ -352,6 +352,39 @@ async def extract_insights(
         "task":    sum(1 for x in cleaned if x["type"] == "task"),
     }
 
+    # ── Persist insights into the project for later timeline assembly ────────
+    # Each persisted insight carries created_at + folder_id + applied_actions[]
+    # so the timeline endpoint can join insight → derived task/memory/plan.
+    # We cap recent_insights at 50 (FIFO) to keep the project doc bounded.
+    try:
+        import datetime as _dt
+        from app.db import get_db as _get_db
+        now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        db = await _get_db()
+        pdoc = await db.collection("workspace_projects").document(project_id).get()
+        if getattr(pdoc, "exists", False):
+            pdata = pdoc.to_dict() or {}
+            existing = pdata.get("recent_insights") or []
+            persisted = []
+            for ins in cleaned:
+                persisted.append({
+                    "id": ins["id"],
+                    "title": ins.get("title", ""),
+                    "detail": ins.get("detail", ""),
+                    "type": ins.get("type", "insight"),
+                    "priority": ins.get("priority", "medium"),
+                    "folder_id": ins.get("folder_id") or folder_id or "",
+                    "source_item_ids": ins.get("source_item_ids") or [],
+                    "created_at": now_iso,
+                    "applied_actions": [],
+                })
+            merged = persisted + existing
+            pdata["recent_insights"] = merged[:50]
+            pdata["updated_at"] = now_iso
+            await db.collection("workspace_projects").document(project_id).set(pdata)
+    except Exception as e:
+        logger.warning(f"persist insights failed (non-fatal): {e}")
+
     return {
         "ok": True,
         "scope": {"project_id": project_id, "folder_id": folder_id, "label": folder_label},
@@ -366,6 +399,55 @@ async def extract_insights(
 
 
 # ─── Apply an action ──────────────────────────────────────────────────────────
+
+
+async def _log_applied_action(
+    project_id: str,
+    insight_id: str,
+    action_type: str,
+    target_type: str,
+    target_id: str,
+    target_label: str = "",
+) -> None:
+    """Append an applied-action record to the matching persisted insight so the
+    timeline endpoint can render a 'derived from this insight' edge.
+    Best-effort: never block the apply path if the project doc has rotated."""
+    if not (project_id and insight_id and target_id):
+        return
+    try:
+        import datetime as _dt
+        from app.db import get_db as _get_db
+        db = await _get_db()
+        pdoc = await db.collection("workspace_projects").document(project_id).get()
+        if not getattr(pdoc, "exists", False):
+            return
+        pdata = pdoc.to_dict() or {}
+        recent = pdata.get("recent_insights") or []
+        touched = False
+        now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        for r in recent:
+            if r.get("id") == insight_id:
+                acts = r.get("applied_actions") or []
+                # Idempotency — same (action, target_id) tuple already logged?
+                # Prevents duplicate edges from rapid double-clicks or retries.
+                if any(a.get("action") == action_type and a.get("target_id") == target_id
+                       for a in acts if isinstance(a, dict)):
+                    return
+                acts.append({
+                    "action": action_type,
+                    "target_type": target_type,   # task | memory | plan | project
+                    "target_id": target_id,
+                    "target_label": target_label[:160],
+                    "applied_at": now_iso,
+                })
+                r["applied_actions"] = acts[-10:]  # cap per insight
+                touched = True
+                break
+        if touched:
+            pdata["updated_at"] = now_iso
+            await db.collection("workspace_projects").document(project_id).set(pdata)
+    except Exception as e:
+        logger.warning(f"_log_applied_action failed (non-fatal): {e}")
 
 async def apply_insight_action(
     project_id: str,
@@ -395,6 +477,30 @@ async def apply_insight_action(
     action = cleaned_actions[0]
     a_type = action["type"]
     payload = action["payload"]  # already clamped/sanitized by validator
+
+    # 1b. Idempotency guard — if THIS insight has already been applied with
+    # THIS action_type, return the previous result instead of duplicating
+    # tasks/memories/plans on retry or accidental double-click.
+    insight_id_for_dedup = str(insight.get("id") or "")[:64]
+    if insight_id_for_dedup:
+        for r in (project.get("recent_insights") or []):
+            if not isinstance(r, dict) or r.get("id") != insight_id_for_dedup:
+                continue
+            for prev in (r.get("applied_actions") or []):
+                if isinstance(prev, dict) and prev.get("action") == a_type:
+                    return {
+                        "ok": True,
+                        "action": a_type,
+                        "idempotent": True,
+                        "message": f"Already applied as {prev.get('target_type')}:{prev.get('target_id')}",
+                        "previous": {
+                            "target_type": prev.get("target_type"),
+                            "target_id":   prev.get("target_id"),
+                            "target_label":prev.get("target_label"),
+                            "applied_at":  prev.get("applied_at"),
+                        },
+                    }
+            break
 
     # 2. Sanitize the insight envelope (only the fields apply actually uses).
     safe_insight = {
@@ -436,6 +542,28 @@ async def apply_insight_action(
             logger.warning(f"ws_add_task mirror failed: {e}")
             ws_task = None
 
+        # Record the linkage on the source insight (timeline edges). We log
+        # BOTH the global task (calendar) and the workspace pinned task so
+        # the timeline shows the full fan-out from one insight.
+        if global_task and global_task.get("id"):
+            await _log_applied_action(
+                project_id=project_id,
+                insight_id=insight.get("id"),
+                action_type="add_task",
+                target_type="task",
+                target_id=global_task["id"],
+                target_label=title,
+            )
+        if ws_task and ws_task.get("id"):
+            await _log_applied_action(
+                project_id=project_id,
+                insight_id=insight.get("id"),
+                action_type="add_task",
+                target_type="task",
+                target_id=ws_task["id"],
+                target_label=title,
+            )
+
         return {
             "ok": True,
             "action": "add_task",
@@ -460,6 +588,16 @@ async def apply_insight_action(
 
         # Spin up a new linked project from the plan.
         new_proj = await ingest_plan(plan, project_name=f"Plan — {topic}")
+
+        await _log_applied_action(
+            project_id=project_id,
+            insight_id=insight.get("id"),
+            action_type="create_plan",
+            target_type="plan",  # canonicalized → emits as plan:<id> in timeline
+            target_id=new_proj.get("id") or "",
+            target_label=new_proj.get("name") or topic,
+        )
+
         return {
             "ok": True,
             "action": "create_plan",
@@ -508,6 +646,15 @@ async def apply_insight_action(
             }])
         except Exception as e:
             logger.warning(f"workspace pin after save_to_memory failed: {e}")
+
+        await _log_applied_action(
+            project_id=project_id,
+            insight_id=insight.get("id"),
+            action_type="save_to_memory",
+            target_type="memory",
+            target_id=mem.get("id") or "",
+            target_label=title,
+        )
 
         return {
             "ok": True,

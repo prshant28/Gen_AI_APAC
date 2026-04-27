@@ -1006,6 +1006,29 @@ async def ws_apply_insight(project_id: str, req: InsightApplyRequest):
     return result
 
 
+# --- Workspace folder timeline (capture → insight → task → memory → plan) ---
+
+@app.get("/workspace/projects/{project_id}/timeline")
+async def workspace_folder_timeline(
+    project_id: str,
+    folder_id: Optional[str] = None,
+    limit: int = 200,
+):
+    """Merged event stream for one folder (or whole project when folder_id omitted).
+    Pass folder_id='' (empty string) to scope to the root/un-foldered bucket.
+    Used by the Timeline page to render a single visual story of how the user's
+    knowledge moved capture → insight → task → memory → plan."""
+    from app.timeline_agent import get_folder_timeline
+    result = await get_folder_timeline(
+        project_id=project_id,
+        folder_id=folder_id,
+        limit=max(1, min(500, limit)),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("error", "timeline failed"))
+    return result
+
+
 # --- Workspace recall ("Show my previous work on X") ---
 
 class WorkspaceRecallRequest(BaseModel):
