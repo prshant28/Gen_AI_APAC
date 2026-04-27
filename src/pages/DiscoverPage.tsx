@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X, Eye, Clock, Calendar as CalendarIcon, NotebookPen, Save, ListChecks, Filter, ArrowUpDown, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
 
@@ -13,6 +13,24 @@ interface DiscoverItem {
   domain?: string;
   youtube_id?: string;
   thumbnail?: string;
+  channel_title?: string;
+  channel_id?: string;
+  view_count?: number;
+  view_count_display?: string;
+  duration_seconds?: number;
+  duration_display?: string;
+  published_at?: string;
+  age_display?: string;
+  kind_label?: string;
+  like_count?: number;
+}
+
+interface DiscoverResponse {
+  items: DiscoverItem[];
+  count: number;
+  video_count?: number;
+  article_count?: number;
+  youtube_api_used?: boolean;
 }
 
 const SUGGESTED_TOPICS = [
@@ -20,15 +38,23 @@ const SUGGESTED_TOPICS = [
   'Distributed systems', 'Algorithms', 'Productivity habits',
 ];
 
+type SortKey = 'relevance' | 'views' | 'recent' | 'shortest';
+
 const DiscoverPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [topic, setTopic] = useState(params.get('topic') || '');
   const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [meta, setMeta] = useState<{ youtube_api_used: boolean; video_count: number; article_count: number }>({ youtube_api_used: false, video_count: 0, article_count: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'video' | 'article'>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('relevance');
   const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
   const [playingYt, setPlayingYt] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
+  const [notesFor, setNotesFor] = useState<DiscoverItem | null>(null);
+  const [notesText, setNotesText] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const runDiscover = useCallback(async (q: string) => {
     if (!q.trim()) return;
@@ -47,8 +73,13 @@ const DiscoverPage: React.FC = () => {
         setError(e.error || e.detail || 'Failed to load resources');
         return;
       }
-      const data = await res.json();
+      const data: DiscoverResponse = await res.json();
       setItems(data.items || []);
+      setMeta({
+        youtube_api_used: !!data.youtube_api_used,
+        video_count: data.video_count || 0,
+        article_count: data.article_count || 0,
+      });
     } catch {
       setError('Network error — please try again');
     } finally {
@@ -87,40 +118,96 @@ const DiscoverPage: React.FC = () => {
     }
   };
 
-  const filtered = items.filter(it => filter === 'all' || it.type === filter);
+  const openNotes = (item: DiscoverItem) => {
+    setNotesFor(item);
+    setNotesText(`# Notes on: ${item.title}\n\n## Key takeaways\n- \n\n## Questions\n- \n\n## Action items\n- `);
+  };
+
+  const saveNotes = async () => {
+    if (!notesFor || !notesText.trim()) return;
+    setSavingNotes(true);
+    try {
+      const isVideo = notesFor.type === 'video' || !!notesFor.youtube_id;
+      const res = await fetch('/memories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_type: isVideo ? 'youtube' : 'web',
+          source_url: notesFor.url,
+          title: `Notes — ${notesFor.title}`,
+          summary: notesText.trim().slice(0, 500),
+          notes: notesText.trim(),
+          domain: notesFor.source || notesFor.domain || 'Notes',
+          tags: ['notes', topic.toLowerCase().split(/\s+/)[0]].filter(Boolean),
+          key_points: [],
+        })
+      });
+      if (res.ok) {
+        setSavedUrls(prev => new Set(prev).add(notesFor.url));
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Notes saved to Vault', type: 'success' } }));
+        setNotesFor(null);
+        setNotesText('');
+      } else {
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Notes save failed', type: 'error' } }));
+      }
+    } catch {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Notes save failed', type: 'error' } }));
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const generatePlan = (item: DiscoverItem) => {
+    navigate(`/plan?topic=${encodeURIComponent(item.title)}`);
+  };
+
+  const filtered = useMemo(() => {
+    const base = items.filter(it => filter === 'all' || it.type === filter);
+    if (sortKey === 'views') return [...base].sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+    if (sortKey === 'recent') return [...base].sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
+    if (sortKey === 'shortest') return [...base].sort((a, b) => (a.duration_seconds || 99999) - (b.duration_seconds || 99999));
+    return base;
+  }, [items, filter, sortKey]);
+
   const videoCount = items.filter(i => i.type === 'video').length;
   const articleCount = items.filter(i => i.type === 'article').length;
 
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '11px 16px 11px 42px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit' };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '13px 16px 13px 44px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit' };
 
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
-      {/* Header */}
+      {/* Premium header with live source badge */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-        className="page-header" style={{ marginBottom: 16 }}>
+        className="page-header" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
-            <Compass size={19} color="#fff" />
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(6,182,212,0.4)' }}>
+            <Compass size={20} color="#fff" />
           </div>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Discover</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>AI-curated articles and videos from external sources — save the ones that matter to your Vault</p>
+            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Real YouTube videos + curated articles · take notes, save, or turn any video into a study plan</p>
           </div>
         </div>
+        {meta.youtube_api_used && items.length > 0 && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.28)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.20)' }} />
+            Live YouTube Data API v3
+          </div>
+        )}
       </motion.div>
 
       {/* Search */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-        style={{ ...card, padding: '18px 20px', marginBottom: 14 }}>
+        style={{ ...card, padding: '20px 22px', marginBottom: 14 }}>
         <div style={{ position: 'relative' }}>
-          <Search size={16} color="var(--text-3)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <Search size={17} color="var(--text-3)" style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input type="text" value={topic} onChange={e => setTopic(e.target.value)}
             placeholder="What do you want to learn? e.g., Transformer architecture, RAG…"
             style={inputStyle}
             onKeyDown={e => { if (e.key === 'Enter') runDiscover(topic); }} />
           <button onClick={() => runDiscover(topic)} disabled={!topic.trim() || isLoading}
-            style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '7px 14px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: (!topic.trim() || isLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: (!topic.trim() || isLoading) ? 0.6 : 1 }}>
+            style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '8px 16px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, cursor: (!topic.trim() || isLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: (!topic.trim() || isLoading) ? 0.6 : 1, boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
             {isLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
             Discover
           </button>
@@ -132,7 +219,7 @@ const DiscoverPage: React.FC = () => {
             <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', alignSelf: 'center', marginRight: 4 }}>Try:</span>
             {SUGGESTED_TOPICS.map(t => (
               <button key={t} onClick={() => { setTopic(t); runDiscover(t); }}
-                style={{ padding: '5px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, color: 'var(--text-2)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                style={{ padding: '6px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, color: 'var(--text-2)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                 {t}
               </button>
             ))}
@@ -140,9 +227,10 @@ const DiscoverPage: React.FC = () => {
         )}
       </motion.div>
 
-      {/* Filters */}
+      {/* Filters + Sort */}
       {items.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <Filter size={13} color="var(--text-3)" style={{ marginRight: 2 }} />
           {(['all', 'video', 'article'] as const).map(f => {
             const isActive = filter === f;
             const cnt = f === 'all' ? items.length : f === 'video' ? videoCount : articleCount;
@@ -154,37 +242,48 @@ const DiscoverPage: React.FC = () => {
               </button>
             );
           })}
+          <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+          <ArrowUpDown size={12} color="var(--text-3)" />
+          <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)}
+            style={{ padding: '5px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
+            <option value="relevance">Relevance</option>
+            <option value="views">Most viewed</option>
+            <option value="recent">Newest first</option>
+            <option value="shortest">Shortest first</option>
+          </select>
           <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 'auto' }}>Topic: <strong style={{ color: 'var(--text-2)' }}>{topic}</strong></span>
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div style={{ ...card, padding: '14px 18px', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', color: '#fca5a5', fontSize: 12.5 }}>
+        <div style={{ ...card, padding: '14px 18px', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', color: '#dc2626', fontSize: 12.5 }}>
           {error}
         </div>
       )}
 
       {/* Loading skeleton */}
       {isLoading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           {[0, 1, 2, 3, 4, 5].map(i => (
-            <div key={i} style={{ ...card, height: 280, opacity: 0.5, animation: `pulse 1.5s ease-in-out ${i * 0.08}s infinite` }} />
+            <div key={i} style={{ ...card, height: 320, opacity: 0.5, animation: `pulse 1.5s ease-in-out ${i * 0.08}s infinite` }} />
           ))}
         </div>
       )}
 
       {/* Results grid */}
       {!isLoading && filtered.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           <AnimatePresence>
             {filtered.map((item, i) => {
               const isVideo = item.type === 'video' || !!item.youtube_id;
               const ytId = item.youtube_id || (isVideo ? getYouTubeId(item.url) : null);
               const isSaved = savedUrls.has(item.url);
               const isPlaying = ytId ? playingYt.has(item.url) : false;
+              const thumbSrc = item.thumbnail || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '');
               return (
                 <motion.div key={item.url} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.03 }}
+                  className="discover-card"
                   style={{ ...card, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderColor: ytId ? 'rgba(239,68,68,0.22)' : 'var(--border)' }}>
                   {/* Thumbnail / player */}
                   {ytId ? (
@@ -194,52 +293,97 @@ const DiscoverPage: React.FC = () => {
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
                           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
                         <button onClick={(e) => { e.stopPropagation(); setPlayingYt(prev => { const n = new Set(prev); n.delete(item.url); return n; }); }}
-                          style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 2 }}>
-                          <X size={12} />
+                          style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 2 }}>
+                          <X size={13} />
                         </button>
                       </div>
                     ) : (
                       <button onClick={() => setPlayingYt(prev => { const n = new Set(prev); n.add(item.url); return n; })}
                         title={`Play "${item.title}"`} aria-label={`Play ${item.title}`}
                         style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer', display: 'block' }}>
-                        <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" loading="lazy"
+                        <img src={thumbSrc} alt="" loading="lazy"
                           onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
                           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                          <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(239,68,68,0.5)' }}>
-                            <svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M8 5v14l11-7z" /></svg>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                          <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 22px rgba(239,68,68,0.55)' }}>
+                            <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M8 5v14l11-7z" /></svg>
                           </div>
                         </div>
-                        <div style={{ position: 'absolute', top: 6, left: 6, padding: '2px 7px', background: 'rgba(239,68,68,0.92)', borderRadius: 3, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '0.8px', pointerEvents: 'none' }}>YOUTUBE</div>
+                        <div style={{ position: 'absolute', top: 7, left: 7, padding: '3px 8px', background: 'rgba(239,68,68,0.95)', borderRadius: 4, color: '#fff', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.8px', pointerEvents: 'none' }}>YOUTUBE</div>
+                        {item.kind_label && (
+                          <div style={{ position: 'absolute', top: 7, right: 7, padding: '3px 8px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', borderRadius: 4, color: '#fff', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.5px', pointerEvents: 'none' }}>{item.kind_label}</div>
+                        )}
+                        {item.duration_display && (
+                          <div style={{ position: 'absolute', bottom: 7, right: 7, padding: '3px 7px', background: 'rgba(0,0,0,0.85)', borderRadius: 4, color: '#fff', fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Clock size={10} /> {item.duration_display}
+                          </div>
+                        )}
                       </button>
                     )
                   ) : (
-                    <div style={{ position: 'relative', width: '100%', paddingBottom: '40%', background: 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(99,102,241,0.1))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: '100%', paddingBottom: '40%', background: 'linear-gradient(135deg, rgba(6,182,212,0.18), rgba(99,102,241,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FileText size={36} color="rgba(255,255,255,0.4)" />
+                        <FileText size={36} color="rgba(99,102,241,0.45)" />
                       </div>
-                      <div style={{ position: 'absolute', top: 6, left: 6, padding: '2px 7px', background: 'rgba(6,182,212,0.92)', borderRadius: 3, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '0.8px' }}>ARTICLE</div>
-                      <div style={{ position: 'absolute', bottom: 6, right: 8, color: 'rgba(255,255,255,0.65)', fontSize: 9.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Globe size={9} /> {item.domain || item.source}
+                      <div style={{ position: 'absolute', top: 7, left: 7, padding: '3px 8px', background: 'rgba(6,182,212,0.95)', borderRadius: 4, color: '#fff', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.8px' }}>ARTICLE</div>
+                      <div style={{ position: 'absolute', bottom: 7, right: 9, color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Globe size={10} /> {item.domain || item.source}
                       </div>
                     </div>
                   )}
 
                   {/* Body */}
-                  <div style={{ padding: '11px 14px 12px', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.source || item.domain}</div>
-                    <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-1)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</h4>
-                    {item.summary && (
-                      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.summary}</p>
+                  <div style={{ padding: '12px 14px 13px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+                    {/* Channel/Source row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      {item.channel_title ? (
+                        <>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 800, color: '#fff' }}>
+                            {item.channel_title.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{item.channel_title}</div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.source || item.domain}</div>
+                      )}
+                    </div>
+                    <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, lineHeight: 1.32, color: 'var(--text-1)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</h4>
+                    {/* Stats row */}
+                    {(item.view_count_display || item.age_display) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600 }}>
+                        {item.view_count_display && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Eye size={10} /> {item.view_count_display}</span>
+                        )}
+                        {item.age_display && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><CalendarIcon size={10} /> {item.age_display}</span>
+                        )}
+                      </div>
                     )}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8 }}>
+                    {item.summary && (
+                      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.summary}</p>
+                    )}
+                    {/* Action row */}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8, flexWrap: 'wrap' }}>
                       <a href={item.url} target="_blank" rel="noreferrer"
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>
-                        <ExternalLink size={11} /> Open
+                        title="Open in new tab"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>
+                        <ExternalLink size={11} />
                       </a>
+                      {isVideo && (
+                        <>
+                          <button onClick={() => openNotes(item)} title="Open Watch & Note mode"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <NotebookPen size={11} />
+                          </button>
+                          <button onClick={() => generatePlan(item)} title="Generate study plan from this video"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <ListChecks size={11} />
+                          </button>
+                        </>
+                      )}
                       <button onClick={() => handleSave(item)} disabled={isSaved}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '6px 10px', background: isSaved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', border: isSaved ? '1px solid rgba(16,185,129,0.4)' : 'none', borderRadius: 8, color: isSaved ? '#10b981' : '#fff', fontSize: 11, fontWeight: 700, cursor: isSaved ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-                        <BookmarkPlus size={11} /> {isSaved ? 'Saved' : 'Save to Vault'}
+                        style={{ flex: 1, minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: isSaved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', border: isSaved ? '1px solid rgba(16,185,129,0.4)' : 'none', borderRadius: 8, color: isSaved ? '#10b981' : '#fff', fontSize: 11, fontWeight: 700, cursor: isSaved ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                        <BookmarkPlus size={11} /> {isSaved ? 'Saved' : 'Save'}
                       </button>
                     </div>
                   </div>
@@ -258,11 +402,76 @@ const DiscoverPage: React.FC = () => {
             <Compass size={28} color="#22d3ee" />
           </div>
           <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px' }}>Discover external knowledge</h3>
-          <p style={{ color: 'var(--text-3)', fontSize: 12.5, margin: '0 auto', maxWidth: 420, lineHeight: 1.55 }}>
-            Type a topic above. The AI will surface high-signal articles and YouTube videos from reputable sources — you can play videos right here and save the best ones to your Vault with one click.
+          <p style={{ color: 'var(--text-3)', fontSize: 12.5, margin: '0 auto 14px', maxWidth: 460, lineHeight: 1.55 }}>
+            Type a topic above. Recall pulls real YouTube videos via the YouTube Data API plus AI-curated articles. Watch + take notes, save to your Vault, or generate a multi-day study plan from any video — all in one place.
           </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}><Zap size={11} color="#06b6d4" /> Real YT data</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}><NotebookPen size={11} color="#6366f1" /> Watch & Note</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}><ListChecks size={11} color="#10b981" /> Plan from video</span>
+          </div>
         </motion.div>
       )}
+
+      {/* Watch & Note Drawer */}
+      <AnimatePresence>
+        {notesFor && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => !savingNotes && setNotesFor(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', zIndex: 1000, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}>
+            <motion.div
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+              onClick={e => e.stopPropagation()}
+              style={{ width: 'min(720px, 100%)', height: '100%', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Drawer header */}
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99,102,241,0.35)' }}>
+                  <NotebookPen size={16} color="#fff" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>Watch & Note</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{notesFor.title}</div>
+                </div>
+                <button onClick={() => !savingNotes && setNotesFor(null)} aria-label="Close"
+                  style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={14} />
+                </button>
+              </div>
+              {/* Player */}
+              {notesFor.youtube_id || getYouTubeId(notesFor.url) ? (
+                <div style={{ position: 'relative', width: '100%', paddingBottom: '40%', background: '#000', flexShrink: 0 }}>
+                  <iframe src={`https://www.youtube.com/embed/${notesFor.youtube_id || getYouTubeId(notesFor.url)}?autoplay=1&rel=0&modestbranding=1`}
+                    title={notesFor.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
+                </div>
+              ) : null}
+              {/* Notes editor */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 8, minHeight: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Your Notes (Markdown)</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{notesText.length} chars</div>
+                </div>
+                <textarea value={notesText} onChange={e => setNotesText(e.target.value)}
+                  placeholder="Type as you watch — use markdown (# heading, - bullet, **bold**)…"
+                  style={{ flex: 1, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, lineHeight: 1.55, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', outline: 'none', resize: 'none', minHeight: 0 }} />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 6 }}>
+                  <button onClick={() => !savingNotes && setNotesFor(null)}
+                    style={{ padding: '9px 16px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel
+                  </button>
+                  <button onClick={saveNotes} disabled={savingNotes || !notesText.trim()}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: savingNotes || !notesText.trim() ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 9, color: savingNotes || !notesText.trim() ? 'var(--text-3)' : '#fff', fontSize: 12, fontWeight: 700, cursor: savingNotes || !notesText.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: savingNotes || !notesText.trim() ? 'none' : '0 4px 14px rgba(99,102,241,0.4)' }}>
+                    {savingNotes ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={12} />}
+                    {savingNotes ? 'Saving…' : 'Save to Vault'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
