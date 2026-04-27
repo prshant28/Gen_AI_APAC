@@ -124,7 +124,14 @@ Synthesize a comprehensive, helpful answer based on these memories.
 
     return {
         "answer": answer,
-        "sources": [{"id": m["id"], "title": m.get("title"), "source_url": m.get("source_url")} for m in top_memories],
+        "sources": [{
+            "id": m["id"],
+            "title": m.get("title"),
+            "source_url": m.get("source_url"),
+            "source_type": m.get("source_type"),
+            "domain": m.get("domain"),
+            "summary": (m.get("summary") or "")[:160],
+        } for m in top_memories],
         "count": len(top_memories)
     }
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MarkdownMessage from '../components/MarkdownMessage';
+import { getYouTubeId } from '../lib/utils';
 
 interface RecallMessage {
   id: string;
@@ -238,23 +239,70 @@ const RecallView = () => {
                 </div>
 
                 {/* Sources */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', paddingLeft: 2 }}>Sources used</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                      {msg.sources.slice(0, 4).map((src: any) => {
-                        const Icon = SRC_ICON[src.source_type] ?? Brain;
-                        const clr = SRC_CLR[src.source_type] ?? '#6366f1';
-                        return (
-                          <div key={src.id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: `${clr}10`, border: `1px solid ${clr}25`, borderRadius: 20 }}>
-                            <Icon size={10} color={clr} />
-                            <span style={{ color: clr, fontSize: 10, fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{src.title}</span>
-                          </div>
-                        );
-                      })}
+                {msg.sources && msg.sources.length > 0 && (() => {
+                  const ytSources = msg.sources.filter((s: any) => s.source_type === 'youtube' && getYouTubeId(s.source_url || ''));
+                  const otherSources = msg.sources.filter((s: any) => !(s.source_type === 'youtube' && getYouTubeId(s.source_url || '')));
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', paddingLeft: 2 }}>Sources used</div>
+
+                      {/* YouTube preview cards */}
+                      {ytSources.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: ytSources.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, maxWidth: 520 }}>
+                          {ytSources.slice(0, 4).map((src: any) => {
+                            const ytId = getYouTubeId(src.source_url);
+                            return (
+                              <a key={src.id} href={src.source_url} target="_blank" rel="noreferrer"
+                                style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface-2)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, overflow: 'hidden', textDecoration: 'none', transition: 'all 0.18s', cursor: 'pointer' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.5)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px rgba(239,68,68,0.15)'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.25)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', overflow: 'hidden' }}>
+                                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={src.title} loading="lazy"
+                                    onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
+                                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(239,68,68,0.5)' }}>
+                                      <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>
+                                    </div>
+                                  </div>
+                                  <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', background: 'rgba(239,68,68,0.92)', borderRadius: 3, color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.8px' }}>YOUTUBE</div>
+                                </div>
+                                <div style={{ padding: '7px 9px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ color: 'var(--text-1)', fontSize: 11.5, fontWeight: 600, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{src.title}</div>
+                                  {src.summary && (
+                                    <div style={{ color: 'var(--text-3)', fontSize: 10, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{src.summary}</div>
+                                  )}
+                                </div>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Other source pills */}
+                      {otherSources.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {otherSources.slice(0, 4).map((src: any) => {
+                            const Icon = SRC_ICON[src.source_type] ?? Brain;
+                            const clr = SRC_CLR[src.source_type] ?? '#6366f1';
+                            const inner = (
+                              <>
+                                <Icon size={10} color={clr} />
+                                <span style={{ color: clr, fontSize: 10, fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{src.title}</span>
+                              </>
+                            );
+                            const baseStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: `${clr}10`, border: `1px solid ${clr}25`, borderRadius: 20, textDecoration: 'none' };
+                            return src.source_url ? (
+                              <a key={src.id} href={src.source_url} target="_blank" rel="noreferrer" style={baseStyle}>{inner}</a>
+                            ) : (
+                              <div key={src.id} style={baseStyle}>{inner}</div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Agents */}
                 {msg.agents && msg.agents.length > 0 && (
