@@ -41,6 +41,7 @@ const FeatureBadge = ({ icon: Icon, label, color }: { icon: any; label: string; 
 const RecallView = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<RecallMessage[]>([]);
+  const [playingYt, setPlayingYt] = useState<Set<string>>(new Set());
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [memCount, setMemCount] = useState<number | null>(null);
@@ -86,14 +87,14 @@ const RecallView = () => {
     setInput(''); setIsLoading(true); setShowDiff(false);
 
     try {
-      const res = await fetch('/chat', {
+      const res = await fetch('/recall', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, session_id: 'recall_' + Date.now() })
+        body: JSON.stringify({ query: msg })
       });
       const data = await res.json();
       setMessages(prev => prev.map(m => m.id === aiId
-        ? { ...m, content: data.reply || data.error || 'No response received.', sources: data.sources, agents: data.agents_called, streaming: false }
+        ? { ...m, content: data.answer || data.error || 'No response received.', sources: data.sources, agents: ['RecallAgent'], streaming: false }
         : m
       ));
     } catch {
@@ -251,29 +252,60 @@ const RecallView = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: ytSources.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, maxWidth: 520 }}>
                           {ytSources.slice(0, 4).map((src: any) => {
                             const ytId = getYouTubeId(src.source_url);
+                            const playKey = `${msg.id}:${src.id}`;
+                            const isPlaying = playingYt.has(playKey);
                             return (
-                              <a key={src.id} href={src.source_url} target="_blank" rel="noreferrer"
-                                style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface-2)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, overflow: 'hidden', textDecoration: 'none', transition: 'all 0.18s', cursor: 'pointer' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.5)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px rgba(239,68,68,0.15)'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.25)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
-                                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', overflow: 'hidden' }}>
-                                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={src.title} loading="lazy"
-                                    onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
-                                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(239,68,68,0.5)' }}>
-                                      <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>
-                                    </div>
+                              <div key={src.id}
+                                style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface-2)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, overflow: 'hidden', transition: 'all 0.18s' }}>
+                                {/* Thumbnail or inline player */}
+                                {isPlaying ? (
+                                  <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000' }}>
+                                    <iframe
+                                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
+                                      title={src.title}
+                                      frameBorder="0"
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', border: 0 }}
+                                    />
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setPlayingYt(prev => { const next = new Set(prev); next.delete(playKey); return next; }); }}
+                                      title="Stop"
+                                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 2 }}>
+                                      <X size={11} />
+                                    </button>
                                   </div>
-                                  <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', background: 'rgba(239,68,68,0.92)', borderRadius: 3, color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.8px' }}>YOUTUBE</div>
-                                </div>
-                                <div style={{ padding: '7px 9px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                ) : (
+                                  <button
+                                    onClick={() => setPlayingYt(prev => { const next = new Set(prev); next.add(playKey); return next; })}
+                                    title={`Play "${src.title}"`}
+                                    style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer', display: 'block' }}>
+                                    <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={src.title} loading="lazy"
+                                      onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
+                                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(239,68,68,0.5)', transition: 'transform 0.15s' }}>
+                                        <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M8 5v14l11-7z" /></svg>
+                                      </div>
+                                    </div>
+                                    <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', background: 'rgba(239,68,68,0.92)', borderRadius: 3, color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.8px' }}>YOUTUBE</div>
+                                  </button>
+                                )}
+                                {/* Caption */}
+                                <div style={{ padding: '7px 9px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                                   <div style={{ color: 'var(--text-1)', fontSize: 11.5, fontWeight: 600, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{src.title}</div>
-                                  {src.summary && (
-                                    <div style={{ color: 'var(--text-3)', fontSize: 10, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{src.summary}</div>
-                                  )}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 2 }}>
+                                    <button onClick={() => navigate(`/memory/${src.id}`)}
+                                      style={{ background: 'transparent', border: 'none', color: '#a78bfa', fontSize: 9.5, fontWeight: 700, cursor: 'pointer', padding: 0, fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                      Open in Vault →
+                                    </button>
+                                    <a href={src.source_url} target="_blank" rel="noreferrer"
+                                      style={{ color: 'var(--text-3)', fontSize: 9.5, fontWeight: 600, textDecoration: 'none' }}>
+                                      youtube.com ↗
+                                    </a>
+                                  </div>
                                 </div>
-                              </a>
+                              </div>
                             );
                           })}
                         </div>
