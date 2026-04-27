@@ -57,3 +57,4 @@ The design system is based on dark glassmorphism with a neural theme, using CSS 
 - CapturePage now fires `/memories/{id}/auto-tag` after every save and surfaces newly suggested tags as a toast.
 - DashboardPage adds AI Briefing widget, today's habit checklist, and recent notes panel.
 - `tsconfig.json` excludes `attached_assets/`, `node_modules`, `dist`, `build`.
+- Agent Hub layout reorganized (chat-first): hero compacted to a single row (38px icon + inline "7 ONLINE" pill, no verbose subtitle), body grid swapped so chat is the primary left/top column and the registry/history/inspector is the right/bottom sidebar, JSX order matches visual order (chat composer reachable before registry tabs in keyboard tab traversal), `isolation: isolate` on `.agent-main` and `.agent-sidebar` prevents the overlap that appeared at narrow canvas-iframe widths (~927px).

@@ -305,24 +305,21 @@ const AgentHubView = () => {
   return (
     <div className="agent-hub-v2" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '14px 0 28px', minHeight: 'calc(100vh - 5rem)' }}>
 
-      {/* ───────── HERO HEADER ───────── */}
-      <div className="agent-hero" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.18))', border: '1px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-              <Cpu size={24} color="#a78bfa" />
+      {/* ───────── HERO HEADER (compact one-row) ───────── */}
+      <div className="agent-hero" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.18))', border: '1px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(99,102,241,0.18)', flexShrink: 0 }}>
+              <Cpu size={18} color="#a78bfa" />
             </div>
-            <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 20, marginBottom: 6 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse 2s ease-in-out infinite' }} />
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.5px' }}>NEURAL OS · 7 AGENTS ONLINE · GEMINI 2.0</span>
-              </div>
-              <h2 style={{ fontSize: 'clamp(22px,3.5vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.6px', lineHeight: 1.05 }}>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ fontSize: 'clamp(18px, 2.4vw, 22px)', fontWeight: 900, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.4px', lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 Agent Hub <span style={{ color: '#a78bfa' }}>✦</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 9px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.4px' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                  7 ONLINE
+                </span>
               </h2>
-              <p style={{ color: 'var(--text-3)', fontSize: 13.5, margin: '4px 0 0' }}>
-                Multi-agent orchestration · Real-time SSE streaming · Live pipeline visualisation
-              </p>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -447,12 +444,217 @@ const AgentHubView = () => {
         </motion.div>
       )}
 
-      {/* ───────── BODY: 2 columns (left collapses to nothing in focus mode) ───────── */}
-      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: sidebarCollapsed ? '1fr' : 'minmax(290px, 320px) 1fr', gap: sidebarCollapsed ? 0 : 16, alignItems: 'start', minHeight: 580, transition: 'grid-template-columns 0.25s ease' }}>
+      {/* ───────── BODY: chat is primary (left/top), registry is secondary (right/bottom) ───────── */}
+      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: sidebarCollapsed ? '1fr' : '1fr minmax(280px, 310px)', gap: sidebarCollapsed ? 0 : 16, alignItems: 'start', minHeight: 580, transition: 'grid-template-columns 0.25s ease' }}>
 
-        {/* ═══ LEFT: Agent Registry / History / Inspector (hidden in focus mode) ═══ */}
+        {/* ═══ MAIN: Templates + Chat + Input (left column on wide, top on narrow) ═══ */}
+        <div className="agent-main" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'relative', zIndex: 1 }}>
+
+          {/* QUICK TEMPLATES (cards, not pills) */}
+          {messages.length <= 1 && !isStreaming && (
+            <div className="view-card" style={{ padding: '14px 16px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Wand2 size={14} color="var(--primary)" />
+                  <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase' }}>Workflow Templates</span>
+                </div>
+                <span style={{ color: 'var(--text-3)', fontSize: 10.5 }}>{QUICK_TEMPLATES.length} ready</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                {QUICK_TEMPLATES.map(t => (
+                  <button key={t.title} onClick={() => handleSend(t.msg)}
+                    style={{ padding: '11px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.18s', display: 'flex', flexDirection: 'column', gap: 6 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${t.color}50`; e.currentTarget.style.background = `${t.color}08`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: `${t.color}15`, border: `1px solid ${t.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <t.icon size={14} color={t.color} />
+                      </div>
+                      <span style={{ color: 'var(--text-1)', fontSize: 12.5, fontWeight: 700 }}>{t.title}</span>
+                    </div>
+                    <p style={{ margin: 0, color: 'var(--text-3)', fontSize: 11, lineHeight: 1.4 }}>{t.desc}</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 2 }}>
+                      {t.agents.map(a => {
+                        const c = AGENT_COLORS[a] || '#6366f1';
+                        return <span key={a} style={{ padding: '1px 6px', background: `${c}10`, border: `1px solid ${c}25`, borderRadius: 10, color: c, fontSize: 9, fontWeight: 700 }}>{a.replace('Agent','')}</span>;
+                      })}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* MESSAGES */}
+          <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid rgba(99,102,241,0.18)', background: 'var(--surface-2)', padding: '18px 18px 10px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.15)', minHeight: 320 }} className="scroll-custom agent-messages">
+
+            {messages.map(msg => (
+              <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 11, alignItems: 'flex-start' }}>
+
+                {/* Avatar */}
+                {msg.role === 'assistant' && (
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#312e81,#1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.2)' }}>
+                    <Cpu size={17} color="#a78bfa" />
+                  </div>
+                )}
+
+                <div style={{ maxWidth: msg.role === 'user' ? '76%' : '90%', minWidth: 0 }}>
+
+                  {/* Thinking */}
+                  {msg.type === 'thinking' && (msg.steps || []).length === 0 && (
+                    <div style={{ padding: '11px 16px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
+                      </div>
+                      <span style={{ color: '#a78bfa', fontSize: 13, fontWeight: 600 }}>Orchestrator is planning...</span>
+                    </div>
+                  )}
+
+                  {/* Steps */}
+                  {msg.type === 'steps' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {(msg.steps || []).map(step => {
+                        const color = AGENT_COLORS[step.agent] || '#6366f1';
+                        const Icon = AGENT_ICONS[step.agent] ?? Bot;
+                        return (
+                          <motion.div key={step.step_id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                            style={{ padding: '11px 15px', background: `${color}08`, border: `1px solid ${color}25`, borderRadius: '4px 14px 14px 14px', transition: 'all 0.3s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: step.status !== 'running' ? 7 : 0 }}>
+                              <div style={{ width: 26, height: 26, borderRadius: 7, background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Icon size={13} color={color} />
+                              </div>
+                              <span style={{ color, fontSize: 12, fontWeight: 700 }}>{step.agent}</span>
+                              <span style={{ color: 'var(--text-3)', fontSize: 11 }}>›</span>
+                              <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{step.name}</span>
+                              {step.status === 'running' && <span style={{ marginLeft: 'auto', color: 'var(--text-3)', fontSize: 10.5, display: 'flex', alignItems: 'center', gap: 4 }}><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Running...</span>}
+                              {step.status === 'completed' && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: 10.5, fontWeight: 600 }}>✓ {step.duration_ms?.toFixed(0)}ms</span>}
+                              {step.status === 'failed' && <span style={{ marginLeft: 'auto', color: '#ef4444', fontSize: 10.5 }}>✗ Failed</span>}
+                            </div>
+                            {step.status === 'completed' && step.output_summary && (
+                              <div style={{ color: 'var(--text-2)', fontSize: 12, paddingLeft: 32, borderLeft: `2px solid ${color}50`, marginTop: 4, lineHeight: 1.5 }}>{step.output_summary}</div>
+                            )}
+                            {step.status === 'failed' && step.error && (
+                              <div style={{ color: '#ef4444', fontSize: 11.5, marginTop: 4 }}>{step.error}</div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Streaming — markdown live */}
+                  {msg.type === 'streaming' && (
+                    <div style={{ padding: '12px 16px', borderRadius: '4px 14px 14px 14px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: 'var(--text-1)' }}>
+                      <MarkdownMessage content={msg.content || ''} />
+                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#a78bfa', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'bounce 1s ease-in-out infinite', opacity: 0.8 }} />
+                    </div>
+                  )}
+
+                  {/* Text / Welcome — markdown rendered */}
+                  {(msg.type === 'text' || msg.type === 'welcome') && (
+                    <div>
+                      <div className={msg.role === 'user' ? 'user-bubble' : ''} style={{
+                        padding: '13px 17px',
+                        borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
+                        background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : msg.type === 'welcome' ? 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' : 'var(--surface)',
+                        border: msg.role === 'user' ? 'none' : msg.type === 'welcome' ? '1px solid rgba(99,102,241,0.25)' : '1px solid var(--border)',
+                        boxShadow: msg.role === 'user' ? '0 2px 12px rgba(99,102,241,0.35)' : '0 1px 4px rgba(0,0,0,0.06)',
+                        color: msg.role === 'user' ? '#fff' : 'var(--text-1)',
+                        position: 'relative',
+                      }}>
+                        <MarkdownMessage
+                          content={msg.content || ''}
+                          onActionClick={msg.role === 'assistant' ? (text) => handleSend(text) : undefined}
+                        />
+                      </div>
+
+                      {/* Action result cards (memory saved, task created, event scheduled) */}
+                      {msg.role === 'assistant' && msg.steps && msg.steps.length > 0 && (
+                        <ActionResultCards steps={msg.steps as any} />
+                      )}
+
+                      {/* Agent tags + per-message export menu */}
+                      <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                        {msg.steps && msg.steps.length > 0 && msg.steps.filter(s => s.status === 'completed').map(s => {
+                          const color = AGENT_COLORS[s.agent] || '#6366f1';
+                          const Icon = AGENT_ICONS[s.agent] ?? Bot;
+                          return (
+                            <span key={s.step_id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: `${color}10`, border: `1px solid ${color}25`, borderRadius: 20, color, fontSize: 10.5, fontWeight: 700 }}>
+                              <Icon size={10} /> {s.agent.replace('Agent', '')}
+                            </span>
+                          );
+                        })}
+                        {msg.steps && msg.steps.filter(s => s.duration_ms).length > 0 && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 10.5 }}>
+                            <Clock size={9} /> {msg.steps.reduce((acc, s) => acc + (s.duration_ms || 0), 0).toFixed(0)}ms
+                          </span>
+                        )}
+                        {msg.role === 'assistant' && msg.type === 'text' && msg.content && (
+                          <MessageToolbar
+                            messageId={msg.id}
+                            content={msg.content}
+                            meta={{ agents: (msg as any).agents, ts: msg.ts, durationMs: msg.steps?.reduce((a, s) => a + (s.duration_ms || 0), 0) }}
+                          />
+                        )}
+                      </div>
+
+                      {msg.role === 'assistant' && msg.ts && (
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 5, paddingLeft: 2 }}>
+                          {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {(msg as any).agents && (msg as any).agents.length > 0 && ` · ${(msg as any).agents.length} agents coordinated`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* INPUT */}
+          <div style={{ flexShrink: 0, background: 'var(--surface)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.5)' : isStreaming ? 'rgba(99,102,241,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 14, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: isListening ? '0 0 0 3px rgba(239,68,68,0.12)' : '0 0 0 1px rgba(99,102,241,0.06)', transition: 'all 0.2s' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'center' }}>
+              <Cpu size={17} color="#a78bfa" />
+            </div>
+            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder={isListening ? '🎙 Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents to capture, recall, schedule, analyse... (Enter to send, Shift+Enter for new line)'}
+              disabled={isStreaming}
+              rows={1}
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '6px 0' }}
+            />
+            <button onClick={toggleVoice}
+              style={{ width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0, background: isListening ? 'rgba(239,68,68,0.15)' : 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+              {isListening ? <MicOff size={16} color="#ef4444" style={{ animation: 'pulse 1s ease-in-out infinite' }} /> : <Mic size={16} color="var(--text-3)" />}
+            </button>
+            <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
+              style={{ minWidth: 84, height: 38, borderRadius: 10, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0, background: input.trim() && !isStreaming ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 14px', color: input.trim() && !isStreaming ? '#fff' : 'var(--text-3)', fontSize: 13, fontWeight: 700, transition: 'all 0.15s', boxShadow: input.trim() && !isStreaming ? '0 2px 12px rgba(99,102,241,0.4)' : 'none' }}>
+              {isStreaming ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <><Send size={14} /> Send</>}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, padding: '0 4px', gap: 10, flexWrap: 'wrap' }}>
+            <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0 }}>
+              <Radio size={10} style={{ verticalAlign: 'middle', color: '#10b981' }} /> Powered by Google Gemini 2.0 · Multi-agent · Real-time SSE
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={startNewChat} disabled={isStreaming}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: '#a78bfa', fontSize: 11, fontWeight: 700, cursor: isStreaming ? 'default' : 'pointer', opacity: isStreaming ? 0.5 : 1, fontFamily: 'inherit' }}
+                title="Start a fresh chat — clears AI memory">
+                <Plus size={11} /> New chat
+              </button>
+              <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0, display: 'flex', gap: 12 }}>
+                <span><Hash size={10} style={{ verticalAlign: 'middle' }} /> {tokensUsed.toLocaleString()} tokens</span>
+                <span><Flame size={10} style={{ verticalAlign: 'middle', color: '#f59e0b' }} /> {totalAgentUses} calls</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ SIDEBAR: Agent Registry / History / Inspector (right column on wide, below chat on narrow) ═══ */}
         {!sidebarCollapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)' }}>
+        <div className="agent-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)' }}>
           {/* Tabs */}
           <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 11, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
             {([
@@ -667,211 +869,6 @@ const AgentHubView = () => {
           </div>
         </div>
         )}
-
-        {/* ═══ RIGHT: Templates + Chat + Input ═══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-
-          {/* QUICK TEMPLATES (cards, not pills) */}
-          {messages.length <= 1 && !isStreaming && (
-            <div className="view-card" style={{ padding: '14px 16px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Wand2 size={14} color="var(--primary)" />
-                  <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase' }}>Workflow Templates</span>
-                </div>
-                <span style={{ color: 'var(--text-3)', fontSize: 10.5 }}>{QUICK_TEMPLATES.length} ready</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
-                {QUICK_TEMPLATES.map(t => (
-                  <button key={t.title} onClick={() => handleSend(t.msg)}
-                    style={{ padding: '11px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.18s', display: 'flex', flexDirection: 'column', gap: 6 }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${t.color}50`; e.currentTarget.style.background = `${t.color}08`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: `${t.color}15`, border: `1px solid ${t.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <t.icon size={14} color={t.color} />
-                      </div>
-                      <span style={{ color: 'var(--text-1)', fontSize: 12.5, fontWeight: 700 }}>{t.title}</span>
-                    </div>
-                    <p style={{ margin: 0, color: 'var(--text-3)', fontSize: 11, lineHeight: 1.4 }}>{t.desc}</p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 2 }}>
-                      {t.agents.map(a => {
-                        const c = AGENT_COLORS[a] || '#6366f1';
-                        return <span key={a} style={{ padding: '1px 6px', background: `${c}10`, border: `1px solid ${c}25`, borderRadius: 10, color: c, fontSize: 9, fontWeight: 700 }}>{a.replace('Agent','')}</span>;
-                      })}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* MESSAGES */}
-          <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid rgba(99,102,241,0.18)', background: 'var(--surface-2)', padding: '18px 18px 10px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.15)', minHeight: 320 }} className="scroll-custom agent-messages">
-
-            {messages.map(msg => (
-              <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 11, alignItems: 'flex-start' }}>
-
-                {/* Avatar */}
-                {msg.role === 'assistant' && (
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#312e81,#1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.2)' }}>
-                    <Cpu size={17} color="#a78bfa" />
-                  </div>
-                )}
-
-                <div style={{ maxWidth: msg.role === 'user' ? '76%' : '90%', minWidth: 0 }}>
-
-                  {/* Thinking */}
-                  {msg.type === 'thinking' && (msg.steps || []).length === 0 && (
-                    <div style={{ padding: '11px 16px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '4px 14px 14px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', animation: `bounce 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
-                      </div>
-                      <span style={{ color: '#a78bfa', fontSize: 13, fontWeight: 600 }}>Orchestrator is planning...</span>
-                    </div>
-                  )}
-
-                  {/* Steps */}
-                  {msg.type === 'steps' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {(msg.steps || []).map(step => {
-                        const color = AGENT_COLORS[step.agent] || '#6366f1';
-                        const Icon = AGENT_ICONS[step.agent] ?? Bot;
-                        return (
-                          <motion.div key={step.step_id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                            style={{ padding: '11px 15px', background: `${color}08`, border: `1px solid ${color}25`, borderRadius: '4px 14px 14px 14px', transition: 'all 0.3s' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: step.status !== 'running' ? 7 : 0 }}>
-                              <div style={{ width: 26, height: 26, borderRadius: 7, background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Icon size={13} color={color} />
-                              </div>
-                              <span style={{ color, fontSize: 12, fontWeight: 700 }}>{step.agent}</span>
-                              <span style={{ color: 'var(--text-3)', fontSize: 11 }}>›</span>
-                              <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{step.name}</span>
-                              {step.status === 'running' && <span style={{ marginLeft: 'auto', color: 'var(--text-3)', fontSize: 10.5, display: 'flex', alignItems: 'center', gap: 4 }}><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Running...</span>}
-                              {step.status === 'completed' && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: 10.5, fontWeight: 600 }}>✓ {step.duration_ms?.toFixed(0)}ms</span>}
-                              {step.status === 'failed' && <span style={{ marginLeft: 'auto', color: '#ef4444', fontSize: 10.5 }}>✗ Failed</span>}
-                            </div>
-                            {step.status === 'completed' && step.output_summary && (
-                              <div style={{ color: 'var(--text-2)', fontSize: 12, paddingLeft: 32, borderLeft: `2px solid ${color}50`, marginTop: 4, lineHeight: 1.5 }}>{step.output_summary}</div>
-                            )}
-                            {step.status === 'failed' && step.error && (
-                              <div style={{ color: '#ef4444', fontSize: 11.5, marginTop: 4 }}>{step.error}</div>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Streaming — markdown live */}
-                  {msg.type === 'streaming' && (
-                    <div style={{ padding: '12px 16px', borderRadius: '4px 14px 14px 14px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: 'var(--text-1)' }}>
-                      <MarkdownMessage content={msg.content || ''} />
-                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#a78bfa', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'bounce 1s ease-in-out infinite', opacity: 0.8 }} />
-                    </div>
-                  )}
-
-                  {/* Text / Welcome — markdown rendered */}
-                  {(msg.type === 'text' || msg.type === 'welcome') && (
-                    <div>
-                      <div className={msg.role === 'user' ? 'user-bubble' : ''} style={{
-                        padding: '13px 17px',
-                        borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
-                        background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : msg.type === 'welcome' ? 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' : 'var(--surface)',
-                        border: msg.role === 'user' ? 'none' : msg.type === 'welcome' ? '1px solid rgba(99,102,241,0.25)' : '1px solid var(--border)',
-                        boxShadow: msg.role === 'user' ? '0 2px 12px rgba(99,102,241,0.35)' : '0 1px 4px rgba(0,0,0,0.06)',
-                        color: msg.role === 'user' ? '#fff' : 'var(--text-1)',
-                        position: 'relative',
-                      }}>
-                        <MarkdownMessage
-                          content={msg.content || ''}
-                          onActionClick={msg.role === 'assistant' ? (text) => handleSend(text) : undefined}
-                        />
-                      </div>
-
-                      {/* Action result cards (memory saved, task created, event scheduled) */}
-                      {msg.role === 'assistant' && msg.steps && msg.steps.length > 0 && (
-                        <ActionResultCards steps={msg.steps as any} />
-                      )}
-
-                      {/* Agent tags + per-message export menu */}
-                      <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-                        {msg.steps && msg.steps.length > 0 && msg.steps.filter(s => s.status === 'completed').map(s => {
-                          const color = AGENT_COLORS[s.agent] || '#6366f1';
-                          const Icon = AGENT_ICONS[s.agent] ?? Bot;
-                          return (
-                            <span key={s.step_id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: `${color}10`, border: `1px solid ${color}25`, borderRadius: 20, color, fontSize: 10.5, fontWeight: 700 }}>
-                              <Icon size={10} /> {s.agent.replace('Agent', '')}
-                            </span>
-                          );
-                        })}
-                        {msg.steps && msg.steps.filter(s => s.duration_ms).length > 0 && (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 10.5 }}>
-                            <Clock size={9} /> {msg.steps.reduce((acc, s) => acc + (s.duration_ms || 0), 0).toFixed(0)}ms
-                          </span>
-                        )}
-                        {msg.role === 'assistant' && msg.type === 'text' && msg.content && (
-                          <MessageToolbar
-                            messageId={msg.id}
-                            content={msg.content}
-                            meta={{ agents: (msg as any).agents, ts: msg.ts, durationMs: msg.steps?.reduce((a, s) => a + (s.duration_ms || 0), 0) }}
-                          />
-                        )}
-                      </div>
-
-                      {msg.role === 'assistant' && msg.ts && (
-                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 5, paddingLeft: 2 }}>
-                          {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {(msg as any).agents && (msg as any).agents.length > 0 && ` · ${(msg as any).agents.length} agents coordinated`}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* INPUT */}
-          <div style={{ flexShrink: 0, background: 'var(--surface)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.5)' : isStreaming ? 'rgba(99,102,241,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 14, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-end', boxShadow: isListening ? '0 0 0 3px rgba(239,68,68,0.12)' : '0 0 0 1px rgba(99,102,241,0.06)', transition: 'all 0.2s' }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'center' }}>
-              <Cpu size={17} color="#a78bfa" />
-            </div>
-            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isListening ? '🎙 Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents to capture, recall, schedule, analyse... (Enter to send, Shift+Enter for new line)'}
-              disabled={isStreaming}
-              rows={1}
-              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '6px 0' }}
-            />
-            <button onClick={toggleVoice}
-              style={{ width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0, background: isListening ? 'rgba(239,68,68,0.15)' : 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-              {isListening ? <MicOff size={16} color="#ef4444" style={{ animation: 'pulse 1s ease-in-out infinite' }} /> : <Mic size={16} color="var(--text-3)" />}
-            </button>
-            <button onClick={() => handleSend()} disabled={!input.trim() || isStreaming}
-              style={{ minWidth: 84, height: 38, borderRadius: 10, border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0, background: input.trim() && !isStreaming ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 14px', color: input.trim() && !isStreaming ? '#fff' : 'var(--text-3)', fontSize: 13, fontWeight: 700, transition: 'all 0.15s', boxShadow: input.trim() && !isStreaming ? '0 2px 12px rgba(99,102,241,0.4)' : 'none' }}>
-              {isStreaming ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <><Send size={14} /> Send</>}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, padding: '0 4px', gap: 10, flexWrap: 'wrap' }}>
-            <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0 }}>
-              <Radio size={10} style={{ verticalAlign: 'middle', color: '#10b981' }} /> Powered by Google Gemini 2.0 · Multi-agent · Real-time SSE
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button onClick={startNewChat} disabled={isStreaming}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: '#a78bfa', fontSize: 11, fontWeight: 700, cursor: isStreaming ? 'default' : 'pointer', opacity: isStreaming ? 0.5 : 1, fontFamily: 'inherit' }}
-                title="Start a fresh chat — clears AI memory">
-                <Plus size={11} /> New chat
-              </button>
-              <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0, display: 'flex', gap: 12 }}>
-                <span><Hash size={10} style={{ verticalAlign: 'middle' }} /> {tokensUsed.toLocaleString()} tokens</span>
-                <span><Flame size={10} style={{ verticalAlign: 'middle', color: '#f59e0b' }} /> {totalAgentUses} calls</span>
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

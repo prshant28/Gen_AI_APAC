@@ -690,10 +690,12 @@ img { max-width: 100%; }
 @media (min-width: 560px) { .capture-source-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 760px) { .capture-source-grid { grid-template-columns: repeat(4, 1fr); } }
 
-/* ── Agent Hub body responsive (avoid squishing the chat) ────────────────── */
+/* ── Agent Hub body responsive (chat-first layout) ───────────────────────── */
+.agent-main { isolation: isolate; }
+.agent-sidebar { isolation: isolate; }
 @media (max-width: 960px) {
   .agent-body-grid { grid-template-columns: 1fr !important; }
-  .agent-body-grid > div:first-child { position: static !important; max-height: none !important; }
+  .agent-sidebar { position: static !important; max-height: none !important; }
 }
 
 /* ── Timeline date label responsive ──────────────────────────────────────── */
