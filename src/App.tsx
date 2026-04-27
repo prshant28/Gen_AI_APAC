@@ -7,7 +7,7 @@ import {
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  User as UserIcon, Plug
+  User as UserIcon, Plug, Bookmark, Flame
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -40,6 +40,10 @@ import MemoryDetailPage from './pages/MemoryDetailPage';
 import DeckPage from './pages/DeckPage';
 import ProfilePage from './pages/ProfilePage';
 import IntegrationsPage from './pages/IntegrationsPage';
+import NotesPage from './pages/NotesPage';
+import BookmarksPage from './pages/BookmarksPage';
+import HabitsPage from './pages/HabitsPage';
+import SharePage from './pages/SharePage';
 import './pages/pages.css';
 
 const NAV_GROUPS = [
@@ -51,6 +55,8 @@ const NAV_GROUPS = [
       { id: 'capture',    label: 'Capture',      path: '/capture',   icon: Plus,            color: '#06b6d4' },
       { id: 'vault',      label: 'Vault',        path: '/vault',     icon: Database,        color: '#818cf8' },
       { id: 'recall',     label: 'Neural Recall', path: '/recall',   icon: Bot,             color: '#00d4ff' },
+      { id: 'notes',      label: 'Notes',        path: '/notes',     icon: StickyNote,      color: '#f59e0b' },
+      { id: 'bookmarks',  label: 'Bookmarks',    path: '/bookmarks', icon: Bookmark,        color: '#ec4899' },
     ]
   },
   {
@@ -67,6 +73,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'tasks',      label: 'Tasks',       path: '/tasks',      icon: CheckSquare,   color: '#10b981' },
       { id: 'flashcards', label: 'Flashcards',  path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
+      { id: 'habits',     label: 'Habits',      path: '/habits',     icon: Flame,         color: '#10b981' },
       { id: 'calendar',   label: 'Calendar',    path: '/calendar',   icon: CalendarIcon,  color: '#818cf8' },
     ]
   },
@@ -482,6 +489,9 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/deck" element={<DeckPage />} />
                   <Route path="/profile" element={<ProfilePage user={user} onSignOut={onSignOut} />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
+                  <Route path="/notes" element={<NotesPage />} />
+                  <Route path="/bookmarks" element={<BookmarksPage />} />
+                  <Route path="/habits" element={<HabitsPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>
@@ -607,6 +617,16 @@ function AppRouter() {
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
   const isDark = theme === 'dark';
+
+  // Public share view — accessible without auth, before all other gating
+  const isSharePath = window.location.pathname.startsWith('/share/');
+  if (isSharePath) {
+    return (
+      <Routes>
+        <Route path="/share/:token" element={<SharePage />} />
+      </Routes>
+    );
+  }
 
   if (authLoading || !isReady) {
     return (

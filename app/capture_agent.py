@@ -306,3 +306,59 @@ Write a 2-3 sentence briefing that summarizes their knowledge state and motivate
         }
     except Exception as e:
         return {"briefing": "Ready for another great day of learning!", "date": datetime.date.today().isoformat()}
+
+
+# ─── Auto-tag & share helpers ─────────────────────────────────────────────────
+
+async def auto_tag_memory(memory_id: str) -> dict:
+    """Use AI to suggest 3-5 additional tags for an existing memory."""
+    from app.db import get_db
+    db = await get_db()
+    doc = await db.collection("memories").document(memory_id).get()
+    if not doc.exists:
+        return {"error": "Memory not found", "tags": []}
+    mem = doc.to_dict()
+    existing = mem.get("tags", []) or []
+    text = f"{mem.get('title','')}\n\n{mem.get('summary','')}\n\nKey points: {' | '.join(mem.get('key_points', []) or [])}"
+
+    prompt = (
+        f"Suggest 5 short lowercase tags (1-2 words each) for this memory. "
+        f"Avoid duplicates of existing tags: {existing}. "
+        f"Return ONLY a JSON array like [\"tag1\",\"tag2\"]. No prose.\n\n{text[:1500]}"
+    )
+    try:
+        content, _ = await chat_with_fallback(
+            messages=[{"role": "user", "content": prompt}],
+            model=settings.OPENAI_MODEL, temperature=0.4, max_tokens=120,
+        )
+        import json, re
+        m = re.search(r"\[[^\]]+\]", content)
+        new_tags = []
+        if m:
+            try:
+                new_tags = [str(t).strip().lower() for t in json.loads(m.group(0))]
+            except Exception:
+                new_tags = [t.strip(' "\'').lower() for t in m.group(0).strip("[]").split(",")]
+        new_tags = [t for t in new_tags if t and t not in existing][:5]
+        merged = existing + new_tags
+        await db.collection("memories").document(memory_id).update({"tags": merged})
+        return {"id": memory_id, "added": new_tags, "tags": merged}
+    except Exception as e:
+        return {"error": str(e), "tags": existing}
+
+
+async def transcribe_audio(audio_bytes: bytes, mime: str = "audio/webm") -> str:
+    """Transcribe audio bytes to text using OpenAI Whisper (with graceful fallback)."""
+    try:
+        client = get_openai_client()
+        import io
+        ext = "webm"
+        if "wav" in mime: ext = "wav"
+        elif "mp3" in mime or "mpeg" in mime: ext = "mp3"
+        elif "ogg" in mime: ext = "ogg"
+        elif "m4a" in mime or "mp4" in mime: ext = "m4a"
+        f = io.BytesIO(audio_bytes); f.name = f"voice.{ext}"
+        resp = await client.audio.transcriptions.create(model="whisper-1", file=f)
+        return getattr(resp, "text", "") or ""
+    except Exception as e:
+        return f"[Transcription failed: {e}] (Recorded {len(audio_bytes)} bytes)"

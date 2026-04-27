@@ -54,6 +54,11 @@ export default defineConfig(({mode}) => {
         '/tasks': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        // SPA + API conflict pages — bypass to SPA only on real page nav
+        '/notes': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/bookmarks': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/habits': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/share': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         // Pure API endpoints (no SPA page conflict)
         '/memories': 'http://127.0.0.1:8000',
         '/schedule': 'http://127.0.0.1:8000',

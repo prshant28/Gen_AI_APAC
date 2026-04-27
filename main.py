@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import uuid
 import datetime
 import logging
 import asyncio
@@ -14,11 +15,17 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
 from app.coordinator import run_coordinator, run_coordinator_stream
-from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing
+from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events
 from app.workflow_engine import list_workflows, get_workflow, AGENT_REGISTRY
+from app.extras_agent import (
+    list_notes, create_note, update_note, delete_note,
+    list_bookmarks, create_bookmark, update_bookmark, delete_bookmark,
+    list_habits, create_habit, toggle_habit, delete_habit,
+    seed_extras,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recall-x247")
@@ -119,6 +126,11 @@ async def startup_event():
             logger.info("Demo data seeded successfully.")
     except Exception as e:
         logger.warning(f"Demo seed skipped: {e}")
+    try:
+        await seed_extras()
+        logger.info("Extras (notes, bookmarks, habits) seeded.")
+    except Exception as e:
+        logger.warning(f"Extras seed skipped: {e}")
     logger.info("Startup complete.")
 
 
@@ -345,6 +357,76 @@ async def get_flashcards_endpoint(memory_id: str):
         raise HTTPException(status_code=500, detail=result["error"])
     return result
 
+@app.post("/memories/{memory_id}/share")
+async def share_memory_endpoint(memory_id: str):
+    """Mark a memory as publicly shareable; returns a shareable token-style id."""
+    db = await get_db()
+    doc = await db.collection("memories").document(memory_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    mem = doc.to_dict()
+    share_token = mem.get("share_token") or uuid.uuid4().hex[:14]
+    shared_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    await db.collection("memories").document(memory_id).update({
+        "share_token": share_token,
+        "shared_at": shared_at,
+        "public": True,
+    })
+    return {"id": memory_id, "share_token": share_token, "public_url": f"/share/{share_token}"}
+
+@app.post("/memories/{memory_id}/unshare")
+async def unshare_memory_endpoint(memory_id: str):
+    db = await get_db()
+    doc = await db.collection("memories").document(memory_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    await db.collection("memories").document(memory_id).update({"public": False})
+    return {"id": memory_id, "public": False}
+
+@app.get("/share/{share_token}")
+async def get_shared_memory_endpoint(share_token: str):
+    """Public read-only view of a shared memory — no auth required."""
+    db = await get_db()
+    snap = await db.collection("memories").get()
+    for doc in snap:
+        d = doc.to_dict()
+        if d.get("share_token") == share_token and d.get("public"):
+            return {
+                "id": doc.id,
+                "title": d.get("title"),
+                "summary": d.get("summary"),
+                "key_points": d.get("key_points", []),
+                "tags": d.get("tags", []),
+                "domain": d.get("domain"),
+                "source_type": d.get("source_type"),
+                "source_url": d.get("source_url"),
+                "created_at": d.get("created_at"),
+                "shared_at": d.get("shared_at"),
+            }
+    raise HTTPException(status_code=404, detail="Shared memory not found or has been unshared")
+
+@app.post("/memories/{memory_id}/auto-tag")
+async def auto_tag_endpoint(memory_id: str):
+    result = await auto_tag_memory(memory_id)
+    if result.get("error") == "Memory not found":
+        raise HTTPException(status_code=404, detail="Memory not found")
+    if "error" in result and not result.get("tags"):
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+@app.post("/capture/voice")
+async def capture_voice_endpoint(file: UploadFile = File(...)):
+    """Accept an audio upload, transcribe it, and run capture pipeline on the text."""
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio")
+    transcript = await transcribe_audio(audio_bytes, mime=file.content_type or "audio/webm")
+    if not transcript or transcript.startswith("[Transcription failed"):
+        return {"transcript": transcript or "", "memory": None, "error": "Transcription failed"}
+    # Transcription-only: frontend separately POSTs /capture as a note for analysis.
+    result = {"transcript": transcript, "memory": None}
+    return result
+
 
 # --- Recall ---
 
@@ -412,9 +494,124 @@ async def study_plan_endpoint(request: StudyPlanRequest):
         raise HTTPException(status_code=500, detail=result["error"])
     return result
 
+_BRIEFING_CACHE: Dict[str, Any] = {"data": None, "expires_at": 0.0}
+
 @app.get("/briefing")
-async def briefing_endpoint():
-    return await generate_daily_briefing()
+async def briefing_endpoint(force: bool = False):
+    """Daily AI briefing — cached for 5 minutes to avoid hammering AI provider."""
+    now_ts = time.time()
+    cached = _BRIEFING_CACHE.get("data")
+    if not force and cached and now_ts < _BRIEFING_CACHE.get("expires_at", 0):
+        return cached
+    result = await generate_daily_briefing()
+    _BRIEFING_CACHE["data"] = result
+    _BRIEFING_CACHE["expires_at"] = now_ts + 300  # 5 minutes
+    return result
+
+
+# --- Notes ---
+
+class NoteCreateRequest(BaseModel):
+    title: Optional[str] = "Untitled note"
+    content: Optional[str] = ""
+    tags: Optional[List[str]] = []
+    pinned: Optional[bool] = False
+
+class NoteUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[List[str]] = None
+    pinned: Optional[bool] = None
+
+@app.get("/notes")
+async def list_notes_endpoint(tag: str = "", limit: int = 50):
+    return await list_notes(tag=tag, limit=limit)
+
+@app.post("/notes")
+async def create_note_endpoint(req: NoteCreateRequest):
+    return await create_note(title=req.title or "Untitled note", content=req.content or "", tags=req.tags or [], pinned=bool(req.pinned))
+
+@app.put("/notes/{note_id}")
+async def update_note_endpoint(note_id: str, req: NoteUpdateRequest):
+    try:
+        return await update_note(note_id, **req.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.delete("/notes/{note_id}")
+async def delete_note_endpoint(note_id: str):
+    try:
+        return await delete_note(note_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# --- Bookmarks ---
+
+class BookmarkCreateRequest(BaseModel):
+    url: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    tags: Optional[List[str]] = []
+
+class BookmarkUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    status: Optional[str] = None
+
+@app.get("/bookmarks")
+async def list_bookmarks_endpoint(status: str = "", limit: int = 100):
+    return await list_bookmarks(status=status, limit=limit)
+
+@app.post("/bookmarks")
+async def create_bookmark_endpoint(req: BookmarkCreateRequest):
+    return await create_bookmark(url=req.url, title=req.title or "", description=req.description or "", tags=req.tags or [])
+
+@app.put("/bookmarks/{bm_id}")
+async def update_bookmark_endpoint(bm_id: str, req: BookmarkUpdateRequest):
+    try:
+        return await update_bookmark(bm_id, **req.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.delete("/bookmarks/{bm_id}")
+async def delete_bookmark_endpoint(bm_id: str):
+    try:
+        return await delete_bookmark(bm_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# --- Habits ---
+
+class HabitCreateRequest(BaseModel):
+    name: str
+    icon: Optional[str] = "Zap"
+    color: Optional[str] = "#10b981"
+    goal: Optional[str] = "daily"
+
+@app.get("/habits")
+async def list_habits_endpoint():
+    return await list_habits()
+
+@app.post("/habits")
+async def create_habit_endpoint(req: HabitCreateRequest):
+    return await create_habit(name=req.name, icon=req.icon or "Zap", color=req.color or "#10b981", goal=req.goal or "daily")
+
+@app.post("/habits/{h_id}/toggle")
+async def toggle_habit_endpoint(h_id: str, date: str = ""):
+    try:
+        return await toggle_habit(h_id, date_iso=date)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.delete("/habits/{h_id}")
+async def delete_habit_endpoint(h_id: str):
+    try:
+        return await delete_habit(h_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Stats & Logs ---

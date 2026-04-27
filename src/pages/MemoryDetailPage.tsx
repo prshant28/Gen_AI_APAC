@@ -70,6 +70,9 @@ export default function MemoryDetailPage() {
 
   // Action state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [autoTagging, setAutoTagging] = useState(false);
   const [taskTitle, setTaskTitle]     = useState('');
   const [eventTitle, setEventTitle]   = useState('');
   const [eventDate, setEventDate]     = useState('');
@@ -231,12 +234,33 @@ export default function MemoryDetailPage() {
               </a>
             )}
           </div>
-          <button onClick={() => { navigator.clipboard.writeText(`${memory.title}\n\n${memory.summary}`); showToast('Copied!'); }}
-            style={{ padding:'7px 13px', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:9, color:'rgba(255,255,255,0.7)', fontSize:11, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5, flexShrink:0, fontFamily:'inherit', transition:'all 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
-            <Copy size={12} /> Share
-          </button>
+          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+            <button onClick={async () => {
+              setActionLoading('share');
+              try {
+                const r = await fetch(`/memories/${memory.id}/share`, { method:'POST' });
+                const data = await r.json();
+                if (data.share_token) {
+                  const fullUrl = `${window.location.origin}/share/${data.share_token}`;
+                  setShareUrl(fullUrl);
+                  setShowShareModal(true);
+                  navigator.clipboard.writeText(fullUrl).catch(()=>{});
+                  showToast('Public link copied to clipboard');
+                }
+              } catch { showToast('Could not create share link'); }
+              finally { setActionLoading(null); }
+            }}
+              style={{ padding:'7px 13px', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:9, color:'rgba(255,255,255,0.85)', fontSize:11, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit', transition:'all 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.16)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
+              {actionLoading === 'share' ? <Loader2 size={12} className="spin" /> : <Share2 size={12} />} Share
+            </button>
+            <button onClick={() => { navigator.clipboard.writeText(`${memory.title}\n\n${memory.summary}`); showToast('Copied!'); }}
+              title="Copy summary"
+              style={{ padding:'7px 11px', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:9, color:'rgba(255,255,255,0.7)', fontSize:11, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit' }}>
+              <Copy size={12} />
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -280,9 +304,28 @@ export default function MemoryDetailPage() {
 
           {/* Tags */}
           <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
-            <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:'0 0 12px' }}>
-              <Tag size={14} color="#fbbf24" /> Smart Tags
-            </h3>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, gap:10, flexWrap:'wrap' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:0 }}>
+                <Tag size={14} color="#fbbf24" /> Smart Tags
+              </h3>
+              <button onClick={async () => {
+                setAutoTagging(true);
+                try {
+                  const r = await fetch(`/memories/${memory.id}/auto-tag`, { method:'POST' });
+                  const data = await r.json();
+                  if (data.tags) {
+                    setMemory({ ...memory, tags: data.tags });
+                    showToast(`Added ${(data.added || []).length} new tags`);
+                  } else { showToast('Auto-tag failed'); }
+                } catch { showToast('Auto-tag failed'); }
+                finally { setAutoTagging(false); }
+              }}
+                style={{ padding:'5px 10px', background:'rgba(251,191,36,0.12)', border:'1px solid rgba(251,191,36,0.3)', borderRadius:8, color:'#fbbf24', fontSize:10.5, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit' }}
+                disabled={autoTagging}>
+                {autoTagging ? <Loader2 size={11} className="spin" /> : <Sparkles size={11} />}
+                {autoTagging ? 'AI thinking…' : 'Auto-tag with AI'}
+              </button>
+            </div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
               {memory.tags.map(tag => (
                 <span key={tag} onClick={() => navigate(`/vault?tag=${tag}`)}
@@ -484,6 +527,35 @@ export default function MemoryDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Share modal */}
+      {showShareModal && shareUrl && (
+        <div onClick={() => setShowShareModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9000, padding:20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:24, maxWidth:480, width:'100%' }}>
+            <h3 style={{ margin:'0 0 8px', color:'var(--text-1)', fontSize:16, fontWeight:800, display:'flex', alignItems:'center', gap:8 }}>
+              <Share2 size={16} color="var(--primary)" /> Public link created
+            </h3>
+            <p style={{ margin:'0 0 14px', color:'var(--text-3)', fontSize:12.5 }}>
+              Anyone with this link can view a read-only version of this memory. The link is already copied to your clipboard.
+            </p>
+            <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+              <input readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()}
+                style={{ flex:1, padding:'9px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-1)', fontSize:12, outline:'none', fontFamily:"'JetBrains Mono', monospace" }} />
+              <button onClick={() => { navigator.clipboard.writeText(shareUrl); showToast('Copied!'); }}
+                style={{ padding:'9px 14px', background:'var(--primary-bg)', border:'1px solid var(--primary-border)', borderRadius:9, color:'var(--primary)', fontSize:11.5, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit' }}>
+                <Copy size={11} /> Copy
+              </button>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <a href={shareUrl} target="_blank" rel="noreferrer"
+                style={{ flex:1, padding:'10px', textAlign:'center', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:9, color:'var(--text-2)', fontSize:12.5, fontWeight:600, textDecoration:'none' }}>
+                Open public view
+              </a>
+              <button onClick={() => setShowShareModal(false)} style={{ flex:1, padding:'10px', background:'var(--primary)', border:'none', borderRadius:9, color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

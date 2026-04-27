@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, Bookmark, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import type { Memory } from '../lib/types';
@@ -16,6 +16,8 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [logs, setLogs] = useState<any[]>([]);
   const [briefing, setBriefing] = useState('');
   const [briefingLoading, setBriefingLoading] = useState(true);
+  const [habits, setHabits] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const rawName = (user?.displayName ?? '').trim();
@@ -29,7 +31,18 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
     ]).then(([s, m, l]) => { if (s) setStats(s); setRecent(m); setLogs(l); }).catch(console.error);
     fetch('/briefing').then(r => r.ok ? r.json() : { briefing: 'Ready for another great day of learning!' })
       .then(d => setBriefing(d.briefing)).catch(() => setBriefing('Ready for another great day of learning!')).finally(() => setBriefingLoading(false));
+    fetch('/habits').then(r => r.ok ? r.json() : []).then(setHabits).catch(() => setHabits([]));
+    fetch('/notes?limit=4').then(r => r.ok ? r.json() : []).then(setNotes).catch(() => setNotes([]));
   }, []);
+
+  const toggleHabit = async (h: any) => {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const r = await fetch(`/habits/${h.id}/toggle?date=${today}`, { method: 'POST' });
+      const updated = await r.json();
+      setHabits(habits.map(x => x.id === h.id ? updated : x));
+    } catch {}
+  };
 
   const totalMem = stats?.total_memories ?? 0;
   const domains: { name: string; value: number }[] = stats?.knowledge_domains ?? [];
@@ -282,6 +295,72 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
               </div>
             ) : (
               <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
+            )}
+          </motion.div>
+
+          {/* Today's Habits widget */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Flame size={14} color="#10b981" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Today's Habits</div>
+                {habits.length > 0 && (
+                  <span style={{ padding: '1px 8px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, color: '#10b981', fontSize: 10, fontWeight: 700 }}>
+                    {habits.filter(h => h.completed_today).length}/{habits.length}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => navigate('/habits')} style={{ color: '#10b981', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                View all <ArrowUpRight size={11} />
+              </button>
+            </div>
+            {habits.length === 0 ? (
+              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>No habits — <button onClick={() => navigate('/habits')} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>create one</button></div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                {habits.slice(0, 4).map(h => (
+                  <button key={h.id} onClick={() => toggleHabit(h)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: h.completed_today ? `${h.color}15` : 'var(--surface-2)', border: `1px solid ${h.completed_today ? h.color + '40' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.15s' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: h.completed_today ? h.color : 'transparent', border: `2px solid ${h.completed_today ? h.color : 'var(--border-2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {h.completed_today && <Check size={11} color="#fff" strokeWidth={3} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</div>
+                      {h.streak > 0 && <div style={{ color: '#f59e0b', fontSize: 10, marginTop: 1, display: 'flex', alignItems: 'center', gap: 3 }}><Flame size={9} /> {h.streak}d streak</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Recent Notes widget */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <StickyNote size={14} color="#f59e0b" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent Notes</div>
+              </div>
+              <button onClick={() => navigate('/notes')} style={{ color: '#f59e0b', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                Open notes <ArrowUpRight size={11} />
+              </button>
+            </div>
+            {notes.length === 0 ? (
+              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>No notes yet — <button onClick={() => navigate('/notes')} style={{ color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>create one</button></div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {notes.slice(0, 3).map(n => (
+                  <button key={n.id} onClick={() => navigate('/notes')}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    {n.pinned && <Pin size={11} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(n.content || '').replace(/[#*`]/g, '').slice(0, 60)}</div>
+                    </div>
+                    <ChevronRight size={11} color="var(--text-3)" style={{ flexShrink: 0, marginTop: 3 }} />
+                  </button>
+                ))}
+              </div>
             )}
           </motion.div>
         </div>

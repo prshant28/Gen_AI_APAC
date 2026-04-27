@@ -47,19 +47,46 @@ type AgentStatus = 'idle' | 'active' | 'done' | 'error';
 /* ── Voice recording helper ─────────────────────────────────────── */
 function useVoiceRecorder() {
   const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const mimeRef = useRef<string>('audio/webm');
 
   const start = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      mimeRef.current = mr.mimeType || 'audio/webm';
       chunksRef.current = [];
-      mr.ondataavailable = e => chunksRef.current.push(e.data);
-      mr.onstop = () => {
+      setTranscript('');
+      mr.ondataavailable = e => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        setTranscript('(Audio captured — transcription via backend processing)');
+        const blob = new Blob(chunksRef.current, { type: mimeRef.current });
+        if (blob.size === 0) { showToast('No audio captured'); return; }
+        setTranscribing(true);
+        setTranscript('Transcribing audio…');
+        try {
+          const fd = new FormData();
+          const ext = mimeRef.current.includes('mp4') ? 'm4a' : mimeRef.current.includes('ogg') ? 'ogg' : 'webm';
+          fd.append('file', blob, `voice.${ext}`);
+          const r = await fetch('/capture/voice', { method: 'POST', body: fd });
+          const data = await r.json();
+          if (data.transcript && !String(data.transcript).startsWith('[Transcription failed')) {
+            setTranscript(data.transcript);
+          } else {
+            setTranscript('');
+            showToast(data.error || 'Transcription failed — try again');
+          }
+        } catch (e: any) {
+          setTranscript('');
+          showToast(e.message || 'Voice upload failed');
+        } finally {
+          setTranscribing(false);
+        }
       };
       mr.start();
       mediaRef.current = mr;
@@ -72,7 +99,7 @@ function useVoiceRecorder() {
     setRecording(false);
   };
 
-  return { recording, transcript, setTranscript, start, stop };
+  return { recording, transcribing, transcript, setTranscript, start, stop };
 }
 
 /* ── Main component ─────────────────────────────────────────────── */
@@ -405,11 +432,11 @@ const CaptureView = () => {
                       {voice.recording ? <MicOff size={20} color="#fff" /> : <Mic size={20} color="#fff" />}
                     </button>
                     <div>
-                      <p style={{ fontWeight: 700, color: voice.recording ? '#ef4444' : 'var(--text-1)', margin: '0 0 2px', fontSize: 14 }}>
-                        {voice.recording ? '● Recording…' : 'Press to record'}
+                      <p style={{ fontWeight: 700, color: voice.recording ? '#ef4444' : voice.transcribing ? 'var(--primary)' : 'var(--text-1)', margin: '0 0 2px', fontSize: 14 }}>
+                        {voice.recording ? '● Recording…' : voice.transcribing ? '◌ Transcribing…' : 'Press to record'}
                       </p>
                       <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
-                        {voice.recording ? 'Click again to stop and transcribe' : 'Audio will be auto-transcribed'}
+                        {voice.recording ? 'Click again to stop and transcribe' : voice.transcribing ? 'Whisper AI is converting your audio' : 'Audio sent to Whisper for transcription'}
                       </p>
                     </div>
                   </div>
