@@ -38,16 +38,34 @@ export const YouTubeEmbed = ({ url }: { url: string }) => {
 export const YouTubeThumbnail = ({ url, onClick }: { url: string; onClick?: () => void }) => {
   const id = getYouTubeId(url);
   if (!id) return null;
+  // Fallback chain: maxres (1280x720, may 404) → sddefault → hqdefault → mqdefault.
+  // mqdefault is 320x180 with no black bars and is virtually always present, so
+  // it's a safe last stop. The chain is driven by onError.
+  const FALLBACKS = [
+    `https://img.youtube.com/vi/${id}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${id}/sddefault.jpg`,
+    `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
+  ];
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const idx = parseInt(img.dataset.fallbackIdx || '0', 10);
+    if (idx < FALLBACKS.length - 1) {
+      img.dataset.fallbackIdx = String(idx + 1);
+      img.src = FALLBACKS[idx + 1];
+    }
+  };
   return (
     <div onClick={onClick} style={{ position: 'relative', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#000', cursor: onClick ? 'pointer' : 'default' }}>
-      <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="YouTube thumbnail"
+      <img src={FALLBACKS[0]} alt="YouTube thumbnail" loading="lazy"
+        data-fallback-idx="0" onError={handleError}
         className="yt-thumb-img" />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(239,68,68,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(239,68,68,0.5)' }}>
-          <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)', pointerEvents: 'none' }}>
+        <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(239,68,68,0.55)' }}>
+          <svg viewBox="0 0 24 24" fill="white" width="22" height="22"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
-      <div style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', background: 'rgba(239,68,68,0.9)', borderRadius: 4, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '1px' }}>YOUTUBE</div>
+      <div style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', background: 'rgba(239,68,68,0.92)', borderRadius: 4, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '1px', pointerEvents: 'none' }}>YOUTUBE</div>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Database, CheckSquare, Calendar as CalendarIcon, ArrowRight } from 'lucide-react';
+import { Database, CheckSquare, Calendar as CalendarIcon, Search, Sparkles, BarChart3, ArrowRight } from 'lucide-react';
 
 interface Step {
   step_id: string;
@@ -26,12 +26,15 @@ interface CardSpec {
   navLabel: string;
 }
 
-// Only agents that produce a concrete create/update result get a nav card.
-// Read-only agents (Recall/Briefing/Analytics) are excluded — they don't "create" something.
-const ROUTE_MAP: Record<string, { route: string; label: string; icon: any; color: string; label2: string; mustMatch?: RegExp }> = {
-  CaptureAgent:  { route: '/vault',    label: 'Memory saved',    label2: 'Open in Vault', icon: Database,     color: '#f43f5e', mustMatch: /(saved|captured|stored|added|created|memory)/i },
-  TaskAgent:     { route: '/tasks',    label: 'Task created',    label2: 'Open Tasks',    icon: CheckSquare,  color: '#10b981', mustMatch: /(created|added|task|todo|completed|priority)/i },
-  CalendarAgent: { route: '/calendar', label: 'Event scheduled', label2: 'Open Calendar', icon: CalendarIcon, color: '#f59e0b', mustMatch: /(scheduled|event|calendar|added|created|meeting)/i },
+// Every agent that has a corresponding page surfaces a "go to that page" card
+// inline in chat — so the user can act on the result with one click.
+const ROUTE_MAP: Record<string, { route: string; label: string; icon: any; color: string; label2: string }> = {
+  CaptureAgent:   { route: '/vault',     label: 'Memory saved',      label2: 'Open in Vault',   icon: Database,     color: '#f43f5e' },
+  TaskAgent:      { route: '/tasks',     label: 'Task created',      label2: 'Open Tasks',      icon: CheckSquare,  color: '#10b981' },
+  CalendarAgent:  { route: '/calendar',  label: 'Event scheduled',   label2: 'Open Calendar',   icon: CalendarIcon, color: '#f59e0b' },
+  RecallAgent:    { route: '/recall',    label: 'Memories recalled', label2: 'Open Recall',     icon: Search,       color: '#8b5cf6' },
+  BriefingAgent:  { route: '/dashboard', label: 'Briefing ready',    label2: 'Open Dashboard',  icon: Sparkles,     color: '#06b6d4' },
+  AnalyticsAgent: { route: '/analytics', label: 'Insights ready',    label2: 'Open Analytics',  icon: BarChart3,    color: '#3b82f6' },
 };
 
 export const ActionResultCards: React.FC<Props> = ({ steps }) => {
@@ -39,17 +42,17 @@ export const ActionResultCards: React.FC<Props> = ({ steps }) => {
   if (!steps || steps.length === 0) return null;
 
   const cards: CardSpec[] = [];
+  // Dedupe per (agent, route) so we never show "Open Calendar" twice in the same
+  // reply even if the orchestrator ran the agent multiple times.
   const seen = new Set<string>();
   for (const s of steps) {
     if (s.status !== 'completed') continue;
     const meta = ROUTE_MAP[s.agent];
     if (!meta) continue;
+    const key = `${s.agent}:${meta.route}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     const summary = (s.output_summary || '').trim();
-    if (!summary || summary.length < 5) continue;
-    if (meta.mustMatch && !meta.mustMatch.test(summary) && !meta.mustMatch.test(s.tool || '') && !meta.mustMatch.test(s.name || '')) continue;
-    // Stable dedupe by step_id (every step is unique)
-    if (seen.has(s.step_id)) continue;
-    seen.add(s.step_id);
     cards.push({
       agent: s.agent,
       color: meta.color,

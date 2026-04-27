@@ -319,7 +319,7 @@ const CaptureView = () => {
             className="view-card" style={{ padding: '16px 16px 12px' }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '1px',
               textTransform: 'uppercase', margin: '0 0 12px' }}>Select source</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+            <div className="capture-source-grid">
               {SOURCES.map(s => {
                 const active = source === s.id;
                 return (
