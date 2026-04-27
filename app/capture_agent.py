@@ -334,6 +334,64 @@ async def _doc_to_memory_dict(doc) -> Optional[dict]:
     }
 
 
+def _content_hash(title: str, summary: str) -> str:
+    """SHA1 of normalized (title + first 400 chars of summary).
+    Used to detect duplicate note-type memories so the vault doesn't get cluttered
+    with near-identical entries when the user re-saves the same insight."""
+    import hashlib, re as _re
+    norm_title = _re.sub(r"\s+", " ", (title or "").lower().strip())[:200]
+    norm_summary = _re.sub(r"\s+", " ", (summary or "").lower().strip())[:400]
+    blob = f"{norm_title}|{norm_summary}".encode("utf-8")
+    return hashlib.sha1(blob).hexdigest()
+
+
+async def _find_duplicate_by_content_hash(
+    user_id: str, title: str, summary: str, days_window: int = 90
+) -> Optional[dict]:
+    """Return existing memory dict if same (title+summary) hash already saved
+    by this user in the last `days_window` days. Tolerant of legacy memories
+    without a content_hash field (it's computed lazily on read)."""
+    if not title and not summary:
+        return None
+    target_hash = _content_hash(title, summary)
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_window)
+    try:
+        db = await get_db()
+        # In-memory store doesn't support compound indexed queries cleanly, so we
+        # do a userId scan + Python-side filter. Bounded to 200 most-recent.
+        snap = await db.collection("memories") \
+            .where("userId", "==", user_id) \
+            .order_by("created_at", direction="DESCENDING") \
+            .limit(200).get()
+        for d in snap:
+            data = d.to_dict() or {}
+            created = data.get("created_at")
+            if hasattr(created, "isoformat"):
+                created_dt = created if isinstance(created, datetime.datetime) else None
+            else:
+                try:
+                    created_dt = datetime.datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+                except Exception:
+                    created_dt = None
+            if created_dt and created_dt < cutoff:
+                continue
+            stored = data.get("content_hash")
+            if not stored:
+                stored = _content_hash(data.get("title", ""), data.get("summary", ""))
+            if stored == target_hash:
+                return {
+                    "id": d.id,
+                    "title": data.get("title", "Untitled"),
+                    "domain": data.get("domain", ""),
+                    "source_type": data.get("source_type", ""),
+                    "source_url": data.get("source_url", ""),
+                    "created_at": created.isoformat() if hasattr(created, "isoformat") else created,
+                }
+    except Exception as e:
+        print(f"_find_duplicate_by_content_hash error: {e}")
+    return None
+
+
 async def _find_duplicate_by_url(user_id: str, source_url: str) -> Optional[dict]:
     """Return an existing memory dict (id+title+created_at) matching userId+source_url.
     Fast path: deterministic doc lookup. Fallback: legacy `where(userId, source_url)` query
@@ -414,7 +472,7 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
     try:
         source_url = memory_data.get("source_url", "")
 
-        # Duplicate guard: if this URL is already saved for this user, return existing
+        # Duplicate guard #1: same URL → return existing
         existing = await _find_duplicate_by_url(user_id, source_url) if source_url else None
         if existing:
             return {
@@ -422,6 +480,22 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
                 "duplicate": True,
                 "existing": existing,
             }
+
+        # Duplicate guard #2 (anti-clutter for notes): same content hash within 90 days.
+        # Skips when there IS a URL — _find_duplicate_by_url already covers that case.
+        if not source_url:
+            content_dup = await _find_duplicate_by_content_hash(
+                user_id,
+                memory_data.get("title", ""),
+                memory_data.get("summary", ""),
+            )
+            if content_dup:
+                return {
+                    **content_dup,
+                    "duplicate": True,
+                    "duplicate_reason": "content_hash",
+                    "existing": content_dup,
+                }
 
         memory_doc = {
             "source_type": memory_data.get("source_type", "note"),
@@ -435,6 +509,9 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
             "study_questions": memory_data.get("study_questions", []) or [],
             "tags": memory_data.get("tags", []) or [],
             "domain": memory_data.get("domain", "Other"),
+            "content_hash": _content_hash(
+                memory_data.get("title", ""), memory_data.get("summary", "")
+            ),
             "userId": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
         }

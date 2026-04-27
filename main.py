@@ -1006,6 +1006,95 @@ async def ws_apply_insight(project_id: str, req: InsightApplyRequest):
     return result
 
 
+# --- Workspace recall ("Show my previous work on X") ---
+
+class WorkspaceRecallRequest(BaseModel):
+    query: str
+    project_id: Optional[str] = None
+    limit: Optional[int] = 12
+
+
+@app.post("/workspace/recall")
+async def workspace_recall_endpoint(req: WorkspaceRecallRequest):
+    """Search items + tasks + memories + projects, then synthesize a 2-3 sentence
+    narrative answer with categorized sources. Optional project_id narrows the
+    item/task search to one project; memories are always searched globally."""
+    from app.workspace_recall import workspace_recall
+    result = await workspace_recall(
+        query=req.query,
+        project_id=req.project_id,
+        limit=max(1, min(30, req.limit or 12)),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "recall failed"))
+    return result
+
+
+# --- Task breakdown (lightweight micro-plan from a single task) ---
+
+class TaskBreakdownRequest(BaseModel):
+    task_title: Optional[str] = ""
+    context: Optional[str] = ""
+    days: Optional[int] = 3
+    start_date: Optional[str] = ""
+    deadline: Optional[str] = ""
+    persist_as_subtasks: Optional[bool] = False
+    parent_task_id: Optional[str] = ""
+
+
+@app.post("/tasks/breakdown")
+async def task_breakdown_endpoint(req: TaskBreakdownRequest):
+    """Break a task into 3-7 ordered micro-steps with optional dates.
+    If persist_as_subtasks=true AND parent_task_id provided, creates child
+    tasks via the global /tasks store with title prefix '↳' for visual nesting."""
+    from app.plan_agent import breakdown_task
+    title = (req.task_title or "").strip()
+    parent_title = ""
+
+    # If only parent_task_id was given, look up its title for context.
+    if req.parent_task_id:
+        try:
+            db = await get_db()
+            doc = await db.collection("tasks").document(req.parent_task_id).get()
+            if getattr(doc, "exists", False):
+                parent_data = doc.to_dict() or {}
+                parent_title = parent_data.get("title", "")
+                if not title:
+                    title = parent_title
+        except Exception as e:
+            logger.warning(f"task lookup failed in breakdown: {e}")
+
+    if not title:
+        raise HTTPException(status_code=400, detail="task_title or parent_task_id (resolvable) required")
+
+    result = await breakdown_task(
+        task_title=title,
+        context=req.context or "",
+        days=req.days or 3,
+        start_date=req.start_date or "",
+        deadline=req.deadline or "",
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "breakdown failed"))
+
+    # Optional: persist each step as a child task linked to parent via memory_id slot.
+    if req.persist_as_subtasks and req.parent_task_id:
+        from app.task_agent import create_task
+        created_ids: List[str] = []
+        for s in result["steps"]:
+            ct = await create_task(
+                title=f"↳ {s['title']}",
+                due_date=s["due_date"],
+                priority="medium",
+                linked_memory_id=req.parent_task_id,  # reuse field as parent ref
+            )
+            created_ids.append(ct.get("id"))
+        result["persisted_subtask_ids"] = created_ids
+        result["parent_task_id"] = req.parent_task_id
+
+    return result
+
+
 # --- Calendar ICS subscription feed ---
 
 def _ics_escape(text: str) -> str:

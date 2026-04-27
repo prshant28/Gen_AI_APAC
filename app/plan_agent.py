@@ -434,3 +434,150 @@ async def regenerate_day(
         "angle": angle,
     }
     return {"day": new_day}
+
+
+# ─── Lightweight task → step-by-step micro-plan ───────────────────────────────
+#
+# Different from `generate_plan`: that one researches a topic and builds a
+# multi-day study/build curriculum (heavyweight: 4 agents, dozens of resources).
+# This one breaks ONE task into 3-7 ordered steps with optional dates spread
+# across `days`. Used when the user clicks "Create Plan" on a task or insight.
+
+import logging as _bd_logging
+_bd_logger = _bd_logging.getLogger("recall-x247.breakdown")
+
+
+async def breakdown_task(
+    task_title: str,
+    context: str = "",
+    days: int = 3,
+    start_date: str = "",
+    deadline: str = "",
+) -> Dict[str, Any]:
+    """Break a single task into 3-7 ordered, dated micro-steps.
+
+    Returns:
+      {
+        ok, task_title, days, start_date, deadline,
+        summary       (1 sentence describing the approach),
+        steps: [
+          {order, title, day_offset, due_date, est_minutes, notes}
+        ]
+      }
+    """
+    task_title = (task_title or "").strip()
+    if not task_title:
+        return {"ok": False, "error": "task_title is required"}
+    days = max(1, min(14, int(days or 3)))
+
+    # Resolve start date
+    try:
+        if start_date:
+            start = datetime.date.fromisoformat(start_date)
+        else:
+            start = _today()
+    except ValueError:
+        start = _today()
+
+    # Resolve deadline → cap days so steps don't overshoot it.
+    # If the deadline is already in the past relative to start_date, refuse —
+    # we never want to manufacture due_dates beyond the user's deadline.
+    deadline_date = None
+    if deadline:
+        try:
+            deadline_date = datetime.date.fromisoformat(deadline)
+        except ValueError:
+            deadline_date = None
+        if deadline_date is not None:
+            window = (deadline_date - start).days + 1
+            if window <= 0:
+                return {
+                    "ok": False,
+                    "error": f"deadline {deadline_date.isoformat()} is on or before start_date {start.isoformat()}",
+                }
+            days = min(days, window)
+
+    sys_prompt = (
+        "You are a planning assistant. Break the user's task into 3-7 ordered "
+        "micro-steps that fit inside the given day window. Each step must be "
+        "imperative, concrete, and independently completable.\n\n"
+        "Return STRICT JSON: {\"steps\": [...], \"summary\": \"...\"}\n"
+        "Each step: {\n"
+        "  order:        1-based integer\n"
+        "  title:        imperative verb phrase, ≤90 chars\n"
+        "  day_offset:   integer 0..(days-1) — which day to do it\n"
+        "  est_minutes:  realistic estimate in minutes (15-240)\n"
+        "  notes:        optional 1-sentence context (≤140 chars)\n"
+        "}\n"
+        "Rules: spread steps roughly evenly across days; never put more than 2 "
+        "steps on the final day; the summary should be 1 sentence describing "
+        "the overall approach (e.g. 'Research, prototype, then validate')."
+    )
+    user_prompt = (
+        f"TASK: {task_title}\n"
+        + (f"CONTEXT: {context.strip()[:600]}\n" if context else "")
+        + f"AVAILABLE DAYS: {days}\n"
+        + (f"DEADLINE: {deadline}\n" if deadline else "")
+        + "Return JSON now."
+    )
+
+    try:
+        result = await chat_json(
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            model=settings.OPENAI_MODEL,
+            temperature=0.3,
+        )
+    except Exception as e:
+        _bd_logger.error(f"breakdown_task LLM call failed: {e}")
+        return {"ok": False, "error": f"LLM call failed: {e}"}
+
+    raw_steps = result.get("steps") if isinstance(result, dict) else None
+    if not isinstance(raw_steps, list) or not raw_steps:
+        return {"ok": False, "error": "LLM returned no steps"}
+
+    # Validate + clamp
+    clean: List[Dict[str, Any]] = []
+    for i, s in enumerate(raw_steps[:7]):
+        if not isinstance(s, dict):
+            continue
+        title = (s.get("title") or "").strip()
+        if not title:
+            continue
+        try:
+            offset = max(0, min(days - 1, int(s.get("day_offset", i % days))))
+        except (TypeError, ValueError):
+            offset = i % days
+        try:
+            mins = int(s.get("est_minutes") or 30)
+        except (TypeError, ValueError):
+            mins = 30
+        mins = max(15, min(240, mins))
+        notes = (s.get("notes") or "").strip()[:200]
+        due = (start + datetime.timedelta(days=offset)).isoformat()
+        clean.append({
+            "order": len(clean) + 1,
+            "title": title[:120],
+            "day_offset": offset,
+            "due_date": due,
+            "est_minutes": mins,
+            "notes": notes,
+        })
+
+    if not clean:
+        return {"ok": False, "error": "no valid steps after validation"}
+
+    summary = (result.get("summary") or "").strip()[:240]
+
+    return {
+        "ok": True,
+        "task_title": task_title,
+        "days": days,
+        "start_date": start.isoformat(),
+        "deadline": deadline_date.isoformat() if deadline_date else "",
+        "summary": summary,
+        "steps": clean,
+        "total_minutes": sum(s["est_minutes"] for s in clean),
+    }
