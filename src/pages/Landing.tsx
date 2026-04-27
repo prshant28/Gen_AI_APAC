@@ -7,7 +7,7 @@ import {
   Headphones, Plus, Minus, Quote, Youtube, Globe, Mail,
   Zap, Rocket, Target, Telescope, Compass, Send, MessageCircle,
   TrendingUp, Clock, Lock, Hexagon, Mic, Link2, BrainCircuit,
-  FlaskConical, Wifi, BarChart3,
+  FlaskConical, Wifi, BarChart3, Flame,
 } from 'lucide-react';
 
 type LandingProps = {
@@ -829,38 +829,217 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
       </section>
 
       {/* ── KNOWLEDGE GRAPH SHOWCASE ─────────────────────────────── */}
-      <section className="lx-section">
+      <section id="graph" className="lx-section">
         <div className="lx-graph-wrap">
-          <div className="lx-graph-text">
+          <motion.div
+            className="lx-graph-text"
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.7 }}
+          >
             <div className="lx-eyebrow">
               <span className="lx-eyebrow-dot" />
               The living graph
             </div>
-            <h2 className="lx-section-title" style={{ margin: '14px 0 16px' }}>
+            <h2 className="lx-section-title lx-graph-title">
               Watch your second brain <span className="lx-grad-silver">wire itself.</span>
             </h2>
-            <p className="lx-section-sub" style={{ marginBottom: 24 }}>
+            <p className="lx-section-sub lx-graph-sub">
               Every memory becomes a node. Every concept becomes an edge. The Graph Agent
-              quietly stitches your knowledge together so connections you'd never spot
+              quietly stitches your knowledge together so connections you would never spot
               surface on their own.
             </p>
             <div className="lx-graph-stats">
               <div className="lx-graph-stat">
-                <div className="lx-graph-stat-v">14,892</div>
-                <div className="lx-graph-stat-l">Nodes wired</div>
+                <div className="lx-graph-stat-icon" style={{ color: '#3b82f6' }}><Hexagon size={14} /></div>
+                <div>
+                  <div className="lx-graph-stat-v">14,892</div>
+                  <div className="lx-graph-stat-l">Nodes wired</div>
+                </div>
               </div>
               <div className="lx-graph-stat">
-                <div className="lx-graph-stat-v">38,217</div>
-                <div className="lx-graph-stat-l">Edges drawn</div>
+                <div className="lx-graph-stat-icon" style={{ color: '#818cf8' }}><Link2 size={14} /></div>
+                <div>
+                  <div className="lx-graph-stat-v">38,217</div>
+                  <div className="lx-graph-stat-l">Edges drawn</div>
+                </div>
               </div>
               <div className="lx-graph-stat">
-                <div className="lx-graph-stat-v">412</div>
-                <div className="lx-graph-stat-l">Clusters formed</div>
+                <div className="lx-graph-stat-icon" style={{ color: '#22d3ee' }}><Network size={14} /></div>
+                <div>
+                  <div className="lx-graph-stat-v">412</div>
+                  <div className="lx-graph-stat-l">Clusters formed</div>
+                </div>
+              </div>
+              <div className="lx-graph-stat">
+                <div className="lx-graph-stat-icon" style={{ color: '#fb7185' }}><Zap size={14} /></div>
+                <div>
+                  <div className="lx-graph-stat-v">0.41s</div>
+                  <div className="lx-graph-stat-l">Avg sync time</div>
+                </div>
+              </div>
+            </div>
+            <div className="lx-graph-bullets">
+              <div className="lx-graph-bullet"><Check size={12} /> Force-directed 3D physics renderer</div>
+              <div className="lx-graph-bullet"><Check size={12} /> Auto-clusters by topic, person, project</div>
+              <div className="lx-graph-bullet"><Check size={12} /> Click any node to recall every related memory</div>
+            </div>
+          </motion.div>
+          <motion.div
+            className="lx-graph-canvas-wrap"
+            initial={{ opacity: 0, scale: 0.92 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+          >
+            <BigGraph />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── DASHBOARD PREVIEW — Power Hub + briefing + streaks ───── */}
+      <section id="dashboard-preview" className="lx-section">
+        <SectionHeader
+          eyebrow="Inside your dashboard"
+          title={<>One screen. <span className="lx-grad-silver">Every superpower.</span></>}
+          sub="The Power Hub puts every agent, every module and every captured idea one click away — with a daily AI briefing waiting before you wake up."
+        />
+        <div className="lx-dashprev">
+          <div className="lx-dashprev-glow" />
+          <div className="lx-dashprev-grid">
+            {/* Briefing */}
+            <div className="lx-dashprev-card lx-dashprev-brief">
+              <div className="lx-dashprev-card-head">
+                <span className="lx-dashprev-pill" style={{ ['--pc' as any]: '#fb7185' }}>Briefing Agent</span>
+                <span className="lx-dashprev-time">08:00</span>
+              </div>
+              <div className="lx-dashprev-title-md">Today you should focus on…</div>
+              <ul className="lx-dashprev-brieflist">
+                <li><span className="lx-dot" style={{ background: '#3b82f6' }} /> Q3 strategy memo (Maya flagged)</li>
+                <li><span className="lx-dot" style={{ background: '#22d3ee' }} /> Ship RAG playbook v2 — 3 cards due</li>
+                <li><span className="lx-dot" style={{ background: '#fb7185' }} /> Daily review · 12 new edges</li>
+              </ul>
+            </div>
+
+            {/* Power Hub mini grid */}
+            <div className="lx-dashprev-card lx-dashprev-power">
+              <div className="lx-dashprev-card-head">
+                <span className="lx-dashprev-pill" style={{ ['--pc' as any]: '#3b82f6' }}>Power Hub</span>
+                <span className="lx-dashprev-time">one-click</span>
+              </div>
+              <div className="lx-dashprev-powergrid">
+                {[
+                  { icon: Plus, label: 'Capture', c: '#6366f1' },
+                  { icon: Cpu, label: 'Agent Hub', c: '#3b82f6' },
+                  { icon: Search, label: 'Recall', c: '#9333ea' },
+                  { icon: Compass, label: 'Discover', c: '#06b6d4' },
+                  { icon: Hexagon, label: 'Cards', c: '#ec4899' },
+                  { icon: Check, label: 'Tasks', c: '#10b981' },
+                  { icon: Network, label: 'Graph', c: '#06b6d4' },
+                  { icon: Telescope, label: 'Plan', c: '#7c3aed' },
+                ].map((b) => {
+                  const I = b.icon;
+                  return (
+                    <div key={b.label} className="lx-dashprev-powerbtn" style={{ ['--pc' as any]: b.c }}>
+                      <I size={13} />
+                      <span>{b.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Streak + habits */}
+            <div className="lx-dashprev-card lx-dashprev-streak">
+              <div className="lx-dashprev-card-head">
+                <span className="lx-dashprev-pill" style={{ ['--pc' as any]: '#10b981' }}>Habits</span>
+                <span className="lx-dashprev-time">17 day streak</span>
+              </div>
+              <div className="lx-dashprev-heat">
+                {Array.from({ length: 30 }).map((_, i) => {
+                  const intensity = Math.max(0, Math.min(1, (Math.sin(i * 1.7) + 1) / 2));
+                  return (
+                    <div
+                      key={i}
+                      className="lx-dashprev-heatcell"
+                      style={{ background: `rgba(16,185,129,${0.12 + intensity * 0.55})` }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="lx-dashprev-streakrow">
+                <Flame size={13} style={{ color: '#fb923c' }} />
+                <span>Read · Workout · Code · Review · Reflect</span>
+              </div>
+            </div>
+
+            {/* Live agent feed */}
+            <div className="lx-dashprev-card lx-dashprev-feed">
+              <div className="lx-dashprev-card-head">
+                <span className="lx-dashprev-pill" style={{ ['--pc' as any]: '#22d3ee' }}>Live agent feed</span>
+                <span className="lx-dashprev-live"><span className="lx-dashprev-livedot" /> live</span>
+              </div>
+              <div className="lx-dashprev-feedlist">
+                <div className="lx-dashprev-feedrow"><Mic size={11} style={{ color: '#3b82f6' }} /><span>Voice memo captured · 0.3s</span></div>
+                <div className="lx-dashprev-feedrow"><Youtube size={11} style={{ color: '#fb7185' }} /><span>YouTube · 47 memories pulled</span></div>
+                <div className="lx-dashprev-feedrow"><Network size={11} style={{ color: '#818cf8' }} /><span>Graph · 8 new edges</span></div>
+                <div className="lx-dashprev-feedrow"><BarChart3 size={11} style={{ color: '#60a5fa' }} /><span>Analytics · streak +1</span></div>
               </div>
             </div>
           </div>
-          <div className="lx-graph-canvas-wrap">
-            <BigGraph />
+        </div>
+      </section>
+
+      {/* ── LIVE DISCOVER — real YouTube Data API v3 ────────────── */}
+      <section id="discover-preview" className="lx-section">
+        <SectionHeader
+          eyebrow="Live · YouTube Data API v3"
+          title={<>Discover <span className="lx-grad-silver">what to learn next.</span></>}
+          sub="Type any topic. Discover Agent pulls real YouTube videos with live view counts, channels and durations — then auto-suggests captures for your second brain."
+        />
+        <div className="lx-discover">
+          <div className="lx-discover-bar">
+            <Search size={15} className="lx-discover-bar-icon" />
+            <span className="lx-discover-bar-text">transformers attention mechanism</span>
+            <span className="lx-discover-bar-pill"><span className="lx-discover-livedot" /> Live</span>
+          </div>
+          <div className="lx-discover-grid">
+            {[
+              { title: 'But what is a Neural Network? · Chapter 1', ch: '3Blue1Brown', views: '18M views', dur: '19:13', age: '7y ago', c: '#3b82f6' },
+              { title: 'Attention is all you need (Transformer)', ch: 'Yannic Kilcher', views: '912K views', dur: '27:07', age: '5y ago', c: '#fb7185' },
+              { title: 'Transformers Explained Visually', ch: 'StatQuest with Josh Starmer', views: '1.4M views', dur: '36:15', age: '2y ago', c: '#22d3ee' },
+              { title: 'The math behind Transformers', ch: 'Two Minute Papers', views: '584K views', dur: '12:48', age: '1y ago', c: '#818cf8' },
+            ].map((v, i) => (
+              <motion.div
+                key={i}
+                className="lx-discover-card"
+                style={{ ['--accent' as any]: v.c }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.5, delay: i * 0.07 }}
+              >
+                <div className="lx-discover-thumb">
+                  <Youtube size={20} />
+                  <span className="lx-discover-dur">{v.dur}</span>
+                </div>
+                <div className="lx-discover-body">
+                  <div className="lx-discover-title">{v.title}</div>
+                  <div className="lx-discover-meta">
+                    <span className="lx-discover-ch">{v.ch}</span>
+                    <span className="lx-discover-sep">·</span>
+                    <span>{v.views}</span>
+                    <span className="lx-discover-sep">·</span>
+                    <span>{v.age}</span>
+                  </div>
+                  <div className="lx-discover-actions">
+                    <span className="lx-discover-act"><Plus size={11} /> Capture</span>
+                    <span className="lx-discover-act"><Network size={11} /> Wire</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -1449,26 +1628,32 @@ function MiniGraph() {
 }
 
 function BigGraph() {
+  const reduceMotion = useReducedMotion();
   const nodes = useMemo(() => ([
-    { id: 0, x: 50, y: 50, r: 14, color: '#3b82f6', label: 'You' },
-    { id: 1, x: 20, y: 25, r: 8, color: '#22d3ee' },
-    { id: 2, x: 78, y: 22, r: 9, color: '#818cf8' },
-    { id: 3, x: 85, y: 65, r: 7, color: '#818cf8' },
-    { id: 4, x: 18, y: 75, r: 8, color: '#3b82f6' },
-    { id: 5, x: 50, y: 14, r: 6, color: '#60a5fa' },
-    { id: 6, x: 50, y: 86, r: 6, color: '#fb7185' },
+    { id: 0, x: 50, y: 50, r: 13, color: '#3b82f6', label: 'You' },
+    { id: 1, x: 22, y: 26, r: 9, color: '#22d3ee', label: 'RAG' },
+    { id: 2, x: 78, y: 22, r: 9, color: '#818cf8', label: 'Maya' },
+    { id: 3, x: 84, y: 64, r: 8, color: '#818cf8', label: 'Q3' },
+    { id: 4, x: 18, y: 74, r: 8, color: '#3b82f6', label: 'GTM' },
+    { id: 5, x: 50, y: 13, r: 6, color: '#60a5fa' },
+    { id: 6, x: 50, y: 87, r: 6, color: '#fb7185' },
     { id: 7, x: 32, y: 50, r: 5, color: '#22d3ee' },
     { id: 8, x: 68, y: 50, r: 5, color: '#818cf8' },
     { id: 9, x: 8, y: 50, r: 4, color: '#3b82f6' },
     { id: 10, x: 92, y: 40, r: 4, color: '#818cf8' },
     { id: 11, x: 38, y: 30, r: 4, color: '#60a5fa' },
     { id: 12, x: 62, y: 75, r: 4, color: '#fb7185' },
+    { id: 13, x: 28, y: 90, r: 3, color: '#22d3ee' },
+    { id: 14, x: 72, y: 90, r: 3, color: '#818cf8' },
+    { id: 15, x: 90, y: 80, r: 3, color: '#3b82f6' },
+    { id: 16, x: 10, y: 30, r: 3, color: '#fb7185' },
   ]), []);
 
   const edges = useMemo(() => ([
     [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8],
     [1, 5], [2, 5], [2, 8], [3, 8], [3, 6], [4, 7], [4, 6], [4, 9],
     [1, 9], [2, 10], [3, 10], [11, 1], [11, 5], [12, 6], [12, 8],
+    [13, 4], [13, 6], [14, 6], [14, 3], [15, 3], [15, 10], [16, 1], [16, 9],
   ]), []);
 
   return (
@@ -1480,52 +1665,69 @@ function BigGraph() {
             <stop offset="0%" stopColor="white" stopOpacity="0.9" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </radialGradient>
+          <radialGradient id="bg-center-pulse" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </radialGradient>
         </defs>
+        {/* Center pulse — disabled when user prefers reduced motion */}
+        {reduceMotion ? (
+          <circle cx={50} cy={50} r={32} fill="url(#bg-center-pulse)" opacity={0.25} />
+        ) : (
+          <motion.circle
+            cx={50} cy={50} r={32}
+            fill="url(#bg-center-pulse)"
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: [0.7, 1.05, 0.7], opacity: [0, 0.45, 0] }}
+            transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ transformOrigin: '50px 50px' }}
+          />
+        )}
         {edges.map(([a, b], i) => {
           const A = nodes[a], B = nodes[b];
           return (
             <motion.line
               key={i}
               x1={A.x} y1={A.y} x2={B.x} y2={B.y}
-              stroke="rgba(167,139,250,0.25)"
-              strokeWidth={0.18}
+              stroke="rgba(129,140,248,0.32)"
+              strokeWidth={0.2}
               initial={{ pathLength: 0, opacity: 0 }}
               whileInView={{ pathLength: 1, opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 1.2, delay: 0.15 + i * 0.04 }}
+              transition={{ duration: 1.0, delay: 0.15 + i * 0.035 }}
             />
           );
         })}
         {nodes.map((n, i) => (
           <g key={n.id}>
             <motion.circle
-              cx={n.x} cy={n.y} r={n.r * 1.6}
+              cx={n.x} cy={n.y} r={n.r * 1.7}
               fill={n.color}
-              opacity={0.18}
+              opacity={0.16}
               initial={{ scale: 0, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 0.18 }}
+              whileInView={{ scale: 1, opacity: 0.16 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.4 + i * 0.04 }}
+              transition={{ duration: 0.5, delay: 0.4 + i * 0.03 }}
               style={{ transformOrigin: `${n.x}px ${n.y}px` }}
             />
             <motion.circle
-              cx={n.x} cy={n.y} r={n.r * 0.45}
+              cx={n.x} cy={n.y} r={n.r * 0.5}
               fill={n.color}
               initial={{ scale: 0, opacity: 0 }}
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.5 + i * 0.04 }}
-              style={{ transformOrigin: `${n.x}px ${n.y}px`, filter: `drop-shadow(0 0 4px ${n.color})` }}
+              transition={{ duration: 0.5, delay: 0.5 + i * 0.03 }}
+              style={{ transformOrigin: `${n.x}px ${n.y}px`, filter: `drop-shadow(0 0 5px ${n.color})` }}
             />
             {n.label && (
               <motion.text
-                x={n.x} y={n.y - n.r - 1.6}
+                x={n.x} y={n.y - n.r - 1.8}
                 textAnchor="middle"
-                fontSize="2.4"
+                fontSize="2.6"
                 fill="white"
                 fontWeight="600"
                 initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
+                whileInView={{ opacity: 0.92 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.9 }}
               >{n.label}</motion.text>
@@ -1533,9 +1735,9 @@ function BigGraph() {
           </g>
         ))}
       </svg>
-      <div className="lx-graph-tag lx-graph-tag-1">+ "RAG playbook" linked</div>
-      <div className="lx-graph-tag lx-graph-tag-2">3 new edges</div>
-      <div className="lx-graph-tag lx-graph-tag-3">cluster "GTM"</div>
+      <div className="lx-graph-tag lx-graph-tag-1"><span className="lx-graph-tag-dot" />"RAG playbook" linked</div>
+      <div className="lx-graph-tag lx-graph-tag-2"><span className="lx-graph-tag-dot" />3 new edges</div>
+      <div className="lx-graph-tag lx-graph-tag-3"><span className="lx-graph-tag-dot" />cluster "GTM"</div>
     </div>
   );
 }
