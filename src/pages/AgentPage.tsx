@@ -654,7 +654,7 @@ const AgentHubView = () => {
 
         {/* ═══ SIDEBAR: Agent Registry / History / Inspector (right column on wide, below chat on narrow) ═══ */}
         {!sidebarCollapsed && (
-        <div className="agent-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)', zIndex: 2 }}>
+        <div className="agent-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
           {/* Tabs */}
           <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 11, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
             {([

@@ -73,46 +73,46 @@ h1, h2, h3, h4, h5, h6 {
   --card-glow:       0 0 0 1px rgba(37,99,235,0.06);
 }
 
-/* ── Dark Theme Design Tokens ─────────────────────────────────────────────── */
+/* ── Dark Theme Design Tokens — TRUE DARK (near-black) ───────────────────── */
 [data-theme="dark"] {
-  --bg:              #060b18;
-  --surface:         #0d1526;
-  --surface-2:       #111e33;
-  --surface-3:       #162640;
-  --border:          rgba(255,255,255,0.08);
-  --border-2:        rgba(255,255,255,0.15);
-  --text-1:          #e8edf5;
-  --text-2:          #98a8bc;
-  --text-3:          #6b7d93;
+  --bg:              #050507;
+  --surface:         #0b0b0f;
+  --surface-2:       #111114;
+  --surface-3:       #18181c;
+  --border:          rgba(255,255,255,0.07);
+  --border-2:        rgba(255,255,255,0.14);
+  --text-1:          #f4f5f8;
+  --text-2:          #b4bac6;
+  --text-3:          #8b94a3;
   --primary:         #3b82f6;
-  --primary-bg:      rgba(37,99,235,0.14);
+  --primary-bg:      rgba(59,130,246,0.12);
   --primary-dark:    #06b6d4;
-  --primary-border:  rgba(37,99,235,0.35);
-  --shadow-sm:       0 1px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md:       0 4px 16px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35);
-  --shadow-lg:       0 12px 36px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4);
-  --inner-glow:      inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.25);
-  --card-glow:       0 0 0 1px rgba(37,99,235,0.08);
+  --primary-border:  rgba(59,130,246,0.32);
+  --shadow-sm:       0 1px 4px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md:       0 4px 18px rgba(0,0,0,0.75), 0 2px 6px rgba(0,0,0,0.5);
+  --shadow-lg:       0 12px 40px rgba(0,0,0,0.8), 0 4px 16px rgba(0,0,0,0.55);
+  --inner-glow:      inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4);
+  --card-glow:       0 0 0 1px rgba(59,130,246,0.06);
 }
 
 /* ── Dark mode root overrides ─────────────────────────────────────────────── */
 [data-theme="dark"] html,
 [data-theme="dark"] body,
 [data-theme="dark"] #root {
-  background: #060b18 !important;
-  color: #e8edf5 !important;
+  background: #050507 !important;
+  color: #f0f1f4 !important;
 }
 
-/* ── Dark mode mesh background ────────────────────────────────────────────── */
+/* ── Dark mode mesh background — VERY subtle on near-black ───────────────── */
 [data-theme="dark"] body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(37,99,235,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(34,211,238,0.07) 0%, transparent 60%),
-    #060b18;
+    radial-gradient(ellipse 70% 45% at 18% 12%, rgba(59,130,246,0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 35% at 82% 82%, rgba(34,211,238,0.04) 0%, transparent 65%),
+    #050507;
   pointer-events: none;
 }
 
@@ -689,9 +689,29 @@ img { max-width: 100%; }
 @media (min-width: 560px) { .capture-source-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 760px) { .capture-source-grid { grid-template-columns: repeat(4, 1fr); } }
 
+/* ── Power Hub grid responsive (Dashboard) ───────────────────────────────── */
+.power-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 480px) and (max-width: 1023px) {
+  .power-hub-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+@media (min-width: 1280px) {
+  .power-hub-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+
 /* ── Agent Hub body responsive (chat-first layout) ───────────────────────── */
-.agent-main { isolation: isolate; }
-.agent-sidebar { isolation: isolate; }
+.agent-main { isolation: isolate; min-width: 0; }
+.agent-sidebar { isolation: isolate; min-width: 0; }
+/* On WIDE screens only: pin the sidebar so it scrolls independently */
+@media (min-width: 1101px) {
+  .agent-sidebar {
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+}
+/* On narrow screens: simple stacked block flow — no sticky, no overlap */
 @media (max-width: 1100px) {
   .agent-body-grid { grid-template-columns: 1fr !important; }
   .agent-sidebar {
@@ -699,6 +719,7 @@ img { max-width: 100%; }
     top: auto !important;
     max-height: none !important;
     align-self: stretch !important;
+    overflow: visible !important;
   }
 }
 

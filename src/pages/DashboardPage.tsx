@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, Bookmark, ChevronRight } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass } from 'lucide-react';
 import { motion } from 'motion/react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import type { Memory } from '../lib/types';
@@ -409,20 +409,27 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
           )}
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Quick Actions</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Power Hub</div>
+              <span style={{ fontSize: 9, letterSpacing: '0.18em', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase' }}>One-click</span>
+            </div>
+            <div className="power-hub-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 }}>
               {[
-                { label: 'Capture Knowledge', icon: Plus, path: '/capture', color: '#ffffff', bg: '#6366f1', isAccent: true },
-                { label: 'Ask Recall AI', icon: Bot, path: '/recall', color: '#9333ea', bg: `rgba(147,51,234,0.08)` },
-                { label: 'Study Flashcards', icon: FlipHorizontal, path: '/flashcards', color: '#ec4899', bg: `rgba(236,72,153,0.08)` },
-                { label: 'Manage Tasks', icon: CheckSquare, path: '/tasks', color: '#10b981', bg: `rgba(16,185,129,0.08)` },
+                { label: 'Capture',     icon: Plus,           path: '/capture',    color: '#ffffff', bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', isAccent: true },
+                { label: 'Agent Hub',   icon: Cpu,            path: '/agent',      color: '#3b82f6', bg: `rgba(59,130,246,0.08)` },
+                { label: 'Recall AI',   icon: Bot,            path: '/recall',     color: '#9333ea', bg: `rgba(147,51,234,0.08)` },
+                { label: 'Discover',    icon: Compass,        path: '/discover',   color: '#06b6d4', bg: `rgba(6,182,212,0.08)` },
+                { label: 'Flashcards',  icon: FlipHorizontal, path: '/flashcards', color: '#ec4899', bg: `rgba(236,72,153,0.08)` },
+                { label: 'Tasks',       icon: CheckSquare,    path: '/tasks',      color: '#10b981', bg: `rgba(16,185,129,0.08)` },
+                { label: 'Mind Graph',  icon: Network,        path: '/graph',      color: '#06b6d4', bg: `rgba(6,182,212,0.08)` },
+                { label: 'Study Plan',  icon: GraduationCap,  path: '/plan',       color: '#7c3aed', bg: `rgba(124,58,237,0.08)` },
               ].map((a) => (
                 <button key={a.label} onClick={() => navigate(a.path)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}>
-                  <a.icon size={14} color={a.isAccent ? '#ffffff' : a.color} />
-                  <span style={{ color: a.isAccent ? '#ffffff' : a.color, fontSize: 12, fontWeight: 600 }}>{a.label}</span>
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = a.isAccent ? '0 4px 12px rgba(99,102,241,0.35)' : `0 4px 12px ${a.color}25`; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = `${a.color}50`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}>
+                  <a.icon size={13} color={a.isAccent ? '#ffffff' : a.color} />
+                  <span style={{ color: a.isAccent ? '#ffffff' : a.color, fontSize: 11.5, fontWeight: 600, letterSpacing: '-0.1px' }}>{a.label}</span>
                 </button>
               ))}
             </div>

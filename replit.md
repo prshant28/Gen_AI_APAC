@@ -14,6 +14,14 @@ The application employs a multi-agent AI architecture with a central orchestrato
 ### UI/UX Decisions
 The design system is based on dark glassmorphism with a neural theme, using CSS custom properties for comprehensive theming. It includes responsive layouts for various screen sizes, a light/dark theme toggle, and premium styling elements like gradient button shimmers and glow effects. Key UI components like Dashboard cards, Agent Hub, and various page layouts have been refactored to ensure theme consistency and responsiveness.
 
+**Dark mode (true dark):** `--bg #050507`, `--surface #0b0b0f`, `--surface-2 #111114`, `--surface-3 #18181c`. Text tokens tuned for AA contrast on near-black: `--text-1 #f4f5f8`, `--text-2 #b4bac6`, `--text-3 #8b94a3`. Subtle blue/cyan radial overlays on the body background.
+
+**Sidebar nav groups:** AI Brain (Dashboard, Agent Hub, Neural Recall, Discover) · Knowledge (Capture, Vault, Notes, Bookmarks) · Productivity (Tasks, Calendar, Habits, Flashcards, Study Plan) · Insight (Timeline, Mind Graph, Analytics) · System (Integrations, Pitch Deck, Settings). Profile is reachable via the avatar tile in the sidebar footer; Workspace is a direct-URL-only route (kept but hidden from nav to reduce clutter).
+
+**Dashboard "Power Hub":** 4×2 grid (responsive 2×4 on very narrow) of one-click cross-links to Capture, Agent Hub, Recall AI, Discover, Flashcards, Tasks, Mind Graph, Study Plan — gives judges a single screen that surfaces every major feature.
+
+**Agent Hub layout:** Two-column grid (chat left + agent registry sidebar right) at ≥1101px with the sidebar pinned via CSS `position: sticky`. Below 1101px the grid collapses to a single column and the sidebar drops to normal block flow with `position: static !important` (no inline sticky/zIndex), eliminating the previous overlap where the registry card visually covered chat content.
+
 ### Technical Implementations
 - **Frontend:** Built with React, TypeScript, and Vite. It utilizes `react-router-dom` for client-side routing, and `useLocation`/`useNavigate` for navigation. Global features like a toast system and a floating quick-capture button enhance user interaction.
 - **Backend:** Developed using Python with FastAPI. It exposes various API endpoints for AI coordination, knowledge capture, data management (memories, tasks, schedules), and analytics.

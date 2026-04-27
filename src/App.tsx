@@ -4,10 +4,10 @@ import {
 } from 'react-router-dom';
 import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
-  Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
+  Database, Bot, Network, GitBranch, BarChart2, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  User as UserIcon, Plug, Bookmark, Flame, GraduationCap, Compass
+  Plug, Bookmark, Flame, GraduationCap, Compass
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -50,42 +50,45 @@ import './pages/pages.css';
 
 const NAV_GROUPS = [
   {
-    label: 'Core',
+    label: 'AI Brain',
     items: [
-      { id: 'dashboard',  label: 'Dashboard',    path: '/dashboard', icon: LayoutDashboard, color: '#00d4ff' },
-      { id: 'agent',      label: 'Agent Hub',    path: '/agent',     icon: Cpu,             color: '#3b82f6' },
+      { id: 'dashboard',  label: 'Dashboard',     path: '/dashboard', icon: LayoutDashboard, color: '#00d4ff' },
+      { id: 'agent',      label: 'Agent Hub',     path: '/agent',     icon: Cpu,             color: '#3b82f6' },
+      { id: 'recall',     label: 'Neural Recall', path: '/recall',    icon: Bot,             color: '#00d4ff' },
+      { id: 'discover',   label: 'Discover',      path: '/discover',  icon: Compass,         color: '#06b6d4' },
+    ]
+  },
+  {
+    label: 'Knowledge',
+    items: [
       { id: 'capture',    label: 'Capture',      path: '/capture',   icon: Plus,            color: '#06b6d4' },
       { id: 'vault',      label: 'Vault',        path: '/vault',     icon: Database,        color: '#818cf8' },
-      { id: 'recall',     label: 'Neural Recall', path: '/recall',   icon: Bot,             color: '#00d4ff' },
       { id: 'notes',      label: 'Notes',        path: '/notes',     icon: StickyNote,      color: '#f59e0b' },
       { id: 'bookmarks',  label: 'Bookmarks',    path: '/bookmarks', icon: Bookmark,        color: '#ec4899' },
     ]
   },
   {
-    label: 'Explore',
+    label: 'Productivity',
+    items: [
+      { id: 'tasks',      label: 'Tasks',        path: '/tasks',      icon: CheckSquare,    color: '#10b981' },
+      { id: 'calendar',   label: 'Calendar',     path: '/calendar',   icon: CalendarIcon,   color: '#818cf8' },
+      { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },
+      { id: 'flashcards', label: 'Flashcards',   path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
+      { id: 'plan',       label: 'Study Plan',   path: '/plan',       icon: GraduationCap,  color: '#7c3aed' },
+    ]
+  },
+  {
+    label: 'Insight',
     items: [
       { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#818cf8' },
       { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#06b6d4' },
       { id: 'analytics',  label: 'Analytics',    path: '/analytics', icon: BarChart2,  color: '#10b981' },
-      { id: 'workspace',  label: 'Workspace',    path: '/workspace', icon: Kanban,     color: '#06b6d4' },
-    ]
-  },
-  {
-    label: 'Learn',
-    items: [
-      { id: 'tasks',      label: 'Tasks',       path: '/tasks',      icon: CheckSquare,   color: '#10b981' },
-      { id: 'flashcards', label: 'Flashcards',  path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
-      { id: 'habits',     label: 'Habits',      path: '/habits',     icon: Flame,         color: '#10b981' },
-      { id: 'calendar',   label: 'Calendar',    path: '/calendar',   icon: CalendarIcon,  color: '#818cf8' },
-      { id: 'plan',       label: 'Study Plan',  path: '/plan',       icon: GraduationCap, color: '#7c3aed' },
-      { id: 'discover',   label: 'Discover',    path: '/discover',   icon: Compass,       color: '#06b6d4' },
     ]
   },
   {
     label: 'System',
     items: [
       { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,         color: '#22d3ee' },
-      { id: 'profile',      label: 'Profile',      path: '/profile',      icon: UserIcon,     color: '#3b82f6' },
       { id: 'deck',         label: 'Pitch Deck',   path: '/deck',         icon: Presentation, color: '#22d3ee' },
       { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings,     color: '#6b7280' },
     ]
