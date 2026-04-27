@@ -1,5 +1,10 @@
 export type View = 'dashboard' | 'capture' | 'vault' | 'recall' | 'tasks' | 'calendar' | 'flashcards' | 'settings' | 'timeline' | 'graph' | 'workspace' | 'analytics' | 'agent';
 
+export interface GlossaryTerm {
+  term: string;
+  definition: string;
+}
+
 export interface Memory {
   id: string;
   title: string;
@@ -19,6 +24,17 @@ export interface Memory {
     source_url?: string;
     created_at?: string;
   };
+  // Rich analysis (optional — populated by capture agent)
+  executive_summary?: string;
+  action_items?: string[];
+  glossary?: GlossaryTerm[];
+  study_questions?: string[];
+  notes?: string;
+  // PDF-specific (optional)
+  pdf_data?: string;        // data:application/pdf;base64,...
+  pdf_pages?: number;
+  pdf_size_kb?: number;
+  pdf_word_count?: number;
 }
 
 export interface Flashcard {

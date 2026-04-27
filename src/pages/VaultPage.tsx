@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle } from 'lucide-react';
+import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
 import type { Memory, Flashcard } from '../lib/types';
@@ -314,13 +314,54 @@ const VaultView = () => {
               <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px' }} className="scroll-custom">
                 {selectedMemory.source_type === 'youtube' && selectedMemory.source_url && <YouTubeEmbed url={selectedMemory.source_url} />}
 
+                {selectedMemory.source_type === 'pdf' && selectedMemory.pdf_data && (
+                  <div style={{ marginBottom: 18, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: '#1a1040' }}>
+                    <iframe src={selectedMemory.pdf_data} title={selectedMemory.title}
+                      style={{ width: '100%', height: 480, border: 0, display: 'block', background: '#fff' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface-2)', fontSize: 11, color: 'var(--text-3)', flexWrap: 'wrap' }}>
+                      <FileText size={11} color="#f59e0b" />
+                      <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>PDF embedded</span>
+                      {selectedMemory.pdf_pages && <span>{selectedMemory.pdf_pages} pages</span>}
+                      {selectedMemory.pdf_size_kb && <span>{selectedMemory.pdf_size_kb} KB</span>}
+                      {selectedMemory.pdf_word_count && <span>~{selectedMemory.pdf_word_count.toLocaleString()} words</span>}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {selectedMemory.executive_summary && (
+                    <section>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                        <Award size={14} color="#a855f7" /> Executive Summary
+                      </h4>
+                      <p style={{ color: 'var(--text-2)', lineHeight: 1.7, fontSize: 13.5, margin: 0, padding: '12px 14px', background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.18)', borderRadius: 11 }}>
+                        {selectedMemory.executive_summary}
+                      </p>
+                    </section>
+                  )}
+
                   <section>
                     <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
                       <Brain size={14} color="#6366f1" /> Summary
                     </h4>
                     <p style={{ color: 'var(--text-2)', lineHeight: 1.7, fontSize: 13.5, margin: 0 }}>{selectedMemory.summary}</p>
                   </section>
+
+                  {selectedMemory.action_items && selectedMemory.action_items.length > 0 && (
+                    <section>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                        <ListTodo size={14} color="#22d3ee" /> Action Items
+                      </h4>
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {selectedMemory.action_items.map((it, i) => (
+                          <li key={i} style={{ display: 'flex', gap: 9, padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                            <span style={{ width: 18, height: 18, borderRadius: 5, border: '1.5px solid #22d3ee', flexShrink: 0, marginTop: 1 }} />
+                            <span>{it}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
 
                   <section>
                     <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
@@ -335,6 +376,35 @@ const VaultView = () => {
                       ))}
                     </div>
                   </section>
+
+                  {selectedMemory.glossary && selectedMemory.glossary.length > 0 && (
+                    <section>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                        <BookOpen size={14} color="#f97316" /> Glossary
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {selectedMemory.glossary.map((g, i) => (
+                          <div key={i} style={{ padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                            <strong style={{ color: '#f97316', marginRight: 6 }}>{g.term}</strong>
+                            <span>{g.definition}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {selectedMemory.study_questions && selectedMemory.study_questions.length > 0 && (
+                    <section>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                        <MessageCircle size={14} color="#ec4899" /> Study Questions
+                      </h4>
+                      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {selectedMemory.study_questions.map((q, i) => (
+                          <li key={i} style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>{q}</li>
+                        ))}
+                      </ol>
+                    </section>
+                  )}
 
                   <section>
                     <h4 style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-1)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>

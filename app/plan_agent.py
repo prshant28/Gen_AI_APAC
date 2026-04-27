@@ -337,3 +337,100 @@ async def generate_plan(
             "total_ms": sum(timings.values()),
         },
     }
+
+
+# ─── Single-day regenerate ────────────────────────────────────────────────────
+
+async def regenerate_day(
+    topic: str,
+    day_index: int,
+    plan: List[Dict[str, Any]],
+    goal_type: str = "study",
+    minutes_per_day: int = 60,
+) -> Dict[str, Any]:
+    """Regenerate a single day with a fresh angle. Uses the existing plan as
+    context so the new day complements the others (no duplicate focus_area
+    when avoidable, fresh activities, swap to alternate resources).
+    """
+    if not plan or day_index < 0 or day_index >= len(plan):
+        return {"error": "invalid day_index"}
+
+    target = plan[day_index]
+    focus_name = (target.get("focus_area") or "").strip() or topic
+    focus_id = target.get("focus_id") or _slug(focus_name)
+    other_titles = [d.get("title", "") for i, d in enumerate(plan) if i != day_index]
+
+    # Pull fresh resources for the focus area (best-effort; non-blocking on errors)
+    resources: List[Dict[str, Any]] = []
+    try:
+        # Rotate the search query angle so we get genuinely different results
+        # than the original day's resources (avoid same top hits).
+        rotation = ["explained", "tutorial", "deep dive", "case study", "advanced", "best practices"]
+        suffix = rotation[day_index % len(rotation)]
+        focus_obj = {
+            "id": focus_id,
+            "name": focus_name,
+            "description": "",
+            "search_query": f"{focus_name} {suffix}",
+        }
+        disc = await discover_for_focus(focus_obj)
+        resources = (disc.get("videos") or [])[:3] + (disc.get("articles") or [])[:3]
+    except Exception as e:
+        logger.warning(f"regenerate_day discover failed: {e}")
+
+    # Pick 2 resources we have NOT already shown in plan
+    seen_urls = set()
+    for d in plan:
+        for r in (d.get("resources") or []):
+            if r.get("url"):
+                seen_urls.add(r["url"])
+    fresh = [r for r in resources if r.get("url") and r["url"] not in seen_urls][:2]
+    if not fresh:
+        fresh = resources[:2]
+
+    # Build a richer activity list with a different angle than the existing day
+    angles = [
+        "Deep-dive perspective",
+        "Hands-on practice",
+        "Critique & compare",
+        "Teach-back exercise",
+        "Real-world case study",
+        "Speed-run review",
+    ]
+    angle = angles[(day_index + int(asyncio.get_event_loop().time())) % len(angles)]
+
+    activities: List[str] = [
+        f"Angle: {angle} on {focus_name}",
+        f"Warm-up — recall yesterday's takeaways for {topic}",
+    ]
+    for r in fresh:
+        label = "Watch" if r.get("type") == "video" else "Read"
+        title = (r.get("title") or "")[:80]
+        dur = r.get("duration_display")
+        extra = f" ({dur})" if dur else ""
+        activities.append(f"{label}: {title}{extra}")
+    activities.append(f"Reflect — write 3 questions you still have about {focus_name}")
+    activities.append(f"Capture 2 fresh notes into your second brain")
+
+    new_day = {
+        "day": target.get("day", day_index + 1),
+        "date": target.get("date") or _date_str(day_index),
+        "title": f"Day {target.get('day', day_index + 1)} — {focus_name} ({angle})",
+        "focus_area": focus_name,
+        "focus_id": focus_id,
+        "duration_minutes": minutes_per_day,
+        "activities": activities,
+        "resources": [{
+            "title": r.get("title"),
+            "url": r.get("url"),
+            "type": r.get("type"),
+            "thumbnail": r.get("thumbnail"),
+            "youtube_id": r.get("youtube_id"),
+            "channel_title": r.get("channel_title"),
+            "duration_display": r.get("duration_display"),
+            "domain": r.get("domain") or r.get("source"),
+        } for r in fresh],
+        "regenerated": True,
+        "angle": angle,
+    }
+    return {"day": new_day}

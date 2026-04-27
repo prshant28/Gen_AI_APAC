@@ -119,6 +119,7 @@ const PlanGeneratorPage: React.FC = () => {
   const [savingToWorkspace, setSavingToWorkspace] = useState(false);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [savedSummary, setSavedSummary] = useState<{ events: number; tasks: number } | null>(null);
+  const [regeneratingDay, setRegeneratingDay] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/plan/goal-types').then(r => r.ok ? r.json() : null).then(d => {
@@ -241,6 +242,37 @@ const PlanGeneratorPage: React.FC = () => {
       navigate(`/workspace?project=${data.id}`);
     } finally {
       setSavingToWorkspace(false);
+    }
+  };
+
+  const regenerateDay = async (dayIndex: number) => {
+    if (!plan) return;
+    setRegeneratingDay(dayIndex);
+    try {
+      const res = await fetch('/plan/regenerate-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: plan.topic,
+          day_index: dayIndex,
+          plan: plan.plan,
+          goal_type: plan.goal_type,
+          minutes_per_day: plan.minutes_per_day,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.day) {
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: data?.error || data?.detail || 'Regenerate failed', type: 'error' } }));
+        return;
+      }
+      const next = { ...plan, plan: plan.plan.map((d, i) => i === dayIndex ? { ...d, ...data.day } : d) };
+      setPlan(next);
+      localStorage.setItem('plan-draft-v2', JSON.stringify({ topic, goalType, plan: next }));
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Day ${dayIndex + 1} regenerated`, type: 'success' } }));
+    } catch {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Regenerate failed — network error', type: 'error' } }));
+    } finally {
+      setRegeneratingDay(null);
     }
   };
 
@@ -457,9 +489,17 @@ const PlanGeneratorPage: React.FC = () => {
                     <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Day {day.day} · {day.date}</span>
                     <h5 style={{ fontWeight: 700, fontSize: 15, margin: '3px 0 0', color: 'var(--text-1)' }}>{day.title}</h5>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{day.duration_minutes} min</div>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{day.focus_area}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{day.duration_minutes} min</div>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{day.focus_area}</div>
+                    </div>
+                    <button onClick={() => regenerateDay(i)} disabled={regeneratingDay !== null}
+                      title="Regenerate this day with a fresh angle and new resources"
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', background: regeneratingDay === i ? 'rgba(99,102,241,0.12)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, cursor: regeneratingDay !== null ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: regeneratingDay !== null && regeneratingDay !== i ? 0.5 : 1 }}>
+                      {regeneratingDay === i ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={11} />}
+                      {regeneratingDay === i ? 'Regen…' : 'Regen'}
+                    </button>
                   </div>
                 </div>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>

@@ -277,6 +277,59 @@ export default function MemoryDetailPage() {
             </div>
           )}
 
+          {/* PDF embed — full-document viewer */}
+          {memory.source_type === 'pdf' && memory.pdf_data && (
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)', height:560, background:'#1a1a1a' }}>
+                <iframe src={memory.pdf_data} title={memory.title} style={{ width:'100%', height:'100%', border:'none', display:'block' }} />
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:8, margin:'10px 0 0' }}>
+                {memory.pdf_pages != null && (
+                  <span style={{ fontSize:10.5, fontWeight:700, color:'#10b981', padding:'2px 8px', background:'rgba(16,185,129,0.10)', borderRadius:999, border:'1px solid rgba(16,185,129,0.25)' }}>
+                    {memory.pdf_pages} {memory.pdf_pages === 1 ? 'page' : 'pages'}
+                  </span>
+                )}
+                {memory.pdf_size_kb != null && (
+                  <span style={{ fontSize:10.5, fontWeight:700, color:'var(--text-2)', padding:'2px 8px', background:'var(--surface-2)', borderRadius:999, border:'1px solid var(--border)' }}>
+                    {memory.pdf_size_kb < 1024 ? `${Math.round(memory.pdf_size_kb)} KB` : `${(memory.pdf_size_kb / 1024).toFixed(2)} MB`}
+                  </span>
+                )}
+                {memory.pdf_word_count != null && (
+                  <span style={{ fontSize:10.5, fontWeight:700, color:'var(--text-2)', padding:'2px 8px', background:'var(--surface-2)', borderRadius:999, border:'1px solid var(--border)' }}>
+                    ~{memory.pdf_word_count.toLocaleString()} words
+                  </span>
+                )}
+                <a href={memory.pdf_data} download={`${memory.title}.pdf`}
+                  style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'var(--primary)', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', border:'1px solid var(--primary-border)', borderRadius:8, background:'var(--primary-bg)' }}>
+                  <SquareArrowOutUpRight size={11} /> Download PDF
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* PDF placeholder when pdf_data missing (legacy memories) */}
+          {memory.source_type === 'pdf' && !memory.pdf_data && memory.source_url && (
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <div style={{ padding:'18px 20px', borderRadius:12, border:'1px dashed var(--border-2)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:12 }}>
+                <FileText size={22} color="#f59e0b" />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:'var(--text-1)', margin:0 }}>PDF not embedded</p>
+                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>This memory was captured before inline PDF embedding. Re-upload to view here.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Executive Summary */}
+          {memory.executive_summary && memory.executive_summary.trim() && (
+            <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)', background:'var(--primary-bg)' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, fontWeight:800, color:'var(--primary)', margin:'0 0 8px', letterSpacing:0.6, textTransform:'uppercase' }}>
+                <Sparkles size={13} color="var(--primary)" /> Executive Summary
+              </h3>
+              <p style={{ color:'var(--text-1)', lineHeight:1.7, fontSize:13.5, margin:0, fontWeight:500 }}>{memory.executive_summary}</p>
+            </div>
+          )}
+
           {/* Summary */}
           <div style={{ padding:'22px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
             <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:'0 0 12px' }}>
@@ -301,6 +354,61 @@ export default function MemoryDetailPage() {
               ))}
             </div>
           </div>
+
+          {/* Action Items */}
+          {memory.action_items && memory.action_items.length > 0 && (
+            <div style={{ padding:'22px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:'0 0 12px' }}>
+                <ListTodo size={14} color="#f97316" /> Action Items
+              </h3>
+              <ul style={{ display:'flex', flexDirection:'column', gap:7, padding:0, margin:0, listStyle:'none' }}>
+                {memory.action_items.map((item, i) => (
+                  <li key={i} style={{ display:'flex', gap:10, padding:'10px 13px', background:'rgba(249,115,22,0.06)', borderRadius:11, border:'1px solid rgba(249,115,22,0.18)', alignItems:'flex-start' }}>
+                    <CheckSquare size={14} color="#f97316" style={{ flexShrink:0, marginTop:1 }} />
+                    <span style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.55 }}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Glossary */}
+          {memory.glossary && memory.glossary.length > 0 && (
+            <div style={{ padding:'22px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:'0 0 12px' }}>
+                <BookOpen size={14} color="#a78bfa" /> Glossary
+              </h3>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:8 }}>
+                {memory.glossary.map((g, i) => (
+                  <div key={i} style={{ padding:'11px 13px', background:'var(--surface-2)', borderRadius:11, border:'1px solid var(--border)' }}>
+                    <div style={{ fontSize:12, fontWeight:800, color:'#a78bfa', marginBottom:4, letterSpacing:0.2 }}>{g.term}</div>
+                    <div style={{ fontSize:12, color:'var(--text-2)', lineHeight:1.55 }}>{g.definition}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Study Questions */}
+          {memory.study_questions && memory.study_questions.length > 0 && (
+            <div style={{ padding:'22px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-1)', margin:'0 0 12px' }}>
+                <MessageCircle size={14} color="#22d3ee" /> Study Questions
+              </h3>
+              <ol style={{ display:'flex', flexDirection:'column', gap:7, padding:0, margin:0, listStyle:'none' }}>
+                {memory.study_questions.map((q, i) => (
+                  <li key={i} style={{ display:'flex', gap:10, padding:'10px 13px', background:'rgba(34,211,238,0.06)', borderRadius:11, border:'1px solid rgba(34,211,238,0.18)', alignItems:'flex-start' }}>
+                    <span style={{ width:22, height:22, borderRadius:'50%', background:'rgba(34,211,238,0.18)', color:'#0e7490', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, flexShrink:0 }}>Q{i + 1}</span>
+                    <span style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.55, flex:1 }}>{q}</span>
+                    <button onClick={() => sendChat(q)} title="Ask the research agent"
+                      style={{ padding:'3px 8px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:7, fontSize:10, fontWeight:700, color:'var(--text-2)', cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+                      Ask
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {/* Tags */}
           <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>

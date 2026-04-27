@@ -1,5 +1,6 @@
 import re
 import json
+import base64
 import httpx
 import datetime
 import io
@@ -16,26 +17,74 @@ from app.config import settings
 from app.ai_helper import chat_with_fallback, chat_json, get_primary_client
 
 
+# How big a PDF can be before we stop embedding it as base64 in the memory doc.
+# Larger PDFs still work — we just don't store the bytes (vault detail won't render).
+MAX_EMBED_PDF_BYTES = 3 * 1024 * 1024  # 3 MB
+
+# How much raw text to send to the LLM for richer analysis (PDFs in particular).
+ANALYSIS_TEXT_BUDGET = 14000
+
+
 def get_openai_client() -> AsyncOpenAI:
     return get_primary_client()
 
 
-async def analyze_with_openai(raw_text: str, model: str) -> dict:
-    prompt = f"""Analyze this content and return a JSON object with these exact keys:
-- summary (string, 3 sentences)
-- key_points (array of 5 strings)
-- tags (array of 3-5 lowercase single words)
-- domain (single word from: AI, Technology, Science, Business, Health, History, Philosophy, Engineering, Productivity, Other)
+async def analyze_with_openai(raw_text: str, model: str, *, source_type: str = "note") -> dict:
+    """Generate a rich, structured analysis. The schema is the same across source
+    types so the UI can render any subset; PDFs/web articles especially benefit
+    from action_items, glossary and study_questions."""
+    prompt = f"""You are an expert knowledge analyst. Analyze the following content
+and return a JSON object with EXACTLY these keys:
 
-Content: {raw_text if raw_text else "No content available."}
+- "summary": 3-4 sentence high-signal overview
+- "executive_summary": 1 short paragraph (~60 words) for a busy reader — what this is, why it matters, biggest takeaway
+- "key_points": array of 5-7 strings, each a crisp one-line insight (no leading bullets/numbers)
+- "action_items": array of 3-5 short imperative phrases the reader should DO after reading (e.g., "Implement X locally", "Read paper Y", "Try Z exercise")
+- "glossary": array of 3-6 objects {{"term": "...", "definition": "1 short sentence"}} for important domain terms
+- "study_questions": array of 4-6 self-test questions that probe genuine understanding (avoid trivia)
+- "tags": array of 4-6 lowercase short tags (1-2 words, no #), useful for search
+- "domain": single word from: AI, Technology, Science, Business, Health, History, Philosophy, Engineering, Productivity, Other
 
-Return only valid JSON."""
+Source type: {source_type}
 
+Content:
+\"\"\"
+{raw_text if raw_text else "No content available."}
+\"\"\"
+
+Return ONLY valid JSON. Do not wrap it in markdown."""
     return await chat_json(
         messages=[{"role": "user", "content": prompt}],
         model=model,
-        temperature=0.2,
+        temperature=0.25,
     )
+
+
+def _coerce_glossary(raw) -> list:
+    """Normalize glossary into [{'term': str, 'definition': str}, ...]."""
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for it in raw[:8]:
+        if isinstance(it, dict):
+            term = str(it.get("term") or it.get("name") or "").strip()
+            defn = str(it.get("definition") or it.get("def") or it.get("desc") or "").strip()
+            if term and defn:
+                out.append({"term": term[:60], "definition": defn[:280]})
+    return out
+
+
+def _coerce_str_list(raw, max_items: int = 8, max_len: int = 240) -> list:
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for it in raw[:max_items]:
+        if it is None:
+            continue
+        s = str(it).strip()
+        if s:
+            out.append(s[:max_len])
+    return out
 
 
 async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes: bytes = None, user_id: str = "demo_user", preview: bool = False) -> dict:
@@ -49,6 +98,8 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
     model = settings.OPENAI_MODEL
     raw_text = ""
     title = "Untitled Content"
+    # Optional PDF metadata that flows through to the saved memory document.
+    pdf_meta: dict = {}
 
     try:
         headers = {
@@ -94,31 +145,53 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
                     title = "Web Scrape Failed"
 
         elif source_type == "pdf":
-            if pdf_bytes:
-                try:
-                    reader = PdfReader(io.BytesIO(pdf_bytes))
-                    text_parts = []
-                    for page in reader.pages:
-                        extracted = page.extract_text()
-                        if extracted:
-                            text_parts.append(extracted)
-                    raw_text = " ".join(text_parts)[:4000]
-                    title = "PDF Document"
-                except Exception as e:
-                    raw_text = f"Failed to parse PDF. Error: {str(e)}"
-                    title = "PDF Parse Error"
-            elif url:
+            pdf_source_bytes: Optional[bytes] = pdf_bytes
+            if not pdf_source_bytes and url:
                 async with httpx.AsyncClient() as client:
                     try:
                         resp = await client.get(url, follow_redirects=True, timeout=20.0)
-                        reader = PdfReader(io.BytesIO(resp.content))
-                        text_parts = [p.extract_text() or "" for p in reader.pages]
-                        raw_text = " ".join(text_parts)[:4000]
-                        title = f"PDF from URL"
+                        pdf_source_bytes = resp.content
                     except Exception as e:
-                        raw_text = f"Failed to fetch/parse PDF: {str(e)}"
+                        raw_text = f"Failed to fetch PDF: {str(e)}"
                         title = "PDF Error"
-            else:
+
+            if pdf_source_bytes:
+                try:
+                    reader = PdfReader(io.BytesIO(pdf_source_bytes))
+                    page_count = len(reader.pages)
+                    # Try to use the embedded title from PDF metadata
+                    try:
+                        meta = reader.metadata or {}
+                        meta_title = (getattr(meta, "title", None) or meta.get("/Title") or "").strip() if meta else ""
+                        if meta_title:
+                            title = meta_title[:140]
+                        else:
+                            title = "PDF Document"
+                    except Exception:
+                        title = "PDF Document"
+
+                    text_parts = []
+                    for i, page in enumerate(reader.pages):
+                        try:
+                            extracted = page.extract_text()
+                        except Exception:
+                            extracted = ""
+                        if extracted:
+                            text_parts.append(extracted)
+                    raw_text = "\n\n".join(text_parts)[:ANALYSIS_TEXT_BUDGET]
+
+                    pdf_meta["pdf_pages"] = page_count
+                    pdf_meta["pdf_size_kb"] = round(len(pdf_source_bytes) / 1024, 1)
+                    pdf_meta["pdf_word_count"] = len(raw_text.split())
+                    # Embed the actual bytes as base64 only when small enough
+                    # so Vault can render the original PDF inline.
+                    if len(pdf_source_bytes) <= MAX_EMBED_PDF_BYTES:
+                        b64 = base64.b64encode(pdf_source_bytes).decode("ascii")
+                        pdf_meta["pdf_data"] = f"data:application/pdf;base64,{b64}"
+                except Exception as e:
+                    raw_text = f"Failed to parse PDF. Error: {str(e)}"
+                    title = "PDF Parse Error"
+            elif not raw_text:
                 raw_text = "No PDF content provided."
                 title = "Empty PDF"
 
@@ -130,14 +203,18 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
                 title = "Quick Note"
 
         try:
-            analysis = await analyze_with_openai(raw_text, model)
+            analysis = await analyze_with_openai(raw_text, model, source_type=source_type)
         except Exception as e:
             print(f"OpenAI Analysis Error: {e}")
             analysis = {
                 "summary": f"Analysis failed: {str(e)}",
+                "executive_summary": "",
                 "key_points": ["Error during processing", "Check API Key", "Check content"],
+                "action_items": [],
+                "glossary": [],
+                "study_questions": [],
                 "tags": ["error", "retry"],
-                "domain": "Other"
+                "domain": "Other",
             }
 
         memory_doc = {
@@ -145,13 +222,19 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
             "source_url": url,
             "title": analysis.get("title", title),
             "summary": analysis.get("summary", ""),
-            "key_points": analysis.get("key_points", []),
-            "tags": analysis.get("tags", []),
+            "executive_summary": str(analysis.get("executive_summary") or "").strip(),
+            "key_points": _coerce_str_list(analysis.get("key_points"), max_items=8, max_len=320),
+            "action_items": _coerce_str_list(analysis.get("action_items"), max_items=6, max_len=200),
+            "glossary": _coerce_glossary(analysis.get("glossary")),
+            "study_questions": _coerce_str_list(analysis.get("study_questions"), max_items=6, max_len=240),
+            "tags": _coerce_str_list(analysis.get("tags"), max_items=8, max_len=40),
             "domain": analysis.get("domain", "Other"),
             "userId": user_id,
-            "created_at": datetime.datetime.now(datetime.timezone.utc)
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
         }
         memory_doc["title"] = title
+        # Attach PDF metadata (page count, size, embedded bytes) when available
+        memory_doc.update(pdf_meta)
 
         duplicate_of = None
         if url:
@@ -345,12 +428,23 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
             "source_url": source_url,
             "title": memory_data.get("title", "Untitled"),
             "summary": memory_data.get("summary", ""),
-            "key_points": memory_data.get("key_points", []),
-            "tags": memory_data.get("tags", []),
+            "executive_summary": memory_data.get("executive_summary", ""),
+            "key_points": memory_data.get("key_points", []) or [],
+            "action_items": memory_data.get("action_items", []) or [],
+            "glossary": memory_data.get("glossary", []) or [],
+            "study_questions": memory_data.get("study_questions", []) or [],
+            "tags": memory_data.get("tags", []) or [],
             "domain": memory_data.get("domain", "Other"),
             "userId": user_id,
-            "created_at": datetime.datetime.now(datetime.timezone.utc)
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
         }
+        # PDF-only optional fields
+        for k in ("pdf_data", "pdf_pages", "pdf_size_kb", "pdf_word_count"):
+            if memory_data.get(k) is not None:
+                memory_doc[k] = memory_data.get(k)
+        # Free-form note from the user
+        if memory_data.get("notes"):
+            memory_doc["notes"] = memory_data.get("notes")
         memory_doc = await _atomic_create_memory(memory_doc, user_id, source_url)
 
         if hasattr(memory_doc.get("created_at"), "isoformat"):

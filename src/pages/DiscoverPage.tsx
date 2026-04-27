@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X, Eye, Clock, Calendar as CalendarIcon, NotebookPen, Save, ListChecks, Filter, ArrowUpDown, Zap, FolderPlus, ChevronDown, FolderTree } from 'lucide-react';
+import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X, Eye, Clock, Calendar as CalendarIcon, NotebookPen, Save, ListChecks, Filter, ArrowUpDown, Zap, FolderPlus, ChevronDown, FolderTree, Brain, ArrowRight, Lightbulb, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
 import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
@@ -65,6 +65,16 @@ const DiscoverPage: React.FC = () => {
   const [showWsPicker, setShowWsPicker] = useState(false);
   const [savingBulk, setSavingBulk] = useState(false);
   const [savedToWs, setSavedToWs] = useState<Set<string>>(new Set());
+  const [digest, setDigest] = useState<{
+    tldr: string;
+    themes: { title: string; why: string }[];
+    must_read: { title: string; url: string; reason: string }[];
+    watch_first?: string;
+    contrarian?: string;
+    next_questions: string[];
+    total: number;
+  } | null>(null);
+  const [digestLoading, setDigestLoading] = useState(false);
 
   const refreshWsProjects = useCallback(async () => {
     try {
@@ -288,6 +298,30 @@ const DiscoverPage: React.FC = () => {
     navigate(`/plan?topic=${encodeURIComponent(item.title)}`);
   };
 
+  const runDigest = async () => {
+    const visible = items.filter(it => filter === 'all' || it.type === filter).slice(0, 10);
+    if (!topic.trim() || visible.length === 0) return;
+    setDigestLoading(true);
+    setDigest(null);
+    try {
+      const r = await fetch('/discover/digest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topic.trim(), items: visible }),
+      });
+      const data = await r.json();
+      if (!r.ok || data?.error) {
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: data?.error || data?.detail || 'Digest failed', type: 'error' } }));
+        return;
+      }
+      setDigest(data);
+    } catch {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Digest failed — network error', type: 'error' } }));
+    } finally {
+      setDigestLoading(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const base = items.filter(it => filter === 'all' || it.type === filter);
     if (sortKey === 'views') return [...base].sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
@@ -417,8 +451,113 @@ const DiscoverPage: React.FC = () => {
               Save all
             </button>
           </div>
+          <button onClick={runDigest} disabled={digestLoading || filtered.length === 0}
+            title="Synthesize an AI brief over the visible items"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: digest ? 'rgba(168,85,247,0.12)' : 'linear-gradient(135deg,#a855f7,#7c3aed)', border: digest ? '1px solid rgba(168,85,247,0.3)' : 'none', borderRadius: 18, color: digest ? '#a855f7' : '#fff', fontSize: 11.5, fontWeight: 700, cursor: (digestLoading || filtered.length === 0) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (digestLoading || filtered.length === 0) ? 0.6 : 1, boxShadow: digest ? 'none' : '0 4px 12px rgba(168,85,247,0.35)' }}>
+            {digestLoading ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Brain size={11} />}
+            {digest ? 'Re-synthesize' : 'AI Digest'}
+          </button>
         </div>
       )}
+
+      {/* AI Digest panel */}
+      <AnimatePresence>
+        {digest && (
+          <motion.div initial={{ opacity: 0, y: -6, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            style={{ ...card, marginBottom: 14, overflow: 'hidden', borderColor: 'rgba(168,85,247,0.3)', background: 'linear-gradient(135deg, rgba(168,85,247,0.08), rgba(124,58,237,0.05))' }}>
+            <div style={{ padding: '14px 18px 10px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#a855f7,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(168,85,247,0.4)' }}>
+                <Brain size={15} color="#fff" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>AI Digest · synthesized over {digest.total} items</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Topic: {topic}</div>
+              </div>
+              <button onClick={() => setDigest(null)} aria-label="Close"
+                style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={12} />
+              </button>
+            </div>
+            <div style={{ padding: '14px 18px 16px', display: 'grid', gap: 14 }}>
+              {digest.tldr && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 6 }}>TL;DR</div>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text-1)' }}>{digest.tldr}</p>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                {digest.themes.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+                      <Lightbulb size={12} color="#f59e0b" />
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Themes</span>
+                    </div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {digest.themes.map((t, i) => (
+                        <li key={i} style={{ padding: '8px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
+                          <strong style={{ color: 'var(--text-1)' }}>{t.title}.</strong> {t.why}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {digest.must_read.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+                      <ArrowRight size={12} color="#10b981" />
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Must read · in order</span>
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {digest.must_read.map((m, i) => (
+                        <li key={i} style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
+                          <a href={m.url} target="_blank" rel="noreferrer" style={{ color: '#22d3ee', fontWeight: 700, textDecoration: 'none' }}>{m.title}</a>
+                          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{m.reason}</div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+              {(digest.watch_first || digest.contrarian) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+                  {digest.watch_first && (
+                    <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 9 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>
+                        <Youtube size={11} /> Watch first
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600, lineHeight: 1.4 }}>{digest.watch_first}</div>
+                    </div>
+                  )}
+                  {digest.contrarian && (
+                    <div style={{ padding: '10px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 9 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>
+                        <Zap size={11} /> Contrarian view
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>{digest.contrarian}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {digest.next_questions.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+                    <HelpCircle size={12} color="#818cf8" />
+                    <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Questions to explore next</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {digest.next_questions.map((q, i) => (
+                      <button key={i} onClick={() => { setTopic(q); runDiscover(q); setDigest(null); }}
+                        style={{ padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, color: 'var(--text-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', maxWidth: '100%' }}>
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error */}
       {error && (
@@ -467,7 +606,20 @@ const DiscoverPage: React.FC = () => {
                         title={`Play "${item.title}"`} aria-label={`Play ${item.title}`}
                         style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer', display: 'block' }}>
                         <img src={thumbSrc} alt="" loading="lazy"
-                          onError={e => { (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`; }}
+                          data-fb="0"
+                          onError={e => {
+                            const el = e.currentTarget as HTMLImageElement;
+                            const step = parseInt(el.dataset.fb || '0', 10);
+                            const chain = [
+                              `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+                              `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`,
+                              `https://img.youtube.com/vi/${ytId}/0.jpg`,
+                            ];
+                            if (step < chain.length) {
+                              el.dataset.fb = String(step + 1);
+                              el.src = chain[step];
+                            }
+                          }}
                           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                           <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(239,68,68,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 22px rgba(239,68,68,0.55)' }}>
@@ -486,12 +638,21 @@ const DiscoverPage: React.FC = () => {
                       </button>
                     )
                   ) : (
-                    <div style={{ position: 'relative', width: '100%', paddingBottom: '40%', background: 'linear-gradient(135deg, rgba(6,182,212,0.18), rgba(99,102,241,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FileText size={36} color="rgba(99,102,241,0.45)" />
-                      </div>
+                    <div style={{ position: 'relative', width: '100%', paddingBottom: '52%', background: 'linear-gradient(135deg, rgba(6,182,212,0.18), rgba(99,102,241,0.12))', overflow: 'hidden' }}>
+                      {item.thumbnail ? (
+                        <img src={item.thumbnail} alt="" loading="lazy"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FileText size={36} color="rgba(99,102,241,0.45)" />
+                        </div>
+                      )}
+                      {item.thumbnail && (
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }} />
+                      )}
                       <div style={{ position: 'absolute', top: 7, left: 7, padding: '3px 8px', background: 'rgba(6,182,212,0.95)', borderRadius: 4, color: '#fff', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.8px' }}>ARTICLE</div>
-                      <div style={{ position: 'absolute', bottom: 7, right: 9, color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ position: 'absolute', bottom: 7, right: 9, color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 7px', background: 'rgba(0,0,0,0.5)', borderRadius: 4, backdropFilter: 'blur(6px)' }}>
                         <Globe size={10} /> {item.domain || item.source}
                       </div>
                     </div>

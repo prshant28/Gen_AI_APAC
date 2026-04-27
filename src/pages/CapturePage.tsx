@@ -3,7 +3,7 @@ import {
   Globe, StickyNote, FileText, Sparkles, Loader2, CheckCircle2, X, Brain,
   Tag, ExternalLink, Save, Upload, Mic, MicOff, Code2, Twitter, Clipboard,
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
-  AlertCircle, Eye, FileDigit,
+  AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -572,9 +572,9 @@ const CaptureView = () => {
                           <X size={11} /> Remove
                         </button>
                       </div>
-                      {/* Inline PDF preview */}
+                      {/* Inline PDF preview — large so user can read before pipeline runs */}
                       {pdfObjectUrl && (
-                        <div style={{ height: 280, background: '#1a1a1a' }}>
+                        <div style={{ height: 420, background: '#1a1a1a' }}>
                           <iframe src={pdfObjectUrl} title="PDF preview"
                             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
                         </div>
@@ -633,18 +633,51 @@ const CaptureView = () => {
             </div>
           )}
 
-          {preview.source_type === 'pdf' && pdfObjectUrl && (
+          {preview.source_type === 'pdf' && (preview.pdf_data || pdfObjectUrl) && (
             <div style={{ padding: '16px 20px 0' }}>
-              <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', height: 360, background: '#1a1a1a' }}>
-                <iframe src={pdfObjectUrl} title="PDF preview" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', height: 540, background: '#1a1a1a' }}>
+                <iframe src={preview.pdf_data || pdfObjectUrl} title="PDF preview" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FileDigit size={11} /> Embedded preview · {pdfFile?.name}
-              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '10px 0 0' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FileDigit size={11} /> {pdfFile?.name || 'Document.pdf'}
+                </span>
+                {preview.pdf_pages != null && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#10b981', padding: '2px 8px', background: 'rgba(16,185,129,0.10)', borderRadius: 999, border: '1px solid rgba(16,185,129,0.25)' }}>
+                    {preview.pdf_pages} {preview.pdf_pages === 1 ? 'page' : 'pages'}
+                  </span>
+                )}
+                {preview.pdf_size_kb != null && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '2px 8px', background: 'var(--surface-2)', borderRadius: 999, border: '1px solid var(--border)' }}>
+                    {preview.pdf_size_kb < 1024 ? `${Math.round(preview.pdf_size_kb)} KB` : `${(preview.pdf_size_kb / 1024).toFixed(2)} MB`}
+                  </span>
+                )}
+                {preview.pdf_word_count != null && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '2px 8px', background: 'var(--surface-2)', borderRadius: 999, border: '1px solid var(--border)' }}>
+                    ~{preview.pdf_word_count.toLocaleString()} words
+                  </span>
+                )}
+                {preview.pdf_data && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', padding: '2px 8px', background: 'var(--primary-bg)', borderRadius: 999, border: '1px solid var(--primary-border)', letterSpacing: 0.4 }}>
+                    EMBEDDED IN VAULT
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
           <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {preview.executive_summary && preview.executive_summary.trim() && (
+              <section style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)' }}>
+                <h4 style={{ fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 11.5, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                  <Sparkles size={13} color="var(--primary)" /> Executive Summary
+                </h4>
+                <p style={{ color: 'var(--text-1)', lineHeight: 1.7, fontSize: 13.5, margin: 0, fontWeight: 500 }}>
+                  {preview.executive_summary}
+                </p>
+              </section>
+            )}
+
             <section>
               <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
                 <Brain size={14} color="var(--primary)" /> Summary
@@ -665,6 +698,54 @@ const CaptureView = () => {
                 ))}
               </ul>
             </section>
+
+            {preview.action_items && preview.action_items.length > 0 && (
+              <section>
+                <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
+                  <Target size={14} color="#f97316" /> Action Items
+                </h4>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 0, listStyle: 'none', margin: 0 }}>
+                  {preview.action_items.map((item, i) => (
+                    <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'rgba(249,115,22,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--text-1)', border: '1px solid rgba(249,115,22,0.18)', alignItems: 'flex-start' }}>
+                      <ListChecks size={14} color="#f97316" style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ lineHeight: 1.55 }}>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {preview.glossary && preview.glossary.length > 0 && (
+              <section>
+                <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
+                  <BookOpen size={14} color="#a78bfa" /> Glossary
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 8 }}>
+                  {preview.glossary.map((g, i) => (
+                    <div key={i} style={{ padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#a78bfa', marginBottom: 3, letterSpacing: 0.2 }}>{g.term}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{g.definition}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {preview.study_questions && preview.study_questions.length > 0 && (
+              <section>
+                <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
+                  <HelpCircle size={14} color="#22d3ee" /> Study Questions
+                </h4>
+                <ol style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 0, margin: 0, listStyle: 'none' }}>
+                  {preview.study_questions.map((q, i) => (
+                    <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'rgba(34,211,238,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--text-1)', border: '1px solid rgba(34,211,238,0.18)' }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(34,211,238,0.18)', color: '#0e7490', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>Q{i + 1}</span>
+                      <span style={{ lineHeight: 1.55 }}>{q}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
 
             <section>
               <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>

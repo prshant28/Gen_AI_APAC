@@ -375,8 +375,89 @@ Order: highest-signal first. No duplicates."""
             "summary": (raw.get("summary") or "").strip()[:240],
         })
 
+    # Enrich top items with og:image so cards render real thumbnails.
+    if out:
+        try:
+            await _enrich_articles_with_og_image(out[:6])
+        except Exception as e:
+            logger.warning(f"og:image enrichment failed: {e}")
+
     _ART_CACHE[cache_key] = (time.time(), out)
     return out
+
+
+# ─── og:image enrichment ──────────────────────────────────────────────────────
+
+# Tiny module-level cache so repeat lookups within an hour are instant
+_OG_IMG_CACHE: Dict[str, tuple[float, str]] = {}
+_OG_TTL = 3600.0  # 1 hour
+
+_OG_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml",
+}
+
+
+def _absolutize(maybe_relative: str, base: str) -> str:
+    if not maybe_relative:
+        return ""
+    if maybe_relative.startswith("//"):
+        return "https:" + maybe_relative
+    if maybe_relative.startswith("http://") or maybe_relative.startswith("https://"):
+        return maybe_relative
+    try:
+        from urllib.parse import urljoin
+        return urljoin(base, maybe_relative)
+    except Exception:
+        return maybe_relative
+
+
+async def _fetch_og_image(client: httpx.AsyncClient, url: str) -> str:
+    """Return og:image / twitter:image for a single URL, '' on failure.
+    Times out fast; we never block discover on this."""
+    cache = _OG_IMG_CACHE.get(url)
+    if cache and (time.time() - cache[0]) < _OG_TTL:
+        return cache[1]
+    try:
+        # Stream just enough HTML to find the head meta tags
+        resp = await client.get(url, follow_redirects=True, timeout=4.0)
+        if resp.status_code >= 400 or not resp.text:
+            _OG_IMG_CACHE[url] = (time.time(), "")
+            return ""
+        # Only parse first 64KB — og tags live in <head>
+        snippet = resp.text[:64 * 1024]
+        # Quick regex first to avoid heavy soup parsing on huge pages
+        m = re.search(
+            r'<meta[^>]+(?:property|name)\s*=\s*"(?:og:image(?::secure_url)?|twitter:image(?::src)?)"[^>]*content\s*=\s*"([^"]+)"',
+            snippet, flags=re.IGNORECASE,
+        )
+        if not m:
+            m = re.search(
+                r'<meta[^>]+content\s*=\s*"([^"]+)"[^>]*(?:property|name)\s*=\s*"(?:og:image(?::secure_url)?|twitter:image(?::src)?)"',
+                snippet, flags=re.IGNORECASE,
+            )
+        img = (m.group(1).strip() if m else "")
+        img = _absolutize(img, str(resp.url))
+        _OG_IMG_CACHE[url] = (time.time(), img)
+        return img
+    except Exception:
+        _OG_IMG_CACHE[url] = (time.time(), "")
+        return ""
+
+
+async def _enrich_articles_with_og_image(articles: List[Dict[str, Any]]) -> None:
+    """Mutate the list in-place, attaching `thumbnail` when og:image is found."""
+    if not articles:
+        return
+    import asyncio as _asyncio
+    async with httpx.AsyncClient(headers=_OG_HEADERS, timeout=4.0) as client:
+        results = await _asyncio.gather(
+            *[_fetch_og_image(client, a.get("url", "")) for a in articles],
+            return_exceptions=True,
+        )
+    for art, res in zip(articles, results):
+        if isinstance(res, str) and res:
+            art["thumbnail"] = res
 
 
 async def discover_resources(topic: str, kinds: List[str] | None = None) -> Dict[str, Any]:
@@ -440,4 +521,109 @@ async def discover_resources(topic: str, kinds: List[str] | None = None) -> Dict
         "article_count": len(articles),
         "youtube_api_used": yt_status == "ok",
         "youtube_api_status": yt_status,
+    }
+
+
+# ─── AI Digest synthesis ──────────────────────────────────────────────────────
+
+async def synthesize_digest(topic: str, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Produce a concise AI brief over a list of discover items.
+
+    Returns: { tldr, themes:[{title,why}], must_read:[{title,url,reason}],
+               watch_first, contrarian, next_questions, total }
+    """
+    topic = (topic or "").strip()
+    if not topic or not items:
+        return {"error": "topic and items required"}
+
+    # Build a compact, model-friendly catalog (cap to 10 items, trim summaries)
+    catalog_lines: List[str] = []
+    for i, it in enumerate(items[:10], 1):
+        kind = (it.get("type") or "item").upper()
+        title = (it.get("title") or "")[:160]
+        src = it.get("source") or it.get("channel_title") or it.get("domain") or ""
+        summ = (it.get("summary") or it.get("description") or "")[:220]
+        url = it.get("url") or ""
+        catalog_lines.append(
+            f"{i}. [{kind}] {title}\n   source: {src}\n   url: {url}\n   note: {summ}"
+        )
+    catalog = "\n".join(catalog_lines)
+
+    system = (
+        "You are a senior research editor synthesizing a curated brief for a learner. "
+        "You receive a numbered catalog of articles and videos on a single topic. "
+        "Identify themes, recommend a reading order, and surface contrarian takes. "
+        "Always return valid JSON matching the requested schema. Be specific, no fluff."
+    )
+    user = (
+        f"Topic: {topic}\n\n"
+        f"Catalog ({len(items[:10])} items):\n{catalog}\n\n"
+        "Return JSON with this schema:\n"
+        "{\n"
+        '  "tldr": "2-3 sentence executive summary of the topic landscape (specific, not generic)",\n'
+        '  "themes": [{"title": "theme name", "why": "1-sentence why it matters"}],\n'
+        '  "must_read": [{"title": "...", "url": "...", "reason": "1-sentence why this one"}],\n'
+        '  "watch_first": "title of best video to watch first, or empty string",\n'
+        '  "contrarian": "1-2 sentence contrarian or surprising angle from the catalog",\n'
+        '  "next_questions": ["3-5 sharp follow-up questions to explore next"]\n'
+        "}\n"
+        "Pick must_read URLs ONLY from the catalog above. 3 themes, 3 must_read, 4 questions."
+    )
+
+    try:
+        result = await chat_json(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            model=settings.OPENAI_MODEL,
+            temperature=0.4,
+        )
+    except Exception as e:
+        logger.warning(f"discover digest failed: {e}")
+        return {"error": str(e)}
+
+    if not isinstance(result, dict):
+        return {"error": "invalid model output"}
+
+    # Coerce shapes defensively
+    def _str_list(v: Any, n: int) -> List[str]:
+        if not isinstance(v, list):
+            return []
+        out: List[str] = []
+        for x in v:
+            if isinstance(x, str) and x.strip():
+                out.append(x.strip()[:240])
+            if len(out) >= n:
+                break
+        return out
+
+    themes_raw = result.get("themes") or []
+    themes = []
+    for t in themes_raw[:5]:
+        if isinstance(t, dict) and t.get("title"):
+            themes.append({
+                "title": str(t.get("title"))[:80],
+                "why": str(t.get("why") or "")[:200],
+            })
+
+    must_raw = result.get("must_read") or []
+    must = []
+    for m in must_raw[:5]:
+        if isinstance(m, dict) and m.get("title") and m.get("url"):
+            must.append({
+                "title": str(m.get("title"))[:160],
+                "url": str(m.get("url"))[:600],
+                "reason": str(m.get("reason") or "")[:200],
+            })
+
+    return {
+        "topic": topic,
+        "tldr": str(result.get("tldr") or "")[:700],
+        "themes": themes,
+        "must_read": must,
+        "watch_first": str(result.get("watch_first") or "")[:160],
+        "contrarian": str(result.get("contrarian") or "")[:400],
+        "next_questions": _str_list(result.get("next_questions"), 5),
+        "total": len(items[:10]),
     }

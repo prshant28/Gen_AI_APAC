@@ -107,6 +107,17 @@ class MemorySaveRequest(BaseModel):
     key_points: List[str]
     tags: List[str]
     domain: str
+    # Rich analysis (optional — older clients still work)
+    executive_summary: Optional[str] = ""
+    action_items: Optional[List[str]] = None
+    glossary: Optional[List[Dict[str, Any]]] = None
+    study_questions: Optional[List[str]] = None
+    notes: Optional[str] = ""
+    # PDF-specific (optional)
+    pdf_data: Optional[str] = None
+    pdf_pages: Optional[int] = None
+    pdf_size_kb: Optional[float] = None
+    pdf_word_count: Optional[int] = None
 
 class RecallRequest(BaseModel):
     query: str
@@ -640,6 +651,25 @@ async def discover_endpoint(request: DiscoverRequest):
     return result
 
 
+class DiscoverDigestRequest(BaseModel):
+    topic: str
+    items: List[Dict[str, Any]]
+
+
+@app.post("/discover/digest")
+async def discover_digest_endpoint(request: DiscoverDigestRequest):
+    """Synthesize a one-shot AI brief over a list of discover items."""
+    if not (request.topic or "").strip():
+        raise HTTPException(status_code=400, detail="topic is required")
+    if not request.items:
+        raise HTTPException(status_code=400, detail="items required")
+    from app.discover_agent import synthesize_digest
+    result = await synthesize_digest(topic=request.topic, items=request.items[:10])
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
 # --- Plan Generator (multi-agent) ---
 
 class PlanGenerateRequest(BaseModel):
@@ -687,6 +717,33 @@ async def plan_save_to_workspace(request: PlanIngestRequest):
         raise HTTPException(status_code=400, detail="plan is required")
     project = await ws_ingest_plan(request.plan, project_name=request.project_name)
     return project
+
+
+class PlanRegenerateDayRequest(BaseModel):
+    topic: str
+    day_index: int  # zero-based
+    plan: List[Dict[str, Any]]
+    goal_type: str = "study"
+    minutes_per_day: int = 60
+
+
+@app.post("/plan/regenerate-day")
+async def plan_regenerate_day_endpoint(request: PlanRegenerateDayRequest):
+    if not (request.topic or "").strip():
+        raise HTTPException(status_code=400, detail="topic is required")
+    if request.day_index < 0 or request.day_index >= len(request.plan or []):
+        raise HTTPException(status_code=400, detail="day_index out of range")
+    from app.plan_agent import regenerate_day
+    result = await regenerate_day(
+        topic=request.topic,
+        day_index=request.day_index,
+        plan=request.plan,
+        goal_type=request.goal_type,
+        minutes_per_day=request.minutes_per_day,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
 
 
 # --- Workspace projects (CRUD + items + tasks) ---
