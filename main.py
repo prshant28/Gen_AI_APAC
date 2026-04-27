@@ -29,9 +29,13 @@ from app.workspace_agent import (
     update_project as ws_update_project,
     delete_project as ws_delete_project,
     add_items as ws_add_items,
+    update_item as ws_update_item,
     remove_item as ws_remove_item,
     add_task as ws_add_task,
     toggle_task as ws_toggle_task,
+    ai_organize_workspace as ws_ai_organize_workspace,
+    apply_organization as ws_apply_organization,
+    DEFAULT_SECTIONS as WS_DEFAULT_SECTIONS,
     ingest_plan as ws_ingest_plan,
     ai_organize_memories as ws_ai_organize_memories,
 )
@@ -831,11 +835,24 @@ class WorkspaceProjectUpdate(BaseModel):
 class WorkspaceItemsAdd(BaseModel):
     items: List[Dict[str, Any]]
     folder_id: Optional[str] = None
+    section_id: Optional[str] = None
+
+
+class WorkspaceItemUpdate(BaseModel):
+    section_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+    group_id: Optional[str] = None
+    folder_id: Optional[str] = None
 
 
 class WorkspaceTaskCreate(BaseModel):
     text: str
     folder_id: Optional[str] = None
+
+
+class WorkspaceOrganizeApply(BaseModel):
+    assignments: List[Dict[str, Any]]
+    groups: List[Dict[str, Any]] = []
 
 
 @app.get("/workspace/projects")
@@ -882,7 +899,19 @@ async def ws_items_add(project_id: str, req: WorkspaceItemsAdd):
     if not req.items:
         raise HTTPException(status_code=400, detail="items required")
     try:
-        return await ws_add_items(project_id, req.items, folder_id=req.folder_id)
+        return await ws_add_items(project_id, req.items, folder_id=req.folder_id, section_id=req.section_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.patch("/workspace/projects/{project_id}/items/{item_id}")
+async def ws_items_update(project_id: str, item_id: str, req: WorkspaceItemUpdate):
+    try:
+        return await ws_update_item(
+            project_id, item_id,
+            section_id=req.section_id, tags=req.tags,
+            group_id=req.group_id, folder_id=req.folder_id,
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -893,6 +922,13 @@ async def ws_items_remove(project_id: str, item_id: str):
     if not ok:
         raise HTTPException(status_code=404, detail="item not found")
     return {"deleted": True, "id": item_id}
+
+
+@app.get("/workspace/sections")
+async def ws_sections_catalog():
+    """Static catalog of default sections for client UIs that want to render
+    consistent labels/icons before any folder is created."""
+    return {"sections": list(WS_DEFAULT_SECTIONS)}
 
 
 @app.post("/workspace/projects/{project_id}/tasks")
@@ -920,6 +956,25 @@ async def ws_ai_organize(project_id: str):
         raise HTTPException(status_code=404, detail="project not found")
     mems = await list_memories(domain="", limit=30)
     return await ws_ai_organize_memories(project_id, mems if isinstance(mems, list) else [])
+
+
+@app.post("/workspace/projects/{project_id}/ai-organize-full")
+async def ws_ai_organize_full(project_id: str, folder_id: Optional[str] = None):
+    """Comprehensive AI organize: assigns sections, tags (5-7 per item), and
+    clusters similar items into groups. Returns a PREVIEW — caller applies
+    via POST /apply-organization."""
+    proj = await ws_get_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="project not found")
+    return await ws_ai_organize_workspace(project_id, folder_id=folder_id)
+
+
+@app.post("/workspace/projects/{project_id}/apply-organization")
+async def ws_apply_organize(project_id: str, req: WorkspaceOrganizeApply):
+    try:
+        return await ws_apply_organization(project_id, req.assignments, req.groups)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Calendar ICS subscription feed ---

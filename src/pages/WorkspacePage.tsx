@@ -3,25 +3,28 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Kanban, PlusCircle, Plus, CheckCheck, Trash2, Loader2, Sparkles, FolderTree,
   Youtube, FileText, ExternalLink, Wand2, X, FolderPlus, Save,
+  StickyNote, CheckSquare, Lightbulb, Link2, Tag, Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
+import type {
+  WorkspaceProject as WsProject,
+  WorkspaceItem as WsItem,
+  WorkspaceFolder as WsFolder,
+  WorkspaceGroup as WsGroup,
+  WorkspaceSectionId,
+  WorkspaceOrganizeResult,
+} from '../lib/types';
 
-interface WsTask { id: string; text: string; folder_id?: string; done: boolean; created_at?: string }
-interface WsItem {
-  id: string; kind: string; ref_id?: string; title: string; url?: string;
-  folder_id?: string; added_at?: string;
-  meta?: {
-    type?: 'video' | 'article'; thumbnail?: string; youtube_id?: string;
-    channel_title?: string; duration_display?: string; domain?: string; summary?: string;
-  };
-}
-interface WsFolder { id: string; name: string; description?: string; weight?: number }
-interface WsProject {
-  id: string; name: string; description?: string; color: string; goal_type?: string;
-  folders: WsFolder[]; items: WsItem[]; tasks: WsTask[];
-  created_at?: string; updated_at?: string;
-}
+type WsTask = WsProject['tasks'][number];
+
+const SECTION_META: Record<WorkspaceSectionId, { name: string; icon: any; color: string }> = {
+  notes:     { name: 'Notes',     icon: StickyNote, color: '#6366f1' },
+  tasks:     { name: 'Tasks',     icon: CheckSquare, color: '#22c55e' },
+  ideas:     { name: 'Ideas',     icon: Lightbulb,  color: '#f59e0b' },
+  resources: { name: 'Resources', icon: Link2,      color: '#06b6d4' },
+};
+const SECTION_ORDER: WorkspaceSectionId[] = ['notes', 'tasks', 'ideas', 'resources'];
 
 const WorkspacePage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,9 +38,11 @@ const WorkspacePage: React.FC = () => {
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
   const [activeFolder, setActiveFolder] = useState<string>('');
+  const [activeSection, setActiveSection] = useState<WorkspaceSectionId | ''>('');
+  const [groupBy, setGroupBy] = useState(false);
   const [organizing, setOrganizing] = useState(false);
   const [organizePipeline, setOrganizePipeline] = useState<AgentStep[] | null>(null);
-  const [organizeResult, setOrganizeResult] = useState<{ suggested_folders: WsFolder[]; assignments: { memory_id: string; folder_id: string }[] } | null>(null);
+  const [organizeFull, setOrganizeFull] = useState<WorkspaceOrganizeResult | null>(null);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -126,44 +131,75 @@ const WorkspacePage: React.FC = () => {
   const runAiOrganize = async () => {
     if (!project) return;
     setOrganizing(true);
-    setOrganizeResult(null);
+    setOrganizeFull(null);
     setOrganizePipeline([
-      { name: 'Loader', label: 'Loader', status: 'running', out: 'Pulling memories…' },
-      { name: 'OrganizerAgent', label: 'Organizer', status: 'queued', out: 'Will suggest folders' },
+      { name: 'Scanner', label: 'Scanner', status: 'running', out: 'Reading items, kinds, sources…' },
+      { name: 'Sectioner', label: 'Sectioner', status: 'queued', out: 'Will route to sections' },
+      { name: 'Tagger', label: 'Tagger', status: 'queued', out: 'Will generate 5-7 tags per item' },
+      { name: 'Clusterer', label: 'Clusterer', status: 'queued', out: 'Will group similar items' },
     ]);
-    const t = setTimeout(() => setOrganizePipeline(prev => prev ? [{ ...prev[0], status: 'done' }, { ...prev[1], status: 'running' }] : null), 700);
+    const t1 = setTimeout(() => setOrganizePipeline(prev => prev ? [
+      { ...prev[0], status: 'done' as const },
+      { ...prev[1], status: 'running' as const },
+      prev[2], prev[3],
+    ] : null), 600);
+    const t2 = setTimeout(() => setOrganizePipeline(prev => prev ? [
+      prev[0], { ...prev[1], status: 'done' as const },
+      { ...prev[2], status: 'running' as const }, prev[3],
+    ] : null), 1400);
+    const t3 = setTimeout(() => setOrganizePipeline(prev => prev ? [
+      prev[0], prev[1], { ...prev[2], status: 'done' as const },
+      { ...prev[3], status: 'running' as const },
+    ] : null), 2200);
     try {
-      const res = await fetch(`/workspace/projects/${project.id}/ai-organize`, { method: 'POST' });
-      const data = await res.json();
-      clearTimeout(t);
-      if (res.ok) {
-        setOrganizeResult(data);
-        setOrganizePipeline(prev => prev ? [{ ...prev[0], status: 'done' }, { ...prev[1], status: 'done', out: `${data.suggested_folders?.length || 0} folders, ${data.assignments?.length || 0} assignments` }] : null);
+      const url = activeFolder
+        ? `/workspace/projects/${project.id}/ai-organize-full?folder_id=${encodeURIComponent(activeFolder)}`
+        : `/workspace/projects/${project.id}/ai-organize-full`;
+      const res = await fetch(url, { method: 'POST' });
+      const data: WorkspaceOrganizeResult = await res.json();
+      [t1, t2, t3].forEach(clearTimeout);
+      if (res.ok && data.ok) {
+        setOrganizeFull(data);
+        setOrganizePipeline(prev => prev ? prev.map(s => ({ ...s, status: 'done' as const })).concat([
+          { name: 'Result', label: 'Result', status: 'done', out: `${data.stats?.assigned || 0} items · ${data.stats?.groups || 0} groups` },
+        ]) : null);
       } else {
         setOrganizePipeline(prev => prev ? prev.map(s => ({ ...s, status: 'error' as const })) : null);
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: data.error || 'AI organize failed', type: 'error' } }));
       }
+    } catch (e: any) {
+      [t1, t2, t3].forEach(clearTimeout);
+      setOrganizePipeline(prev => prev ? prev.map(s => ({ ...s, status: 'error' as const })) : null);
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: e?.message || 'Network error', type: 'error' } }));
     } finally {
       setOrganizing(false);
     }
   };
 
-  const applyOrganizedFolders = async () => {
-    if (!project || !organizeResult) return;
-    const merged = [...(project.folders || [])];
-    const existing = new Set(merged.map(f => f.id));
-    organizeResult.suggested_folders.forEach(f => {
-      if (!existing.has(f.id)) merged.push(f);
+  const applyOrganization = async () => {
+    if (!project || !organizeFull) return;
+    const res = await fetch(`/workspace/projects/${project.id}/apply-organization`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignments: organizeFull.assignments, groups: organizeFull.groups }),
     });
-    const res = await fetch(`/workspace/projects/${project.id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folders: merged }),
-    });
-    if (res.ok) {
+    const data = await res.json();
+    if (res.ok && data.ok) {
       await refreshProject(project.id);
-      setOrganizeResult(null);
+      setOrganizeFull(null);
       setOrganizePipeline(null);
-      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `${organizeResult.suggested_folders.length} folders added`, type: 'success' } }));
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Organized ${data.updated_items} items into ${data.groups?.length || 0} groups`, type: 'success' } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Apply failed', type: 'error' } }));
     }
+  };
+
+  const moveItemToSection = async (itemId: string, section: WorkspaceSectionId) => {
+    if (!project) return;
+    const res = await fetch(`/workspace/projects/${project.id}/items/${itemId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section_id: section }),
+    });
+    if (res.ok) await refreshProject(project.id);
   };
 
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
@@ -174,8 +210,40 @@ const WorkspacePage: React.FC = () => {
   const tasksForFolder = (folderId: string): WsTask[] =>
     (project?.tasks || []).filter(t => (folderId === '' ? !t.folder_id : t.folder_id === folderId));
 
-  const visibleItems = activeFolder ? itemsForFolder(activeFolder) : (project?.items || []);
+  // Folder filter, then optional section filter.
+  const baseItems = activeFolder ? itemsForFolder(activeFolder) : (project?.items || []);
+  const visibleItems = activeSection
+    ? baseItems.filter(it => (it.section_id || 'notes') === activeSection)
+    : baseItems;
   const visibleTasks = activeFolder ? tasksForFolder(activeFolder) : (project?.tasks || []);
+
+  // Section counts for the chip strip.
+  const sectionCounts: Record<string, number> = {};
+  for (const it of baseItems) {
+    const s = it.section_id || 'notes';
+    sectionCounts[s] = (sectionCounts[s] || 0) + 1;
+  }
+
+  // When grouping is on, bucket visible items by group_id (or "_ungrouped").
+  const groupBuckets: { id: string; title: string; summary?: string; items: WsItem[] }[] = (() => {
+    if (!groupBy) return [];
+    const groupCatalog = project?.groups || [];
+    const titleById: Record<string, { title: string; summary?: string }> =
+      Object.fromEntries(groupCatalog.map(g => [g.id, { title: g.title, summary: g.summary }]));
+    const buckets: Record<string, WsItem[]> = {};
+    for (const it of visibleItems) {
+      const gid = it.group_id || '_ungrouped';
+      (buckets[gid] = buckets[gid] || []).push(it);
+    }
+    return Object.entries(buckets)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([gid, items]) => ({
+        id: gid,
+        title: gid === '_ungrouped' ? 'Ungrouped' : (titleById[gid]?.title || gid),
+        summary: gid === '_ungrouped' ? undefined : titleById[gid]?.summary,
+        items,
+      }));
+  })();
 
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
@@ -302,28 +370,48 @@ const WorkspacePage: React.FC = () => {
                   <AgentPipeline agents={organizePipeline} title="AI Organize pipeline" />
                 </motion.div>
               )}
-              {organizeResult && organizeResult.suggested_folders.length > 0 && (
+              {organizeFull && organizeFull.assignments.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   style={{ ...card, padding: '14px 18px', borderColor: 'rgba(99,102,241,0.3)', background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(124,58,237,0.04))' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                     <Wand2 size={14} color="#6366f1" />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>Suggested folders ({organizeResult.suggested_folders.length})</span>
-                    <button onClick={applyOrganizedFolders}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>
+                      AI proposal · {organizeFull.stats?.assigned || 0} item{(organizeFull.stats?.assigned || 0) === 1 ? '' : 's'} · {organizeFull.stats?.groups || 0} group{(organizeFull.stats?.groups || 0) === 1 ? '' : 's'}
+                    </span>
+                    <button onClick={applyOrganization}
                       style={{ marginLeft: 'auto', padding: '5px 12px', background: '#6366f1', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Save size={11} /> Apply
                     </button>
-                    <button onClick={() => { setOrganizeResult(null); setOrganizePipeline(null); }}
+                    <button onClick={() => { setOrganizeFull(null); setOrganizePipeline(null); }}
                       style={{ padding: '5px 8px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                       <X size={11} />
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {organizeResult.suggested_folders.map(f => (
-                      <div key={f.id} style={{ padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, fontSize: 11.5, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <FolderTree size={11} color="#6366f1" />{f.name}
-                      </div>
-                    ))}
+                  {/* Section breakdown */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {SECTION_ORDER.map(sid => {
+                      const cnt = organizeFull.assignments.filter(a => a.section_id === sid).length;
+                      if (cnt === 0) return null;
+                      const Sec = SECTION_META[sid];
+                      const Icon = Sec.icon;
+                      return (
+                        <div key={sid} style={{ padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, fontSize: 11, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Icon size={10} color={Sec.color} />{Sec.name} ({cnt})
+                        </div>
+                      );
+                    })}
                   </div>
+                  {/* Group catalog */}
+                  {organizeFull.groups.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {organizeFull.groups.map(g => (
+                        <div key={g.id} title={g.summary || ''}
+                          style={{ padding: '4px 10px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 14, fontSize: 11, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Layers size={10} />{g.title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               )}
 

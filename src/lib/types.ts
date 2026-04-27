@@ -64,3 +64,81 @@ export interface AgentStepData {
   error?: string;
   duration_ms?: number;
 }
+
+// ─── Workspace (project / folder / section / item / group) ────────────────────
+export type WorkspaceSectionId = 'notes' | 'tasks' | 'ideas' | 'resources';
+
+export interface WorkspaceSection {
+  id: WorkspaceSectionId | string;
+  name: string;
+  icon?: string;
+  description?: string;
+}
+
+export interface WorkspaceGroup {
+  id: string;
+  title: string;
+  summary?: string;
+}
+
+export interface WorkspaceFolder {
+  id: string;
+  name: string;
+  description?: string;
+  weight?: number;
+  sections?: WorkspaceSection[];
+}
+
+export interface WorkspaceItem {
+  id: string;
+  kind: string;
+  ref_id?: string;
+  title: string;
+  url?: string;
+  folder_id?: string;
+  section_id?: WorkspaceSectionId | string;
+  tags?: string[];
+  group_id?: string;
+  added_at?: string;
+  meta?: {
+    type?: 'video' | 'article';
+    thumbnail?: string;
+    youtube_id?: string;
+    channel_title?: string;
+    duration_display?: string;
+    domain?: string;
+    summary?: string;
+    source_type?: string;
+    tags?: string[];
+  };
+}
+
+export interface WorkspaceProject {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  goal_type?: string;
+  folders: WorkspaceFolder[];
+  items: WorkspaceItem[];
+  tasks: { id: string; text: string; folder_id?: string; done: boolean; created_at?: string }[];
+  groups?: WorkspaceGroup[];
+  default_sections?: WorkspaceSection[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WorkspaceOrganizeAssignment {
+  item_id: string;
+  section_id: WorkspaceSectionId | string;
+  tags: string[];
+  group_id: string;
+}
+
+export interface WorkspaceOrganizeResult {
+  ok: boolean;
+  assignments: WorkspaceOrganizeAssignment[];
+  groups: WorkspaceGroup[];
+  stats?: { items: number; assigned: number; groups: number };
+  error?: string;
+}
