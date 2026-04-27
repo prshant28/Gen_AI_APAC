@@ -379,10 +379,10 @@ const AgentHubView = () => {
       )}
 
       {/* ───────── BODY: 2 columns ───────── */}
-      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(290px, 320px) 1fr', gap: 16, alignItems: 'stretch', minHeight: 580 }}>
+      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(290px, 320px) 1fr', gap: 16, alignItems: 'start', minHeight: 580 }}>
 
-        {/* ═══ LEFT: Agent Registry / History / Inspector ═══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+        {/* ═══ LEFT: Agent Registry / History / Inspector (sticky, capped height) ═══ */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)' }}>
           {/* Tabs */}
           <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 11, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
             {([
@@ -399,7 +399,7 @@ const AgentHubView = () => {
 
           {/* AGENTS PANEL */}
           {activePanel === 'agents' && (
-            <div className="view-card" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="view-card" style={{ flex: '1 1 auto', minHeight: 320, maxHeight: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 800, textTransform: 'uppercase' }}>Agent Registry</div>
@@ -505,7 +505,7 @@ const AgentHubView = () => {
 
           {/* HISTORY PANEL */}
           {activePanel === 'history' && (
-            <div className="view-card" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="view-card" style={{ flex: '1 1 auto', minHeight: 320, maxHeight: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 800, textTransform: 'uppercase' }}>Workflow History</div>
               </div>
@@ -535,7 +535,7 @@ const AgentHubView = () => {
 
           {/* INSPECTOR PANEL */}
           {activePanel === 'inspector' && (
-            <div className="view-card" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="view-card" style={{ flex: '1 1 auto', minHeight: 320, maxHeight: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Terminal size={13} color="var(--primary)" />
                 <div style={{ color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', fontWeight: 800, textTransform: 'uppercase' }}>Tool Call Inspector</div>

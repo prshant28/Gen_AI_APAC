@@ -3090,3 +3090,14 @@
     font-size: 22px !important;
   }
 }
+
+/* ───────── Profile page: responsive grid ───────── */
+@media (max-width: 1080px) {
+  .profile-body-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .profile-body-grid > div:first-child {
+    position: static !important;
+    max-height: none !important;
+  }
+}

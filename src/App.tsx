@@ -6,7 +6,8 @@ import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Database, Bot, Network, GitBranch, BarChart2, Kanban, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
-  CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle
+  CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
+  User as UserIcon, Plug
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -37,6 +38,8 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import WorkspacePage from './pages/WorkspacePage';
 import MemoryDetailPage from './pages/MemoryDetailPage';
 import DeckPage from './pages/DeckPage';
+import ProfilePage from './pages/ProfilePage';
+import IntegrationsPage from './pages/IntegrationsPage';
 import './pages/pages.css';
 
 const NAV_GROUPS = [
@@ -70,8 +73,10 @@ const NAV_GROUPS = [
   {
     label: 'System',
     items: [
-      { id: 'deck',     label: 'Pitch Deck', path: '/deck',     icon: Presentation, color: '#22d3ee' },
-      { id: 'settings', label: 'Settings',   path: '/settings', icon: Settings,     color: '#6b7280' },
+      { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,         color: '#22d3ee' },
+      { id: 'profile',      label: 'Profile',      path: '/profile',      icon: UserIcon,     color: '#3b82f6' },
+      { id: 'deck',         label: 'Pitch Deck',   path: '/deck',         icon: Presentation, color: '#22d3ee' },
+      { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings,     color: '#6b7280' },
     ]
   },
 ];
@@ -171,7 +176,9 @@ const Sidebar = ({
       </div>
 
       <div style={{ padding: isCollapsed ? '8px 6px 10px' : '8px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+        <div onClick={() => navigate('/profile')} title="Open profile" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start', cursor: 'pointer', transition: 'all 0.15s' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary-border)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}>
           {user?.photoURL
             ? <img src={user.photoURL} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
             : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#2563eb,#1e3a8a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px' }}>
@@ -185,7 +192,7 @@ const Sidebar = ({
             </div>
           )}
           {!isCollapsed && (
-            <button onClick={onSignOut} title="Sign out"
+            <button onClick={e => { e.stopPropagation(); onSignOut(); }} title="Sign out"
               style={{ padding: 5, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
@@ -473,6 +480,8 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/workspace" element={<WorkspacePage />} />
                   <Route path="/memory/:id" element={<MemoryDetailPage />} />
                   <Route path="/deck" element={<DeckPage />} />
+                  <Route path="/profile" element={<ProfilePage user={user} onSignOut={onSignOut} />} />
+                  <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>

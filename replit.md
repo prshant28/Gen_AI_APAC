@@ -1,5 +1,12 @@
 # Recall X247 — AI-powered Second Brain v2.0
 
+## Session 3 (April 2026 — latest)
+- **ProfilePage** (`src/pages/ProfilePage.tsx`, route `/profile`) — Premium profile management with hero header (clamp 22-30px title), 4-stat strip (memories/tasks/workflows/streak), 2-column body: left = sticky avatar card + tab list (Overview, Edit, Security, Preferences, Data); right = tab content. Achievements grid (6 badges with progress), account info table with copy-to-clipboard, linked accounts section, edit form with save/cancel, security panel (2FA, sessions, API keys), notification toggles, data export + danger zone. Sidebar user card now clickable → /profile.
+- **IntegrationsPage** (`src/pages/IntegrationsPage.tsx`, route `/integrations`) — Catalog of 30+ integrations: Google (Gmail/Calendar/Drive/Docs/Photos/Keep/YouTube), Productivity (Notion/Obsidian/Evernote/Todoist/Trello), Communication (Slack/Discord/Telegram/WhatsApp), Developer (GitHub/GitLab/Linear/Jira), Social (X/LinkedIn/Reddit), Storage (Dropbox/OneDrive/S3), Media (Spotify/Pocket/Instapaper), AI/Automation (Chrome ext/Zapier/Make/OpenAI/Webhooks). Search, category pills with counts, popular/connected filters. Connect modal with capabilities + privacy note. 3 statuses: connected/available/coming-soon.
+- **AgentPage left-card stretch FIX** — Body grid `alignItems: 'stretch' → 'start'`, left column `position: sticky, alignSelf: 'start', maxHeight: calc(100vh - 80px)`, each panel card capped to `maxHeight: 460` with internal scroll. Left no longer grows when chat responses get long.
+- **App.tsx** — Added imports for ProfilePage + IntegrationsPage, added both to System nav group, added routes (`/profile` passes `user` + `onSignOut` props), made sidebar user card clickable to /profile (sign-out button has stopPropagation).
+- **pages.css** — Added `.profile-body-grid` responsive rule at `@media (max-width: 1080px)` — collapses to 1 column, removes sticky positioning.
+
 ## Overview
 An AI-powered productivity assistant built for Gen AI Academy APAC 2026 hackathon. Implements a **full multi-agent AI system** — a primary Orchestrator coordinates specialized sub-agents via OpenAI function calling with real-time SSE streaming. Captures knowledge from YouTube, web, PDFs, and notes; allows semantic recall; manages tasks; generates flashcards; schedules study sessions; and delivers AI daily briefings.
 
