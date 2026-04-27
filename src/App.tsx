@@ -564,7 +564,7 @@ function AppRouter() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    (localStorage.getItem('recall-theme') as 'light' | 'dark') || 'dark'
+    (localStorage.getItem('recall-theme-v2') as 'light' | 'dark') || 'light'
   );
   const navigate = useNavigate();
 
@@ -586,7 +586,7 @@ function AppRouter() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('recall-theme', theme);
+    localStorage.setItem('recall-theme-v2', theme);
   }, [theme]);
 
   useEffect(() => {

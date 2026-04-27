@@ -1540,6 +1540,27 @@
     color: transparent;
     font-style: italic;
   }
+  .lx-hero-word-typewriter {
+    white-space: pre;
+  }
+  .lx-hero-caret {
+    display: inline-block;
+    margin-left: 2px;
+    color: #22d3ee;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    background: none;
+    font-style: normal;
+    font-weight: 300;
+    transform: translateY(-2px);
+    animation: lxCaretBlink 1s steps(2, start) infinite;
+  }
+  @keyframes lxCaretBlink {
+    to { visibility: hidden; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lx-hero-caret { animation: none; opacity: 0.6; }
+  }
   .lx-hero-ticker {
     display: flex;
     align-items: center;

@@ -196,9 +196,10 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [chatStep, setChatStep] = useState(1);
   const [activePersona, setActivePersona] = useState(0);
 
-  // Typewriter state
+  // Typewriter state — true character-by-character typing
   const [wordIdx, setWordIdx] = useState(0);
-  const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
+  const [typed, setTyped] = useState('');
+  const [typingPhase, setTypingPhase] = useState<'typing' | 'holding' | 'deleting'>('typing');
 
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -214,22 +215,34 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Typewriter cycling
+  // Typewriter cycling — true type → hold → backspace → next
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      setTyped(HERO_WORDS[wordIdx]);
+      return;
+    }
+    const fullWord = HERO_WORDS[wordIdx];
     let timeout: ReturnType<typeof setTimeout>;
-    if (phase === 'in') {
-      timeout = setTimeout(() => setPhase('hold'), 350);
-    } else if (phase === 'hold') {
-      timeout = setTimeout(() => setPhase('out'), 1400);
+    if (typingPhase === 'typing') {
+      if (typed.length < fullWord.length) {
+        timeout = setTimeout(() => setTyped(fullWord.slice(0, typed.length + 1)), 55);
+      } else {
+        timeout = setTimeout(() => setTypingPhase('holding'), 1600);
+      }
+    } else if (typingPhase === 'holding') {
+      timeout = setTimeout(() => setTypingPhase('deleting'), 1200);
     } else {
-      timeout = setTimeout(() => {
-        setWordIdx(i => (i + 1) % HERO_WORDS.length);
-        setPhase('in');
-      }, 280);
+      if (typed.length > 0) {
+        timeout = setTimeout(() => setTyped(typed.slice(0, -1)), 28);
+      } else {
+        timeout = setTimeout(() => {
+          setWordIdx(i => (i + 1) % HERO_WORDS.length);
+          setTypingPhase('typing');
+        }, 220);
+      }
     }
     return () => clearTimeout(timeout);
-  }, [phase, reduceMotion]);
+  }, [typed, typingPhase, wordIdx, reduceMotion]);
 
   // Animate chat preview
   useEffect(() => {
@@ -346,18 +359,10 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
           >
             <span className="lx-hero-line">The second brain that</span>
             <span className="lx-hero-line lx-hero-line-animated">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={wordIdx}
-                  className="lx-hero-word"
-                  initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -14, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
-                >
-                  {HERO_WORDS[wordIdx]}
-                </motion.span>
-              </AnimatePresence>
+              <span className="lx-hero-word lx-hero-word-typewriter">
+                {typed}
+                <span className="lx-hero-caret" aria-hidden="true">|</span>
+              </span>
             </span>
           </motion.h1>
 
