@@ -6,6 +6,7 @@ import {
   ArrowRight, Zap, BookOpen, ChevronRight, Mic, MicOff, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import MarkdownMessage from '../components/MarkdownMessage';
 
 interface RecallMessage {
   id: string;
@@ -111,7 +112,7 @@ const RecallView = () => {
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 8rem)', minHeight: 0, gap: 0, padding: '14px 0 0' }}>
+    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 5rem)', minHeight: 0, gap: 0, padding: '10px 0 0' }}>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 10, flexShrink: 0, padding: '0 2px' }}>
@@ -227,8 +228,12 @@ const RecallView = () => {
                       ))}
                       <span style={{ color: '#818cf8', fontSize: 11, marginLeft: 4 }}>Searching your knowledge base...</span>
                     </div>
+                  ) : msg.role === 'user' ? (
+                    <p style={{ color: '#fff', fontSize: 13.5, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
                   ) : (
-                    <p style={{ color: msg.role === 'user' ? '#fff' : 'var(--text-1)', fontSize: 13.5, margin: 0, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                    <div style={{ color: 'var(--text-1)', fontSize: 13.5, lineHeight: 1.65 }}>
+                      <MarkdownMessage content={msg.content} onActionClick={(t) => handleSend(t)} />
+                    </div>
                   )}
                 </div>
 
