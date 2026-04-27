@@ -49,3 +49,11 @@ The design system is based on dark glassmorphism with a neural theme, using CSS 
     - Storage (Dropbox, OneDrive, S3)
     - Media (Spotify, Pocket, Instapaper)
     - AI/Automation (Chrome extension, Zapier, Make, OpenAI, Webhooks)
+
+## Recent Changes (Apr 2026)
+- Agent Hub redesign: collapsible Mission Control bar, focus-mode sidebar, header & bottom New chat (with stream-abort safety), markdown rendering via `react-markdown`, action chips for numbered next-step prompts (`Which one should I run?` only), per-message export menu (`MessageToolbar` rendered through React portal so chat overflow can't clip it; supports Copy / MD / HTML / Print-PDF / JSON), action result cards (`ActionResultCards` for Capture/Task/Calendar with stable step_id dedupe).
+- New pages: NotesPage (split-pane markdown editor + autosave), BookmarksPage (filters by domain/tag/status), HabitsPage (7-day grid + 30-day overview), SharePage (public read-only `/share/:token`).
+- Backend: `/notes`, `/bookmarks`, `/habits` CRUD via `app/extras_agent.py`; `/memories/{id}/share` + `/share/{token}`; `/capture/voice` with Whisper-style transcription; `/memories/{id}/auto-tag`; 5-minute in-memory cache on `/briefing` to absorb dashboard refetches.
+- CapturePage now fires `/memories/{id}/auto-tag` after every save and surfaces newly suggested tags as a toast.
+- DashboardPage adds AI Briefing widget, today's habit checklist, and recent notes panel.
+- `tsconfig.json` excludes `attached_assets/`, `node_modules`, `dist`, `build`.

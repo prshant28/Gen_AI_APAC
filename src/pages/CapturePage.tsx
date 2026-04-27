@@ -239,12 +239,26 @@ const CaptureView = () => {
         body: JSON.stringify(preview),
       });
       if (res.ok) {
+        const saved = await res.json().catch(() => null);
+        const memId = saved?.id;
         setPreview(null);
         setInput('');
         setPdfFile(null);
         voice.setTranscript('');
         setAgentState({});
         showToast('Saved to Vault!');
+        // Fire-and-forget AI auto-tag in background; only toast when AI actually adds NEW tags.
+        if (memId) {
+          fetch(`/memories/${memId}/auto-tag`, { method: 'POST' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              const added: string[] = Array.isArray(d?.added) ? d.added : [];
+              if (added.length > 0) {
+                showToast(`AI added: ${added.slice(0, 3).map(t => `#${t}`).join(' ')}`);
+              }
+            })
+            .catch(() => {});
+        }
       } else {
         showToast('Failed to save', 'error');
       }

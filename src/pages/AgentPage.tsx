@@ -3,13 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Brain, Send, Mic, MicOff, Loader2, Sparkles, CheckSquare, BarChart2,
   Bot, Cpu, Zap, Calendar as CalendarIcon, X, ArrowRight, Search,
-  Database, ChevronDown, Activity, Clock, Layers, TrendingUp,
+  Database, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  Activity, Clock, Layers, TrendingUp, Plus,
   Workflow as WorkflowIcon, Gauge, Eye, EyeOff, Pin, PinOff,
   Download, Copy, Check, Hash, Rocket, Radio, Flame, Wand2,
-  Terminal, Code2, Settings as SettingsIcon, Maximize2, Minimize2
+  Terminal, Code2, Settings as SettingsIcon, Maximize2, Minimize2,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg } from '../lib/types';
+import MarkdownMessage from '../components/MarkdownMessage';
+import MessageToolbar from '../components/MessageToolbar';
+import ActionResultCards from '../components/ActionResultCards';
 
 const AGENT_COLORS: Record<string, string> = {
   Orchestrator: '#00d4ff', CaptureAgent: '#f43f5e', RecallAgent: '#8b5cf6',
@@ -61,13 +66,16 @@ const AgentHubView = () => {
   const [agentMetrics, setAgentMetrics] = useState<Record<string, { uses: number; avgMs: number; success: number; fails: number }>>({});
   const [latencies, setLatencies] = useState<number[]>([]);
   const [tokensUsed, setTokensUsed] = useState(0);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [pipelineMode, setPipelineMode] = useState<'compact' | 'expanded'>('expanded');
+  const [statsCollapsed, setStatsCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const thinkingIdRef = useRef<string>('');
   const recognitionRef = useRef<any>(null);
   const startTimeRef = useRef<Record<string, number>>({});
+  const abortRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef<string | null>(null);
 
   const toggleVoice = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -101,8 +109,13 @@ const AgentHubView = () => {
   const handleSend = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg || isStreaming) return;
+    // Per-request token + locally captured thinkingId — the SSE handler/cleanup paths
+    // only mutate state if requestId still matches the active token. This prevents an
+    // aborted-but-still-resolving stream from corrupting a freshly started one.
+    const requestId = `r-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const userMsgId = `u-${Date.now()}`;
     const thinkId = `t-${Date.now()}`;
+    activeRequestRef.current = requestId;
     thinkingIdRef.current = thinkId;
     setMessages(prev => [...prev,
       { id: userMsgId, role: 'user', type: 'text', content: msg, ts: new Date().toISOString() },
@@ -111,11 +124,16 @@ const AgentHubView = () => {
     setInput(''); setIsStreaming(true);
     setAgentStatuses({ Orchestrator: 'running' });
 
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const isStillActive = () => activeRequestRef.current === requestId;
+
     try {
       const response = await fetch('/agent/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, session_id: 'agent-hub' })
+        body: JSON.stringify({ message: msg, session_id: 'agent-hub' }),
+        signal: ac.signal,
       });
       if (!response.body) throw new Error('No response body');
       const reader = response.body.getReader();
@@ -130,22 +148,33 @@ const AgentHubView = () => {
         for (const chunk of lines) {
           const line = chunk.trim();
           if (line.startsWith('data: ')) {
-            try { handleSSEEvent(JSON.parse(line.slice(6))); } catch { }
+            try { handleSSEEvent(JSON.parse(line.slice(6)), thinkId, isStillActive); } catch { }
           }
         }
       }
     } catch (e: any) {
-      setMessages(prev => prev.map(m => m.id === thinkingIdRef.current
-        ? { ...m, type: 'text', content: `Error: ${e.message || 'Connection failed'}` }
-        : m
-      ));
+      if (!isStillActive()) return;
+      if (e.name === 'AbortError') {
+        setMessages(prev => prev.filter(m => m.id !== thinkId));
+      } else {
+        setMessages(prev => prev.map(m => m.id === thinkId
+          ? { ...m, type: 'text', content: `Error: ${e.message || 'Connection failed'}` }
+          : m
+        ));
+      }
     } finally {
-      setIsStreaming(false); setAgentStatuses({}); fetchWorkflows();
+      // Only the still-active request gets to clear shared streaming state.
+      if (isStillActive()) {
+        abortRef.current = null;
+        activeRequestRef.current = null;
+        setIsStreaming(false); setAgentStatuses({});
+      }
+      fetchWorkflows();
     }
   };
 
-  const handleSSEEvent = (event: any) => {
-    const thinkId = thinkingIdRef.current;
+  const handleSSEEvent = (event: any, thinkId: string, isActive: () => boolean) => {
+    if (!isActive()) return;
     switch (event.type) {
       case 'thinking': setAgentStatuses(prev => ({ ...prev, Orchestrator: 'running' })); break;
       case 'agent_start':
@@ -199,13 +228,6 @@ const AgentHubView = () => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const copyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 1500);
-    });
-  };
-
   const exportWorkflow = () => {
     const blob = new Blob([JSON.stringify({ messages, workflows, metrics: agentMetrics, exported_at: new Date().toISOString() }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -213,6 +235,32 @@ const AgentHubView = () => {
     a.href = url; a.download = `agent-session-${Date.now()}.json`; a.click();
     URL.revokeObjectURL(url);
   };
+
+  const startNewChat = useCallback(async () => {
+    // Invalidate any in-flight stream so its leftover SSE events / catch / finally
+    // become no-ops (see isStillActive guard in handleSend).
+    activeRequestRef.current = null;
+    if (abortRef.current) {
+      try { abortRef.current.abort(); } catch {}
+      abortRef.current = null;
+    }
+    setIsStreaming(false);
+    try {
+      await fetch('/agent/chat/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '', session_id: 'agent-hub' }),
+      });
+    } catch {}
+    setMessages([{
+      id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(),
+      content: `New chat started. I'm your Neural AI Orchestrator — ready to capture, recall, plan or schedule. What's next?`
+    }]);
+    setAgentStatuses({});
+    setTokensUsed(0);
+    setLatencies([]);
+    inputRef.current?.focus();
+  }, []);
 
   const activeAgentCount = Object.values(agentStatuses).filter(s => s === 'running').length;
   const completedAgentCount = Object.values(agentStatuses).filter(s => s === 'done').length;
@@ -285,50 +333,57 @@ const AgentHubView = () => {
                 <span style={{ color: '#00d4ff', fontSize: 12, fontWeight: 700 }}>{activeAgentCount > 0 ? `${activeAgentCount} agents active` : 'Processing...'}</span>
               </motion.div>
             )}
-            <button onClick={exportWorkflow} title="Export session" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={() => setSidebarCollapsed(s => !s)} title={sidebarCollapsed ? 'Show side panel' : 'Hide side panel for focus mode'}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {sidebarCollapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+              {sidebarCollapsed ? 'Show panel' : 'Focus'}
+            </button>
+            <button onClick={exportWorkflow} title="Export full session as JSON" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> Export
             </button>
-            <button
-              onClick={async () => {
-                try {
-                  await fetch('/agent/chat/clear', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: '', session_id: 'agent-hub' }),
-                  });
-                } catch {}
-                setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: `New chat started. I'm your Neural AI Orchestrator — ready to capture, recall, plan or schedule. What's next?` }]);
-                setAgentStatuses({});
-                setTokensUsed(0);
-                setLatencies([]);
-              }}
-              title="Start a new chat — clears AI memory of this session"
-              style={{ padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              + New chat
+            <button onClick={startNewChat}
+              title={isStreaming ? 'Stop the active stream and start a fresh chat' : 'Start a new chat — clears AI memory of this session'}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, color: '#a78bfa', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Plus size={13} /> New chat
             </button>
           </div>
         </div>
 
-        {/* ───────── STATS STRIP (4 metric cards) ───────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-          {[
-            { icon: Bot, color: '#00d4ff', label: 'Agents Online', value: '7', sub: 'all systems ready' },
-            { icon: Activity, color: '#10b981', label: 'Workflows Run', value: String(totalRuns + workflows.length), sub: `${totalAgentUses} agent calls` },
-            { icon: Gauge, color: '#3b82f6', label: 'Avg Latency', value: avgLatency > 0 ? `${avgLatency}ms` : '—', sub: 'per agent step' },
-            { icon: TrendingUp, color: '#a78bfa', label: 'Success Rate', value: `${successRate}%`, sub: `${tokensUsed.toLocaleString()} tokens used` },
-          ].map(stat => (
-            <div key={stat.label} className="view-card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, transition: 'all 0.2s' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${stat.color}15`, border: `1px solid ${stat.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <stat.icon size={18} color={stat.color} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>{stat.label}</div>
-                <div style={{ color: 'var(--text-1)', fontSize: 20, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.4px' }}>{stat.value}</div>
-                <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 3 }}>{stat.sub}</div>
-              </div>
-            </div>
-          ))}
+        {/* ───────── STATS STRIP — collapsible ───────── */}
+        <div className="collapsible-bar" onClick={() => setStatsCollapsed(s => !s)}>
+          <div className="collapsible-bar-title">
+            <Gauge size={13} color="#a78bfa" />
+            <span>Mission Control</span>
+            <span className="collapsible-bar-meta">7 agents · {totalRuns + workflows.length} workflows · {avgLatency > 0 ? `${avgLatency}ms` : '—'} avg · {successRate}% success</span>
+          </div>
+          {statsCollapsed ? <ChevronDown size={14} color="var(--text-3)" /> : <ChevronUp size={14} color="var(--text-3)" />}
         </div>
+        <AnimatePresence initial={false}>
+          {!statsCollapsed && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }} style={{ overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, paddingTop: 6 }}>
+                {[
+                  { icon: Bot, color: '#00d4ff', label: 'Agents Online', value: '7', sub: 'all systems ready' },
+                  { icon: Activity, color: '#10b981', label: 'Workflows Run', value: String(totalRuns + workflows.length), sub: `${totalAgentUses} agent calls` },
+                  { icon: Gauge, color: '#3b82f6', label: 'Avg Latency', value: avgLatency > 0 ? `${avgLatency}ms` : '—', sub: 'per agent step' },
+                  { icon: TrendingUp, color: '#a78bfa', label: 'Success Rate', value: `${successRate}%`, sub: `${tokensUsed.toLocaleString()} tokens used` },
+                ].map(stat => (
+                  <div key={stat.label} className="view-card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, transition: 'all 0.2s' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${stat.color}15`, border: `1px solid ${stat.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <stat.icon size={18} color={stat.color} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>{stat.label}</div>
+                      <div style={{ color: 'var(--text-1)', fontSize: 20, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.4px' }}>{stat.value}</div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 3 }}>{stat.sub}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ───────── LIVE PIPELINE VISUALIZER (when streaming or last steps exist) ───────── */}
@@ -392,10 +447,11 @@ const AgentHubView = () => {
         </motion.div>
       )}
 
-      {/* ───────── BODY: 2 columns ───────── */}
-      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(290px, 320px) 1fr', gap: 16, alignItems: 'start', minHeight: 580 }}>
+      {/* ───────── BODY: 2 columns (left collapses to nothing in focus mode) ───────── */}
+      <div className="agent-body-grid" style={{ display: 'grid', gridTemplateColumns: sidebarCollapsed ? '1fr' : 'minmax(290px, 320px) 1fr', gap: sidebarCollapsed ? 0 : 16, alignItems: 'start', minHeight: 580, transition: 'grid-template-columns 0.25s ease' }}>
 
-        {/* ═══ LEFT: Agent Registry / History / Inspector (sticky, capped height) ═══ */}
+        {/* ═══ LEFT: Agent Registry / History / Inspector (hidden in focus mode) ═══ */}
+        {!sidebarCollapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)' }}>
           {/* Tabs */}
           <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 11, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
@@ -610,6 +666,7 @@ const AgentHubView = () => {
             ))}
           </div>
         </div>
+        )}
 
         {/* ═══ RIGHT: Templates + Chat + Input ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
@@ -707,31 +764,38 @@ const AgentHubView = () => {
                     </div>
                   )}
 
-                  {/* Streaming */}
+                  {/* Streaming — markdown live */}
                   {msg.type === 'streaming' && (
-                    <div style={{ padding: '12px 16px', borderRadius: '4px 14px 14px 14px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                      <p style={{ color: 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                        {msg.content}
-                        <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#a78bfa', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'bounce 1s ease-in-out infinite', opacity: 0.8 }} />
-                      </p>
+                    <div style={{ padding: '12px 16px', borderRadius: '4px 14px 14px 14px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: 'var(--text-1)' }}>
+                      <MarkdownMessage content={msg.content || ''} />
+                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#a78bfa', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'bounce 1s ease-in-out infinite', opacity: 0.8 }} />
                     </div>
                   )}
 
-                  {/* Text / Welcome */}
+                  {/* Text / Welcome — markdown rendered */}
                   {(msg.type === 'text' || msg.type === 'welcome') && (
                     <div>
-                      <div style={{
+                      <div className={msg.role === 'user' ? 'user-bubble' : ''} style={{
                         padding: '13px 17px',
                         borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px',
                         background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : msg.type === 'welcome' ? 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' : 'var(--surface)',
                         border: msg.role === 'user' ? 'none' : msg.type === 'welcome' ? '1px solid rgba(99,102,241,0.25)' : '1px solid var(--border)',
                         boxShadow: msg.role === 'user' ? '0 2px 12px rgba(99,102,241,0.35)' : '0 1px 4px rgba(0,0,0,0.06)',
+                        color: msg.role === 'user' ? '#fff' : 'var(--text-1)',
                         position: 'relative',
                       }}>
-                        <p style={{ color: msg.role === 'user' ? '#fff' : 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                        <MarkdownMessage
+                          content={msg.content || ''}
+                          onActionClick={msg.role === 'assistant' ? (text) => handleSend(text) : undefined}
+                        />
                       </div>
 
-                      {/* Agent tags + actions */}
+                      {/* Action result cards (memory saved, task created, event scheduled) */}
+                      {msg.role === 'assistant' && msg.steps && msg.steps.length > 0 && (
+                        <ActionResultCards steps={msg.steps as any} />
+                      )}
+
+                      {/* Agent tags + per-message export menu */}
                       <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
                         {msg.steps && msg.steps.length > 0 && msg.steps.filter(s => s.status === 'completed').map(s => {
                           const color = AGENT_COLORS[s.agent] || '#6366f1';
@@ -747,11 +811,12 @@ const AgentHubView = () => {
                             <Clock size={9} /> {msg.steps.reduce((acc, s) => acc + (s.duration_ms || 0), 0).toFixed(0)}ms
                           </span>
                         )}
-                        {msg.role === 'assistant' && msg.type === 'text' && (
-                          <button onClick={() => copyMessage(msg.id, msg.content || '')}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 20, color: copiedId === msg.id ? '#10b981' : 'var(--text-3)', fontSize: 10.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                            {copiedId === msg.id ? <><Check size={9} /> Copied</> : <><Copy size={9} /> Copy</>}
-                          </button>
+                        {msg.role === 'assistant' && msg.type === 'text' && msg.content && (
+                          <MessageToolbar
+                            messageId={msg.id}
+                            content={msg.content}
+                            meta={{ agents: (msg as any).agents, ts: msg.ts, durationMs: msg.steps?.reduce((a, s) => a + (s.duration_ms || 0), 0) }}
+                          />
                         )}
                       </div>
 
@@ -790,14 +855,21 @@ const AgentHubView = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, padding: '0 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, padding: '0 4px', gap: 10, flexWrap: 'wrap' }}>
             <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0 }}>
               <Radio size={10} style={{ verticalAlign: 'middle', color: '#10b981' }} /> Powered by Google Gemini 2.0 · Multi-agent · Real-time SSE
             </p>
-            <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0, display: 'flex', gap: 12 }}>
-              <span><Hash size={10} style={{ verticalAlign: 'middle' }} /> {tokensUsed.toLocaleString()} tokens</span>
-              <span><Flame size={10} style={{ verticalAlign: 'middle', color: '#f59e0b' }} /> {totalAgentUses} calls</span>
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={startNewChat} disabled={isStreaming}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: '#a78bfa', fontSize: 11, fontWeight: 700, cursor: isStreaming ? 'default' : 'pointer', opacity: isStreaming ? 0.5 : 1, fontFamily: 'inherit' }}
+                title="Start a fresh chat — clears AI memory">
+                <Plus size={11} /> New chat
+              </button>
+              <p style={{ color: 'var(--text-3)', fontSize: 11, margin: 0, display: 'flex', gap: 12 }}>
+                <span><Hash size={10} style={{ verticalAlign: 'middle' }} /> {tokensUsed.toLocaleString()} tokens</span>
+                <span><Flame size={10} style={{ verticalAlign: 'middle', color: '#f59e0b' }} /> {totalAgentUses} calls</span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
