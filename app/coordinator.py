@@ -208,7 +208,7 @@ TOOL_DISPLAY_NAMES = {
 # ─── System Prompt ────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are Recall X247 Neural AI — an AI-powered Second Brain orchestrator.
-You coordinate specialized sub-agents to help users manage knowledge, tasks, and learning.
+You coordinate 7 specialized sub-agents and have FULL MEMORY of this conversation.
 
 SUB-AGENTS YOU COORDINATE:
 - CaptureAgent: Captures knowledge from YouTube, web, PDFs, notes → use capture_knowledge
@@ -217,18 +217,82 @@ SUB-AGENTS YOU COORDINATE:
 - CalendarAgent: Schedules events and study sessions → use schedule_event or list_schedule
 - BriefingAgent: Generates briefings and study plans → use get_daily_briefing or generate_study_plan
 - AnalyticsAgent: Provides stats and insights → use get_knowledge_stats
+- FlashcardAgent: Generates spaced-repetition flashcards from a memory
+
+CONVERSATION CONTEXT IS SACRED:
+- The full chat history is provided. NEVER pretend you don't know what was just discussed.
+- If the user replies "yes", "sure", "do it", or any short affirmation, it ALWAYS refers to the most recent suggestion you made — execute that exact action without asking again.
+- If the user says "no" / "later", acknowledge briefly and offer 1-2 alternative agents that could help.
+- Always remember the most recently captured memory (its title, id, domain, tags) — refer to it by name in follow-ups.
 
 ROUTING RULES:
 - YouTube/web URL → CaptureAgent (capture_knowledge)
 - Question about saved content → RecallAgent (recall_knowledge)
-- "create task", "remind me", "todo" → TaskAgent (create_task)
-- "schedule", "book time", "study session" → CalendarAgent (schedule_event)
-- "briefing", "daily summary" → BriefingAgent (get_daily_briefing)
-- COMPLEX workflows: chain multiple agents (e.g., capture THEN create_task)
+- "create task" / "remind me" / "todo" → TaskAgent (create_task)
+- "schedule" / "book time" / "study session" → CalendarAgent (schedule_event)
+- "briefing" / "daily summary" → BriefingAgent (get_daily_briefing)
+- "stats" / "how am I doing" → AnalyticsAgent (get_knowledge_stats)
+- COMPLEX workflows: chain multiple agents (e.g., capture THEN create_task THEN schedule_event)
+
+AFTER EVERY SUCCESSFUL CAPTURE — MANDATORY FOLLOW-UP:
+End your reply with a numbered list of 3-4 concrete next-actions tied to specific OTHER agents,
+based on the captured topic. Example for an AI/ML capture:
+  1. TaskAgent — Create a task: "Build a demo using these techniques" (due in 3 days)
+  2. CalendarAgent — Schedule a 45-min deep-study session for this weekend
+  3. BriefingAgent — Generate a 7-day study plan on this topic
+  4. RecallAgent — Find related memories you've already saved on this domain
+Then ask: "Which one should I run?" and WAIT. When the user picks (by number, name, or "yes" to a single suggestion), execute that tool immediately with the captured memory's details as context.
+
+PROACTIVE RECALL:
+For non-capture user questions, FIRST silently call recall_knowledge to find related saved memories.
+If matches exist, weave them into your reply ("Based on what you saved about X last week…").
+This makes the assistant feel like a true second brain.
 
 Today: {today}
 
-Always confirm completed actions with ✅ and suggest useful follow-up actions."""
+Always confirm completed actions with ✅. Be concise. Use Hinglish-friendly tone (warm, direct)."""
+
+# ─── Session History (in-memory conversation memory) ──────────────────────────
+
+_SESSION_HISTORY: Dict[str, List[dict]] = {}
+_SESSION_MAX_MESSAGES = 24  # Keep last ~12 turns (user+assistant pairs)
+
+
+def _serialize_assistant_msg(msg) -> dict:
+    """Convert an OpenAI ChatCompletionMessage to a JSON-safe dict for replay."""
+    out: dict = {"role": "assistant", "content": msg.content or ""}
+    if getattr(msg, "tool_calls", None):
+        out["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+            }
+            for tc in msg.tool_calls
+        ]
+    return out
+
+
+def _trim_history(session_id: str) -> None:
+    h = _SESSION_HISTORY.get(session_id, [])
+    if len(h) <= _SESSION_MAX_MESSAGES:
+        return
+    # Drop oldest while ensuring we don't orphan a tool message without its assistant
+    overflow = len(h) - _SESSION_MAX_MESSAGES
+    new_start = overflow
+    while new_start < len(h) and h[new_start].get("role") == "tool":
+        new_start += 1
+    _SESSION_HISTORY[session_id] = h[new_start:]
+
+
+def get_session_history(session_id: str) -> List[dict]:
+    return list(_SESSION_HISTORY.get(session_id, []))
+
+
+def clear_session_history(session_id: str) -> int:
+    n = len(_SESSION_HISTORY.get(session_id, []))
+    _SESSION_HISTORY.pop(session_id, None)
+    return n
 
 
 # ─── Tool Executor ────────────────────────────────────────────────────────────
@@ -296,10 +360,14 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     client = _make_client()
     current_model = settings.OPENAI_MODEL
 
+    history = _SESSION_HISTORY.get(session_id, [])
+    new_user_msg = {"role": "user", "content": message}
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
-        {"role": "user", "content": message}
+        *history,
+        new_user_msg,
     ]
+    turn_messages: List[dict] = [new_user_msg]
 
     reply = ""
     try:
@@ -336,6 +404,8 @@ async def run_coordinator(message: str, session_id: str) -> dict:
 
             msg = response.choices[0].message
             messages.append(msg)
+            serialized_assistant = _serialize_assistant_msg(msg)
+            turn_messages.append(serialized_assistant)
 
             if not msg.tool_calls:
                 reply = msg.content or ""
@@ -363,16 +433,19 @@ async def run_coordinator(message: str, session_id: str) -> dict:
                     step.fail(str(e))
                     result = {"error": str(e)}
 
-                tool_results.append({
+                tr = {
                     "tool_call_id": tc.id,
                     "role": "tool",
                     "content": json.dumps(result, default=str)
-                })
+                }
+                tool_results.append(tr)
+                turn_messages.append(tr)
 
             messages.extend(tool_results)
 
         if not reply:
             reply = "I've completed the requested actions. Let me know if you need anything else!"
+            turn_messages.append({"role": "assistant", "content": reply})
 
         workflow.complete(reply)
 
@@ -380,6 +453,11 @@ async def run_coordinator(message: str, session_id: str) -> dict:
         print(f"Coordinator Error: {e}")
         reply = f"I encountered an error: {str(e)}"
         workflow.fail(str(e))
+        turn_messages.append({"role": "assistant", "content": reply})
+
+    # Persist this turn into session history
+    _SESSION_HISTORY.setdefault(session_id, []).extend(turn_messages)
+    _trim_history(session_id)
 
     return {
         "reply": reply,
@@ -420,10 +498,14 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
     client = _make_client()
     current_model = settings.OPENAI_MODEL
 
+    history = _SESSION_HISTORY.get(session_id, [])
+    new_user_msg = {"role": "user", "content": message}
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
-        {"role": "user", "content": message}
+        *history,
+        new_user_msg,
     ]
+    turn_messages: List[dict] = [new_user_msg]
 
     reply = ""
     try:
@@ -484,6 +566,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
 
             msg = response.choices[0].message
             messages.append(msg)
+            serialized_assistant = _serialize_assistant_msg(msg)
+            turn_messages.append(serialized_assistant)
 
             # ── No tool calls → stream final reply word-by-word ──────────────
             if not msg.tool_calls:
@@ -522,6 +606,11 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         if not reply:
                             reply = raw
                             yield sse("token", {"text": raw})
+                    # The serialized assistant msg from the planning call had
+                    # empty content — replace it with the actual streamed reply
+                    # so session history reflects what the user saw.
+                    if turn_messages and turn_messages[-1].get("role") == "assistant":
+                        turn_messages[-1]["content"] = reply
                 break
 
             # ── Execute tool calls ─────────────────────────────────────────────
@@ -575,16 +664,23 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         "error": str(e)
                     })
 
-                messages.append({
+                tr = {
                     "tool_call_id": tc.id,
                     "role": "tool",
                     "content": json.dumps(result, default=str)
-                })
+                }
+                messages.append(tr)
+                turn_messages.append(tr)
 
         if not reply:
             reply = "All tasks completed successfully! Let me know if you need anything else."
+            turn_messages.append({"role": "assistant", "content": reply})
 
         workflow.complete(reply)
+
+        # Persist this turn into session history
+        _SESSION_HISTORY.setdefault(session_id, []).extend(turn_messages)
+        _trim_history(session_id)
 
         yield sse("workflow_complete", {
             "workflow_id": workflow.id,

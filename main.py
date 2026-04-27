@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
-from app.coordinator import run_coordinator, run_coordinator_stream
+from app.coordinator import run_coordinator, run_coordinator_stream, clear_session_history, get_session_history
 from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
@@ -223,6 +223,19 @@ async def chat_endpoint(request: ChatRequest):
         agents_called=result["agents_called"]
     )
     return result
+
+
+@app.post("/agent/chat/clear")
+async def agent_chat_clear(request: ChatRequest):
+    """Wipe the in-memory chat history for a session — used by the 'New chat' button."""
+    cleared = clear_session_history(request.session_id)
+    return {"session_id": request.session_id, "cleared_messages": cleared}
+
+
+@app.get("/agent/chat/history")
+async def agent_chat_history(session_id: str = "agent-hub"):
+    """Inspect current session history (debug)."""
+    return {"session_id": session_id, "messages": get_session_history(session_id)}
 
 
 @app.post("/agent/chat/stream")

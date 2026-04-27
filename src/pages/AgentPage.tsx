@@ -288,9 +288,23 @@ const AgentHubView = () => {
             <button onClick={exportWorkflow} title="Export session" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> Export
             </button>
-            <button onClick={() => { setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: `Hello! I'm the Neural AI Orchestrator. Session cleared — what would you like to accomplish?` }]); setAgentStatuses({}); setTokensUsed(0); setLatencies([]); }}
+            <button
+              onClick={async () => {
+                try {
+                  await fetch('/agent/chat/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: '', session_id: 'agent-hub' }),
+                  });
+                } catch {}
+                setMessages([{ id: 'welcome', role: 'assistant', type: 'welcome', ts: new Date().toISOString(), content: `New chat started. I'm your Neural AI Orchestrator — ready to capture, recall, plan or schedule. What's next?` }]);
+                setAgentStatuses({});
+                setTokensUsed(0);
+                setLatencies([]);
+              }}
+              title="Start a new chat — clears AI memory of this session"
               style={{ padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Clear
+              + New chat
             </button>
           </div>
         </div>
