@@ -53,6 +53,8 @@ const RecallView = () => {
   }, []);
 
   useEffect(() => {
+    // Don't auto-scroll while the empty state is showing — that hides the hero/suggestions
+    if (messages.length === 0) return;
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -109,10 +111,10 @@ const RecallView = () => {
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 8rem)', gap: 0, padding: '20px 0 0' }}>
+    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 8rem)', minHeight: 0, gap: 0, padding: '14px 0 0' }}>
 
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 16, flexShrink: 0, padding: '0 2px' }}>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 10, flexShrink: 0, padding: '0 2px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -162,37 +164,38 @@ const RecallView = () => {
 
       {/* Chat Area */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', ...card, overflow: 'hidden', border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.2)' }}>
+        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...card, overflow: 'hidden', border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.2)' }}>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 16 }} className="scroll-custom">
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom recall-messages">
 
           {/* Empty state */}
           {messages.length === 0 && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 0 10px', gap: 28 }}>
-              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.15 }}
-                style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(147,51,234,0.1))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 32px rgba(99,102,241,0.2)' }}>
-                <Search size={30} color="#818cf8" />
+            <div className="recall-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '8px 0 4px', gap: 14 }}>
+              <motion.div className="recall-hero" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.15 }}
+                style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(147,51,234,0.1))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(99,102,241,0.18)', flexShrink: 0 }}>
+                <Search size={24} color="#818cf8" />
               </motion.div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--text-1)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Ask your Second Brain</div>
-                <div style={{ color: 'var(--text-3)', fontSize: 13, lineHeight: 1.6, maxWidth: 380 }}>
-                  Neural Recall searches through all your saved memories, YouTube captures, web articles, and notes to give you instant, intelligent answers.
+              <div className="recall-empty-text" style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--text-1)', fontSize: 15.5, fontWeight: 700, marginBottom: 4 }}>Ask your Second Brain</div>
+                <div style={{ color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.5, maxWidth: 360 }}>
+                  Search across YouTube captures, web articles, PDFs, and notes — get instant intelligent answers.
                 </div>
               </div>
 
               {/* Suggestion grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, width: '100%', maxWidth: 580 }}>
+              <div className="recall-suggest-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, width: '100%', maxWidth: 560 }}>
                 {SUGGESTIONS.map((s, i) => (
                   <motion.button key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}
                     onClick={() => handleSend(s.q)}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.18s' }}
+                    title={s.label}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.18s', minWidth: 0 }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.35)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.07)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <s.icon size={13} color="#818cf8" />
+                    <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <s.icon size={12} color="#818cf8" />
                     </div>
-                    <span style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>{s.label}</span>
+                    <span style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 11.5, lineHeight: 1.35, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
                   </motion.button>
                 ))}
               </div>
@@ -274,7 +277,7 @@ const RecallView = () => {
         <div style={{ height: 1, background: 'var(--border)', flexShrink: 0 }} />
 
         {/* Input */}
-        <div style={{ padding: '14px 16px', flexShrink: 0 }}>
+        <div className="recall-input-wrap" style={{ padding: '10px 14px', flexShrink: 0 }}>
           {/* Suggested follow-ups when there are messages */}
           {messages.length > 0 && messages.length <= 4 && !isLoading && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
