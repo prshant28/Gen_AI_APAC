@@ -14,6 +14,7 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
   const [known, setKnown] = useState(0);
+  const [marked, setMarked] = useState(0);
 
   useEffect(() => {
     fetch(`/memories/${memory.id}/flashcards`)
@@ -26,18 +27,23 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
   const markCard = (status: 'known' | 'unknown') => {
     setCards(prev => prev.map((c, i) => i === idx ? { ...c, status } : c));
     if (status === 'known') setKnown(k => k + 1);
+    setMarked(m => m + 1);
     if (idx < cards.length - 1) { setIdx(i => i + 1); setFlipped(false); }
     else setDone(true);
   };
 
-  const restart = () => { setIdx(0); setFlipped(false); setDone(false); setKnown(0); setCards(prev => prev.map(c => ({ ...c, status: 'unseen' }))); };
+  const restart = () => { setIdx(0); setFlipped(false); setDone(false); setKnown(0); setMarked(0); setCards(prev => prev.map(c => ({ ...c, status: 'unseen' }))); };
 
-  const score = cards.length > 0 ? Math.round((known / cards.length) * 100) : 0;
+  // Score always reflects what the user actually answered (known / marked-so-far)
+  // so that partial sessions get a fair score and still count as "studied".
+  const score = marked > 0 ? Math.round((known / marked) * 100) : 0;
+  // Save progress whenever the user has touched any card, not only on the Done screen.
+  const closeWithProgress = () => onClose(marked > 0 ? score : undefined);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={() => onClose(done ? score : undefined)}
+        onClick={closeWithProgress}
         style={{ position: 'absolute', inset: 0, background: 'rgba(5,5,15,0.85)', backdropFilter: 'blur(8px)' }} />
 
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 24 }}
@@ -49,7 +55,7 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
             <div style={{ color: '#f59e0b', fontSize: 9.5, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 4 }}>AI FLASHCARDS · SPACED REPETITION</div>
             <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14, maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memory.title}</div>
           </div>
-          <button onClick={() => onClose(done ? score : undefined)}
+          <button onClick={closeWithProgress}
             style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)' }}>
             <X size={14} />
           </button>
@@ -93,7 +99,7 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
                 )}
                 <button onClick={() => onClose(score)}
                   style={{ flex: 1, padding: '11px 16px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 12, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(245,158,11,0.4)' }}>
-                  Done ✓
+                  Done
                 </button>
               </div>
             </motion.div>
