@@ -21,6 +21,20 @@ from app.recall_agent import recall, list_memories, get_memory, delete_memory, g
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events, delete_event
 from app.discover_agent import discover_resources
+from app.plan_agent import generate_plan, GOAL_TYPES
+from app.workspace_agent import (
+    list_projects as ws_list_projects,
+    get_project as ws_get_project,
+    create_project as ws_create_project,
+    update_project as ws_update_project,
+    delete_project as ws_delete_project,
+    add_items as ws_add_items,
+    remove_item as ws_remove_item,
+    add_task as ws_add_task,
+    toggle_task as ws_toggle_task,
+    ingest_plan as ws_ingest_plan,
+    ai_organize_memories as ws_ai_organize_memories,
+)
 from app.workflow_engine import list_workflows, get_workflow, AGENT_REGISTRY
 from app.extras_agent import (
     list_notes, create_note, update_note, delete_note,
@@ -624,6 +638,167 @@ async def discover_endpoint(request: DiscoverRequest):
     if "error" in result and not result.get("items"):
         raise HTTPException(status_code=502, detail=result["error"])
     return result
+
+
+# --- Plan Generator (multi-agent) ---
+
+class PlanGenerateRequest(BaseModel):
+    topic: str
+    goal_type: str = "study"
+    days: int = 7
+    minutes_per_day: int = 60
+    include_resources: bool = True
+
+
+@app.get("/plan/goal-types")
+async def plan_goal_types():
+    return {
+        "goal_types": [
+            {"id": k, "label": v["label"], "verb": v["verb"], "lens": v["lens"]}
+            for k, v in GOAL_TYPES.items()
+        ]
+    }
+
+
+@app.post("/plan/generate")
+async def plan_generate_endpoint(request: PlanGenerateRequest):
+    if not (request.topic or "").strip():
+        raise HTTPException(status_code=400, detail="topic is required")
+    result = await generate_plan(
+        topic=request.topic,
+        goal_type=request.goal_type,
+        days=request.days,
+        minutes_per_day=request.minutes_per_day,
+        include_resources=request.include_resources,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+class PlanIngestRequest(BaseModel):
+    plan: Dict[str, Any]
+    project_name: Optional[str] = None
+
+
+@app.post("/plan/save-to-workspace")
+async def plan_save_to_workspace(request: PlanIngestRequest):
+    if not request.plan or not isinstance(request.plan, dict):
+        raise HTTPException(status_code=400, detail="plan is required")
+    project = await ws_ingest_plan(request.plan, project_name=request.project_name)
+    return project
+
+
+# --- Workspace projects (CRUD + items + tasks) ---
+
+class WorkspaceProjectCreate(BaseModel):
+    name: str
+    description: str = ""
+    color: Optional[str] = None
+    goal_type: str = "general"
+    folders: Optional[List[Dict[str, Any]]] = None
+
+
+class WorkspaceProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    goal_type: Optional[str] = None
+    folders: Optional[List[Dict[str, Any]]] = None
+
+
+class WorkspaceItemsAdd(BaseModel):
+    items: List[Dict[str, Any]]
+    folder_id: Optional[str] = None
+
+
+class WorkspaceTaskCreate(BaseModel):
+    text: str
+    folder_id: Optional[str] = None
+
+
+@app.get("/workspace/projects")
+async def ws_projects_list():
+    return {"projects": await ws_list_projects()}
+
+
+@app.post("/workspace/projects")
+async def ws_projects_create(req: WorkspaceProjectCreate):
+    if not (req.name or "").strip():
+        raise HTTPException(status_code=400, detail="name is required")
+    return await ws_create_project(
+        name=req.name, description=req.description, color=req.color,
+        goal_type=req.goal_type, folders=req.folders,
+    )
+
+
+@app.get("/workspace/projects/{project_id}")
+async def ws_projects_get(project_id: str):
+    p = await ws_get_project(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="project not found")
+    return p
+
+
+@app.patch("/workspace/projects/{project_id}")
+async def ws_projects_update(project_id: str, req: WorkspaceProjectUpdate):
+    try:
+        return await ws_update_project(project_id, **req.model_dump(exclude_none=True))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/workspace/projects/{project_id}")
+async def ws_projects_delete(project_id: str):
+    ok = await ws_delete_project(project_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="project not found")
+    return {"deleted": True, "id": project_id}
+
+
+@app.post("/workspace/projects/{project_id}/items")
+async def ws_items_add(project_id: str, req: WorkspaceItemsAdd):
+    if not req.items:
+        raise HTTPException(status_code=400, detail="items required")
+    try:
+        return await ws_add_items(project_id, req.items, folder_id=req.folder_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/workspace/projects/{project_id}/items/{item_id}")
+async def ws_items_remove(project_id: str, item_id: str):
+    ok = await ws_remove_item(project_id, item_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="item not found")
+    return {"deleted": True, "id": item_id}
+
+
+@app.post("/workspace/projects/{project_id}/tasks")
+async def ws_tasks_add(project_id: str, req: WorkspaceTaskCreate):
+    if not (req.text or "").strip():
+        raise HTTPException(status_code=400, detail="text required")
+    try:
+        return await ws_add_task(project_id, text=req.text, folder_id=req.folder_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/workspace/projects/{project_id}/tasks/{task_id}/toggle")
+async def ws_tasks_toggle(project_id: str, task_id: str):
+    try:
+        return await ws_toggle_task(project_id, task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/workspace/projects/{project_id}/ai-organize")
+async def ws_ai_organize(project_id: str):
+    proj = await ws_get_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="project not found")
+    mems = await list_memories(domain="", limit=30)
+    return await ws_ai_organize_memories(project_id, mems if isinstance(mems, list) else [])
 
 
 # --- Calendar ICS subscription feed ---

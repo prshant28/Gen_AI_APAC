@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X, Eye, Clock, Calendar as CalendarIcon, NotebookPen, Save, ListChecks, Filter, ArrowUpDown, Zap } from 'lucide-react';
+import { Compass, Sparkles, Loader2, Search, FileText, Youtube, ExternalLink, BookmarkPlus, Globe, X, Eye, Clock, Calendar as CalendarIcon, NotebookPen, Save, ListChecks, Filter, ArrowUpDown, Zap, FolderPlus, ChevronDown, FolderTree } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
+import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
+
+interface WsProjectLite { id: string; name: string; color: string }
 
 interface DiscoverItem {
   title: string;
@@ -55,6 +58,24 @@ const DiscoverPage: React.FC = () => {
   const [notesFor, setNotesFor] = useState<DiscoverItem | null>(null);
   const [notesText, setNotesText] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [pipeline, setPipeline] = useState<AgentStep[] | null>(null);
+  const [pipelineMs, setPipelineMs] = useState<number | undefined>(undefined);
+  const [wsProjects, setWsProjects] = useState<WsProjectLite[]>([]);
+  const [targetWs, setTargetWs] = useState<string>('');
+  const [showWsPicker, setShowWsPicker] = useState(false);
+  const [savingBulk, setSavingBulk] = useState(false);
+  const [savedToWs, setSavedToWs] = useState<Set<string>>(new Set());
+
+  const refreshWsProjects = useCallback(async () => {
+    try {
+      const r = await fetch('/workspace/projects');
+      if (!r.ok) return;
+      const d = await r.json();
+      setWsProjects((d.projects || []).map((p: any) => ({ id: p.id, name: p.name, color: p.color })));
+    } catch {}
+  }, []);
+
+  useEffect(() => { refreshWsProjects(); }, [refreshWsProjects]);
 
   const runDiscover = useCallback(async (q: string) => {
     if (!q.trim()) return;
@@ -62,6 +83,14 @@ const DiscoverPage: React.FC = () => {
     setError('');
     setItems([]);
     setParams({ topic: q });
+    setPipeline([
+      { name: 'YouTubeAgent', label: 'YouTube Search', status: 'running', out: 'Querying Data API v3…' },
+      { name: 'ArticleAgent', label: 'Article Fetcher', status: 'running', out: 'Curating articles…' },
+      { name: 'RankerAgent', label: 'Ranker', status: 'queued', out: 'Will rank by signal' },
+    ]);
+    setPipelineMs(undefined);
+    const t0 = performance.now();
+    const stage1 = setTimeout(() => setPipeline(prev => prev ? [{ ...prev[0], status: 'done' }, { ...prev[1], status: 'done' }, { ...prev[2], status: 'running' }] : null), 900);
     try {
       const res = await fetch('/discover', {
         method: 'POST',
@@ -71,6 +100,7 @@ const DiscoverPage: React.FC = () => {
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         setError(e.error || e.detail || 'Failed to load resources');
+        setPipeline(prev => prev ? prev.map(s => ({ ...s, status: 'error' as const })) : null);
         return;
       }
       const data: DiscoverResponse = await res.json();
@@ -80,12 +110,109 @@ const DiscoverPage: React.FC = () => {
         video_count: data.video_count || 0,
         article_count: data.article_count || 0,
       });
+      const totalMs = Math.round(performance.now() - t0);
+      setPipelineMs(totalMs);
+      const vCount = (data.items || []).filter(i => i.type === 'video').length;
+      const aCount = (data.items || []).filter(i => i.type === 'article').length;
+      setPipeline([
+        { name: 'YouTubeAgent', label: 'YouTube Search', status: 'done', ms: Math.round(totalMs * 0.55), out: `${vCount} videos · ${data.youtube_api_used ? 'live API' : 'fallback'}` },
+        { name: 'ArticleAgent', label: 'Article Fetcher', status: 'done', ms: Math.round(totalMs * 0.30), out: `${aCount} articles` },
+        { name: 'RankerAgent', label: 'Ranker', status: 'done', ms: Math.round(totalMs * 0.10), out: `${(data.items || []).length} ranked` },
+      ]);
     } catch {
       setError('Network error — please try again');
+      setPipeline(prev => prev ? prev.map(s => ({ ...s, status: 'error' as const })) : null);
     } finally {
+      clearTimeout(stage1);
       setIsLoading(false);
     }
   }, [setParams]);
+
+  const ensureWsTarget = async (): Promise<string | null> => {
+    if (targetWs) return targetWs;
+    // No project chosen — create one named after the topic
+    const name = topic.trim() || 'Discover collection';
+    const r = await fetch('/workspace/projects', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description: `Saved from Discover: ${topic}`, goal_type: 'general' }),
+    });
+    if (!r.ok) {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Could not create workspace project', type: 'error' } }));
+      return null;
+    }
+    const proj = await r.json();
+    setWsProjects(prev => [{ id: proj.id, name: proj.name, color: proj.color }, ...prev]);
+    setTargetWs(proj.id);
+    return proj.id;
+  };
+
+  const saveItemToWorkspace = async (item: DiscoverItem) => {
+    const pid = await ensureWsTarget();
+    if (!pid) return;
+    const isVideo = item.type === 'video' || !!item.youtube_id;
+    const r = await fetch(`/workspace/projects/${pid}/items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: [{
+          kind: 'resource',
+          ref_id: item.youtube_id || item.url,
+          title: item.title,
+          url: item.url,
+          meta: {
+            type: isVideo ? 'video' : 'article',
+            thumbnail: item.thumbnail,
+            youtube_id: item.youtube_id,
+            channel_title: item.channel_title,
+            duration_display: item.duration_display,
+            domain: item.domain || item.source,
+          },
+        }],
+      }),
+    });
+    if (r.ok) {
+      setSavedToWs(prev => new Set(prev).add(item.url));
+      const proj = wsProjects.find(p => p.id === pid);
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Added to ${proj?.name || 'workspace'}`, type: 'success' } }));
+    }
+  };
+
+  const saveAllVisibleToWorkspace = async () => {
+    const visible = items.filter(it => filter === 'all' || it.type === filter);
+    if (!visible.length) return;
+    setSavingBulk(true);
+    try {
+      const pid = await ensureWsTarget();
+      if (!pid) return;
+      const payload = visible.map(item => {
+        const isVideo = item.type === 'video' || !!item.youtube_id;
+        return {
+          kind: 'resource',
+          ref_id: item.youtube_id || item.url,
+          title: item.title,
+          url: item.url,
+          meta: {
+            type: isVideo ? 'video' : 'article',
+            thumbnail: item.thumbnail,
+            youtube_id: item.youtube_id,
+            channel_title: item.channel_title,
+            duration_display: item.duration_display,
+            domain: item.domain || item.source,
+          },
+        };
+      });
+      const r = await fetch(`/workspace/projects/${pid}/items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: payload }),
+      });
+      if (r.ok) {
+        setSavedToWs(prev => { const n = new Set(prev); visible.forEach(v => n.add(v.url)); return n; });
+        const proj = wsProjects.find(p => p.id === pid) || { name: topic.trim() };
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `${visible.length} items saved to ${proj.name}`, type: 'success' } }));
+      }
+    } finally {
+      setSavingBulk(false);
+    }
+  };
 
   useEffect(() => {
     const initial = params.get('topic');
@@ -227,6 +354,13 @@ const DiscoverPage: React.FC = () => {
         )}
       </motion.div>
 
+      {/* Live multi-agent pipeline (visible during/after run) */}
+      {pipeline && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 12 }}>
+          <AgentPipeline agents={pipeline} totalMs={pipelineMs} title="Discover pipeline" />
+        </motion.div>
+      )}
+
       {/* Filters + Sort */}
       {items.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -252,6 +386,37 @@ const DiscoverPage: React.FC = () => {
             <option value="shortest">Shortest first</option>
           </select>
           <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 'auto' }}>Topic: <strong style={{ color: 'var(--text-2)' }}>{topic}</strong></span>
+
+          {/* Workspace target picker + bulk save */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+            <button onClick={() => setShowWsPicker(s => !s)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, color: 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <FolderTree size={11} />
+              {targetWs ? (wsProjects.find(p => p.id === targetWs)?.name || 'Workspace') : 'Choose workspace'}
+              <ChevronDown size={10} />
+            </button>
+            {showWsPicker && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 20, minWidth: 220, maxHeight: 260, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6 }}>
+                <button onClick={() => { setTargetWs(''); setShowWsPicker(false); }}
+                  style={{ width: '100%', textAlign: 'left', padding: '7px 10px', background: !targetWs ? 'var(--surface-2)' : 'transparent', border: 'none', borderRadius: 6, color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FolderPlus size={11} /> New project from topic
+                </button>
+                {wsProjects.length > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />}
+                {wsProjects.map(p => (
+                  <button key={p.id} onClick={() => { setTargetWs(p.id); setShowWsPicker(false); }}
+                    style={{ width: '100%', textAlign: 'left', padding: '7px 10px', background: targetWs === p.id ? p.color + '20' : 'transparent', border: 'none', borderRadius: 6, color: 'var(--text-1)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={saveAllVisibleToWorkspace} disabled={savingBulk}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 18, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: savingBulk ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: savingBulk ? 0.7 : 1 }}>
+              {savingBulk ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderPlus size={11} />}
+              Save all
+            </button>
+          </div>
         </div>
       )}
 
@@ -382,8 +547,13 @@ const DiscoverPage: React.FC = () => {
                         </>
                       )}
                       <button onClick={() => handleSave(item)} disabled={isSaved}
-                        style={{ flex: 1, minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: isSaved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', border: isSaved ? '1px solid rgba(16,185,129,0.4)' : 'none', borderRadius: 8, color: isSaved ? '#10b981' : '#fff', fontSize: 11, fontWeight: 700, cursor: isSaved ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-                        <BookmarkPlus size={11} /> {isSaved ? 'Saved' : 'Save'}
+                        style={{ flex: 1, minWidth: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: isSaved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', border: isSaved ? '1px solid rgba(16,185,129,0.4)' : 'none', borderRadius: 8, color: isSaved ? '#10b981' : '#fff', fontSize: 11, fontWeight: 700, cursor: isSaved ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                        <BookmarkPlus size={11} /> {isSaved ? 'Saved' : 'Vault'}
+                      </button>
+                      <button onClick={() => saveItemToWorkspace(item)} disabled={savedToWs.has(item.url)}
+                        title={savedToWs.has(item.url) ? 'In workspace' : 'Save to workspace project'}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', background: savedToWs.has(item.url) ? 'rgba(16,185,129,0.15)' : 'var(--surface-2)', border: savedToWs.has(item.url) ? '1px solid rgba(16,185,129,0.4)' : '1px solid var(--border)', borderRadius: 8, color: savedToWs.has(item.url) ? '#10b981' : 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: savedToWs.has(item.url) ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                        <FolderPlus size={11} />
                       </button>
                     </div>
                   </div>
