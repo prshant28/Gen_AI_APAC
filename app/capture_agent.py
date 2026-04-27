@@ -619,3 +619,541 @@ async def transcribe_audio(audio_bytes: bytes, mime: str = "audio/webm") -> str:
         return getattr(resp, "text", "") or ""
     except Exception as e:
         return f"[Transcription failed: {e}] (Recorded {len(audio_bytes)} bytes)"
+
+
+# ─── Time-Capture Bundle ────────────────────────────────────────────────────
+# Sweep recent memories (e.g. last 6 / 24 hours), dedupe vs prior bundles,
+# AI-synthesize a workspace, and persist as a Workspace project so all the
+# scattered captures live as one organized Folder with summary + highlights.
+
+def _parse_iso(ts) -> Optional[datetime.datetime]:
+    if ts is None:
+        return None
+    if isinstance(ts, datetime.datetime):
+        return ts if ts.tzinfo else ts.replace(tzinfo=datetime.timezone.utc)
+    if not isinstance(ts, str):
+        return None
+    s = ts.strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.datetime.fromisoformat(s)
+        return dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)
+    except Exception:
+        return None
+
+
+async def list_memories_in_window(hours_back: int, limit: int = 200) -> list[dict]:
+    """Return memories whose created_at falls inside [now - hours_back, now].
+    Reads in DESC order from Firestore-mock and filters in Python so the
+    in-memory store doesn't need a composite index."""
+    db = await get_db()
+    snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(limit).get()
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=max(1, hours_back))
+    out: list[dict] = []
+    for doc in snap:
+        m = doc.to_dict() or {}
+        m["id"] = doc.id
+        ts = _parse_iso(m.get("created_at"))
+        if ts is None or ts < cutoff:
+            continue
+        if hasattr(m.get("created_at"), "isoformat"):
+            m["created_at"] = m["created_at"].isoformat()
+        out.append(m)
+    return out
+
+
+async def _already_bundled_memory_ids() -> set[str]:
+    """Collect every memory id that's already been packed into a previous
+    time-capture workspace, so reruns within the same window don't duplicate."""
+    try:
+        db = await get_db()
+        snap = await db.collection("workspace_projects").get()
+        seen: set[str] = set()
+        for doc in snap:
+            d = doc.to_dict() or {}
+            if (d.get("goal_type") or "") != "time_capture":
+                continue
+            for it in (d.get("items") or []):
+                rid = it.get("ref_id")
+                if rid:
+                    seen.add(rid)
+            meta = d.get("meta") or {}
+            for rid in (meta.get("memory_ids") or []):
+                if rid:
+                    seen.add(rid)
+        return seen
+    except Exception as e:
+        print(f"_already_bundled_memory_ids error: {e}")
+        return set()
+
+
+async def bundle_recent_activity(hours: int = 6) -> dict:
+    """Capture-my-last-N-hours: fetches recent memories, dedupes vs prior
+    bundles, asks the LLM to title + summarize + group into folders, then
+    creates a Workspace project containing the items.
+
+    Returns: { ok, project, summary, key_learnings, highlights, included, skipped }
+    """
+    from app.workspace_agent import create_project as _ws_create, add_items as _ws_add
+    hours = max(1, min(48, int(hours or 6)))
+    window_end = datetime.datetime.now(datetime.timezone.utc)
+    window_start = window_end - datetime.timedelta(hours=hours)
+
+    recent = await list_memories_in_window(hours_back=hours, limit=200)
+    if not recent:
+        return {
+            "ok": False,
+            "reason": "no_recent",
+            "message": f"No captures found in the last {hours} hours.",
+            "hours": hours,
+            "window_start": window_start.isoformat(),
+            "window_end": window_end.isoformat(),
+        }
+
+    already = await _already_bundled_memory_ids()
+    fresh = [m for m in recent if m.get("id") not in already]
+    skipped_ids = [m.get("id") for m in recent if m.get("id") in already]
+
+    if not fresh:
+        return {
+            "ok": False,
+            "reason": "all_bundled",
+            "message": f"All {len(recent)} captures from the last {hours} hours are already in a workspace.",
+            "hours": hours,
+            "window_start": window_start.isoformat(),
+            "window_end": window_end.isoformat(),
+            "skipped": skipped_ids,
+        }
+
+    # Build a compact catalog for the LLM
+    catalog_lines = []
+    for i, m in enumerate(fresh[:40]):  # cap LLM input
+        st = (m.get("source_type") or "note")
+        title = (m.get("title") or "Untitled")[:120]
+        summ = (m.get("summary") or "")[:240]
+        tags = ", ".join((m.get("tags") or [])[:5])
+        dom = m.get("domain") or "general"
+        catalog_lines.append(
+            f"[{i}] id={m.get('id')} | source={st} | domain={dom} | tags={tags}\n    title: {title}\n    summary: {summ}"
+        )
+    catalog = "\n".join(catalog_lines) or "(no items)"
+
+    when_label = "the last 6 hours" if hours <= 6 else (f"the last {hours} hours" if hours < 24 else "today")
+    prompt = f"""You are organizing a knowledge worker's scattered captures from {when_label} into ONE structured workspace.
+
+Captures ({len(fresh)} total, indexed 0..{len(fresh)-1}):
+{catalog}
+
+Return STRICT JSON with these keys:
+- "title": string, <=60 chars, descriptive workspace name (e.g. "Morning research: GenAI agents")
+- "summary": string, 3-5 sentences synthesizing what the user worked on
+- "key_learnings": array of 4-6 concise bullet strings (the takeaways across captures)
+- "highlights": array of up to 3 objects {{"index": int, "why": "<one-line reason this item matters most>"}}
+- "folders": array of 2-5 objects {{"name": "<short topical folder name>", "description": "<one-line>", "indexes": [<capture indexes that belong here>]}}
+
+Rules:
+- Every capture index 0..{len(fresh)-1} MUST appear in exactly one folder's "indexes".
+- Folder names should be topical (e.g. "Agent design", "Python tooling"), not source-type names.
+- Be specific and concrete, not generic. Use Hinglish words only if titles already used them.
+- No emojis."""
+
+    try:
+        result = await chat_json(
+            messages=[{"role": "user", "content": prompt}],
+            model=settings.OPENAI_MODEL,
+            temperature=0.3,
+        )
+    except Exception as e:
+        return {"ok": False, "reason": "ai_failed", "message": f"AI synthesis failed: {e}"}
+
+    title = (result.get("title") or f"Activity bundle · last {hours}h").strip()[:80]
+    summary = (result.get("summary") or "").strip()
+    learnings = [str(x).strip() for x in (result.get("key_learnings") or []) if str(x).strip()][:6]
+    highlights_raw = result.get("highlights") or []
+    folders_raw = result.get("folders") or []
+
+    # ── Validate folder mapping: ensure every capture is bucketed exactly once.
+    def _safe_idx(v):
+        try:
+            i = int(v)
+            return i if 0 <= i < len(fresh) else None
+        except Exception:
+            return None
+
+    folder_specs = []
+    seen_idxs: set[int] = set()
+    for fi, f in enumerate(folders_raw):
+        name = (f.get("name") or f"Folder {fi+1}").strip()[:48]
+        desc = (f.get("description") or "").strip()[:120]
+        idxs = []
+        for v in (f.get("indexes") or []):
+            i = _safe_idx(v)
+            if i is not None and i not in seen_idxs:
+                idxs.append(i)
+                seen_idxs.add(i)
+        folder_specs.append({"name": name, "description": desc, "indexes": idxs})
+
+    # Catch any captures the AI dropped → put in a misc folder
+    leftovers = [i for i in range(len(fresh)) if i not in seen_idxs]
+    if leftovers:
+        if not folder_specs:
+            folder_specs.append({"name": "Captures", "description": "Recent items", "indexes": leftovers})
+        else:
+            folder_specs.append({"name": "Other", "description": "Additional captures", "indexes": leftovers})
+
+    # ── Create the workspace project with the AI-suggested folders.
+    folders_payload = [
+        {"id": _short_folder_id(spec["name"], i), "name": spec["name"], "description": spec["description"]}
+        for i, spec in enumerate(folder_specs)
+    ]
+    project = await _ws_create(
+        name=title,
+        description=summary[:240],
+        goal_type="time_capture",
+        folders=folders_payload,
+    )
+
+    # Stamp dedup metadata directly onto the project doc.
+    try:
+        db = await get_db()
+        pdoc = await db.collection("workspace_projects").document(project["id"]).get()
+        pdata = pdoc.to_dict() or project
+        pdata["meta"] = {
+            "bundle_type": "time_capture",
+            "hours": hours,
+            "window_start": window_start.isoformat(),
+            "window_end": window_end.isoformat(),
+            "memory_ids": [m["id"] for m in fresh],
+            "key_learnings": learnings,
+            "summary": summary,
+        }
+        await db.collection("workspace_projects").document(project["id"]).set(pdata)
+    except Exception as e:
+        print(f"bundle_recent_activity meta-stamp error: {e}")
+
+    # Add captures into their assigned folders.
+    highlight_ids: set[str] = set()
+    for h in highlights_raw[:3]:
+        i = _safe_idx(h.get("index") if isinstance(h, dict) else h)
+        if i is not None:
+            highlight_ids.add(fresh[i]["id"])
+
+    for spec, fp in zip(folder_specs, folders_payload):
+        items = []
+        for i in spec["indexes"]:
+            m = fresh[i]
+            items.append({
+                "kind": "memory",
+                "ref_id": m["id"],
+                "title": m.get("title") or "Untitled",
+                "url": m.get("source_url") or "",
+                "meta": {
+                    "source_type": m.get("source_type"),
+                    "domain": m.get("domain"),
+                    "created_at": m.get("created_at"),
+                    "highlight": m["id"] in highlight_ids,
+                    "tags": (m.get("tags") or [])[:5],
+                },
+            })
+        if items:
+            try:
+                await _ws_add(project["id"], items, folder_id=fp["id"])
+            except Exception as e:
+                print(f"bundle_recent_activity add_items error: {e}")
+
+    # Refresh project so we return the populated version.
+    try:
+        db = await get_db()
+        pdoc = await db.collection("workspace_projects").document(project["id"]).get()
+        if pdoc.exists:
+            project = pdoc.to_dict() | {"id": pdoc.id}
+    except Exception:
+        pass
+
+    highlights_out = [
+        {
+            "memory_id": fresh[_safe_idx(h.get("index") if isinstance(h, dict) else h)]["id"],
+            "title": fresh[_safe_idx(h.get("index") if isinstance(h, dict) else h)].get("title"),
+            "why": (h.get("why") if isinstance(h, dict) else "")[:160],
+        }
+        for h in highlights_raw[:3]
+        if _safe_idx(h.get("index") if isinstance(h, dict) else h) is not None
+    ]
+
+    return {
+        "ok": True,
+        "hours": hours,
+        "window_start": window_start.isoformat(),
+        "window_end": window_end.isoformat(),
+        "project": project,
+        "summary": summary,
+        "key_learnings": learnings,
+        "highlights": highlights_out,
+        "included": [m["id"] for m in fresh],
+        "skipped": skipped_ids,
+        "stats": {
+            "captured": len(fresh),
+            "skipped_already_bundled": len(skipped_ids),
+            "folders": len(folders_payload),
+        },
+    }
+
+
+def _short_folder_id(name: str, idx: int) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")[:24] or f"folder-{idx}"
+    return f"f_{base}_{idx}"
+
+
+# ─── Multi-Source Capture Session ───────────────────────────────────────────
+# A session is a tray of mixed inputs (notes, links, voice transcripts, images)
+# that the user assembles, then commits as ONE bundle into a target workspace.
+# Folder modes: 'auto' (AI names a fresh workspace), 'create' (caller-provided
+# name → new workspace), 'existing' (caller-provided project_id).
+#
+# Each item is funneled through the existing single-capture pipeline so the
+# original /capture flow remains the source of truth — this is purely an
+# orchestration layer.
+
+async def process_capture_session(
+    items: list[dict],
+    folder_mode: str = "auto",
+    folder_name: str = "",
+    project_id: str = "",
+    hint: str = "",
+    user_id: str = "demo_user",
+) -> dict:
+    """Run a batch of mixed-source capture items, then route results into one
+    workspace. Returns { ok, session_id, project, memories, summary, errors }."""
+    from app.workspace_agent import (
+        create_project as _ws_create,
+        get_project as _ws_get,
+        add_items as _ws_add,
+    )
+    if not items:
+        return {"ok": False, "reason": "empty", "message": "Session has no items."}
+
+    session_id = f"sess_{uuid_hex8()}"
+    saved_memories: list[dict] = []
+    errors: list[dict] = []
+
+    # ── Phase 1: ingest each item via the existing capture path ──────────
+    for idx, raw in enumerate(items):
+        kind = (raw.get("kind") or "").strip().lower()
+        try:
+            if kind == "note":
+                content = (raw.get("content") or "").strip()
+                if not content:
+                    errors.append({"index": idx, "kind": kind, "error": "empty content"})
+                    continue
+                result = await capture(source_type="note", content=content, user_id=user_id)
+            elif kind == "link":
+                url = (raw.get("url") or "").strip()
+                if not url:
+                    errors.append({"index": idx, "kind": kind, "error": "empty url"})
+                    continue
+                source_type = "youtube" if ("youtube.com" in url or "youtu.be" in url) else "web"
+                result = await capture(source_type=source_type, url=url, user_id=user_id)
+            elif kind == "voice":
+                # Voice items arrive as already-transcribed text (the client uses
+                # the existing /capture/voice transcription endpoint first).
+                transcript = (raw.get("content") or raw.get("transcript") or "").strip()
+                if not transcript:
+                    errors.append({"index": idx, "kind": kind, "error": "empty transcript"})
+                    continue
+                result = await capture(source_type="note", content=f"[Voice memo]\n{transcript}", user_id=user_id)
+            elif kind == "image":
+                # Image items: caller passes caption/OCR text + a base64 data URL.
+                # We treat the caption as a note so it flows through the same pipeline,
+                # then attach the FULL data URL to the resulting memory doc under
+                # `image_data` so it round-trips to vault detail (mirrors how PDFs
+                # use `pdf_data`). Cap at MAX_EMBED_PDF_BYTES to avoid doc bloat.
+                caption = (raw.get("caption") or raw.get("alt") or raw.get("title") or "Captured image").strip()
+                ocr = (raw.get("ocr_text") or "").strip()
+                body = caption + (f"\n\nExtracted text:\n{ocr}" if ocr else "")
+                result = await capture(source_type="note", content=body, user_id=user_id)
+                if isinstance(result, dict):
+                    data_url = (raw.get("data_url") or "").strip()
+                    # Rough byte estimate from base64 length (4 chars ≈ 3 bytes)
+                    if data_url and len(data_url) <= MAX_EMBED_PDF_BYTES * 4 // 3:
+                        result["image_data"] = data_url
+                        result["image_caption"] = caption
+                        # Stamp a marker into notes so search / vault lists know
+                        result["notes"] = ((result.get("notes") or "") + f"\n\n[image attached · {caption}]").strip()
+                    elif data_url:
+                        # Too big to embed — store caption only and warn caller.
+                        result["notes"] = ((result.get("notes") or "") + f"\n\n[image too large to embed · {caption}]").strip()
+            else:
+                errors.append({"index": idx, "kind": kind, "error": f"unsupported kind: {kind!r}"})
+                continue
+
+            if not isinstance(result, dict) or "error" in result:
+                errors.append({"index": idx, "kind": kind, "error": str(result.get("error") if isinstance(result, dict) else result)})
+                continue
+
+            # Persist to memories collection (capture() returns a structured
+            # analysis but does NOT auto-save; mirrors the single /capture flow).
+            saved = await save_memory(result, user_id=user_id)
+            if isinstance(saved, dict) and saved.get("id"):
+                saved_memories.append(saved)
+            else:
+                errors.append({"index": idx, "kind": kind, "error": "save returned no id"})
+        except Exception as e:
+            errors.append({"index": idx, "kind": kind, "error": str(e)})
+
+    if not saved_memories:
+        return {
+            "ok": False,
+            "reason": "all_failed",
+            "message": "No items in this session could be captured.",
+            "errors": errors,
+            "session_id": session_id,
+        }
+
+    # ── Phase 2: resolve target workspace ───────────────────────────────
+    project: Optional[dict] = None
+    folder_mode = (folder_mode or "auto").lower()
+
+    if folder_mode == "existing" and project_id:
+        project = await _ws_get(project_id)
+        if not project:
+            return {"ok": False, "reason": "missing_project", "message": f"Workspace {project_id} not found.", "session_id": session_id}
+    elif folder_mode == "create":
+        name = (folder_name or "").strip() or "Capture session"
+        project = await _ws_create(
+            name=name,
+            description=hint or f"Session of {len(saved_memories)} captures",
+            goal_type="capture_session",
+        )
+    else:
+        # auto: ask AI for a topical folder name + short description
+        catalog_lines = []
+        for i, m in enumerate(saved_memories[:30]):
+            t = (m.get("title") or "Untitled")[:120]
+            s = (m.get("summary") or "")[:200]
+            st = m.get("source_type") or "note"
+            catalog_lines.append(f"[{i}] {st} :: {t}\n    {s}")
+        catalog = "\n".join(catalog_lines) or "(no items)"
+        prompt = f"""You are naming a workspace folder for a batch of captures the user just collected{f' (user hint: {hint})' if hint else ''}.
+
+Captures ({len(saved_memories)}):
+{catalog}
+
+Return STRICT JSON:
+- "name": string, <=48 chars, descriptive topical folder name (NOT generic like "Notes" — be specific to the content)
+- "description": string, <=140 chars, one-sentence summary of what this folder contains
+- "summary": string, 2-3 sentences synthesizing what the user captured
+No emojis."""
+        try:
+            ai = await chat_json(
+                messages=[{"role": "user", "content": prompt}],
+                model=settings.OPENAI_MODEL,
+                temperature=0.3,
+            )
+        except Exception as e:
+            ai = {"name": "Capture session", "description": f"AI naming failed: {e}", "summary": ""}
+        # Sanitize AI output: blank/whitespace/junk -> deterministic fallback so
+        # workspace_agent doesn't silently rename to "Untitled project".
+        fallback_name = (hint.strip()[:48] if hint else "") or f"Capture session · {len(saved_memories)} items"
+        name = _sanitize_ai_name(ai.get("name"), fallback_name, max_len=48)
+        description = (ai.get("description") or "").strip()[:240]
+        summary_text = (ai.get("summary") or "").strip()
+        project = await _ws_create(
+            name=name,
+            description=description or summary_text[:240],
+            goal_type="capture_session",
+        )
+        # Stamp session metadata on the project for traceability.
+        try:
+            db = await get_db()
+            pdoc = await db.collection("workspace_projects").document(project["id"]).get()
+            pdata = pdoc.to_dict() or project
+            pdata["meta"] = {
+                "bundle_type": "capture_session",
+                "session_id": session_id,
+                "summary": summary_text,
+                "memory_ids": [m["id"] for m in saved_memories],
+                "created_at": _utcnow_session(),
+            }
+            await db.collection("workspace_projects").document(project["id"]).set(pdata)
+            project = pdata | {"id": project["id"]}
+        except Exception as e:
+            print(f"process_capture_session meta-stamp error: {e}")
+
+    # ── Phase 3: add memories as workspace items ────────────────────────
+    items_payload = [
+        {
+            "kind": "memory",
+            "ref_id": m["id"],
+            "title": m.get("title") or "Untitled",
+            "url": m.get("source_url") or "",
+            "meta": {
+                "source_type": m.get("source_type"),
+                "domain": m.get("domain"),
+                "tags": (m.get("tags") or [])[:5],
+                "session_id": session_id,
+            },
+        }
+        for m in saved_memories
+    ]
+    routing_ok = True
+    routing_error = ""
+    try:
+        await _ws_add(project["id"], items_payload)
+    except Exception as e:
+        routing_ok = False
+        routing_error = str(e) or "add_items failed"
+        errors.append({"index": -1, "kind": "routing", "error": routing_error})
+        print(f"process_capture_session add_items error: {e}")
+
+    # Refresh project to return populated state.
+    try:
+        db = await get_db()
+        pdoc = await db.collection("workspace_projects").document(project["id"]).get()
+        if pdoc.exists:
+            project = pdoc.to_dict() | {"id": pdoc.id}
+    except Exception:
+        pass
+
+    return {
+        "ok": routing_ok,
+        "session_id": session_id,
+        "project": project,
+        "memories": [{"id": m["id"], "title": m.get("title"), "source_type": m.get("source_type")} for m in saved_memories],
+        "summary": (project.get("meta") or {}).get("summary", "") if isinstance(project, dict) else "",
+        "routing_error": routing_error,
+        "stats": {
+            "captured": len(saved_memories),
+            "failed": len(errors),
+            "routed": len(items_payload) if routing_ok else 0,
+            "folder_mode": folder_mode,
+        },
+        "errors": errors,
+    }
+
+
+def _sanitize_ai_name(raw, fallback: str, max_len: int = 48) -> str:
+    """Coerce an AI-generated title/folder name into a usable string.
+    Returns `fallback` when the AI value is missing, non-string, blank,
+    or a generic placeholder that would lead to "Untitled project"."""
+    if not isinstance(raw, str):
+        return fallback
+    cleaned = raw.strip().strip('"').strip("'").strip()
+    if not cleaned:
+        return fallback
+    low = cleaned.lower()
+    junk = {"untitled", "untitled project", "notes", "note", "n/a", "none", "tbd"}
+    if low in junk:
+        return fallback
+    return cleaned[:max_len]
+
+
+def uuid_hex8() -> str:
+    import uuid as _uuid
+    return _uuid.uuid4().hex[:8]
+
+
+def _utcnow_session() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()

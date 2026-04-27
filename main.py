@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
 from app.coordinator import run_coordinator, run_coordinator_stream, clear_session_history, get_session_history
-from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio
+from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events, delete_event
@@ -465,6 +465,70 @@ async def capture_voice_endpoint(file: UploadFile = File(...)):
         return {"transcript": transcript or "", "memory": None, "error": "Transcription failed"}
     # Transcription-only: frontend separately POSTs /capture as a note for analysis.
     result = {"transcript": transcript, "memory": None}
+    return result
+
+
+# --- Time Capture (capture-my-last-N-hours bundle) ---
+
+class TimeBundleRequest(BaseModel):
+    hours: int = 6  # 1..48, typically 6 or 24
+
+
+@app.post("/capture/time-bundle")
+async def capture_time_bundle_endpoint(request: TimeBundleRequest):
+    """Sweep recent memories from the last N hours, dedupe vs prior bundles,
+    and create a Workspace project with AI-organized folders + summary."""
+    if request.hours < 1 or request.hours > 48:
+        raise HTTPException(status_code=400, detail="hours must be between 1 and 48")
+    result = await bundle_recent_activity(hours=request.hours)
+    return result
+
+
+# --- Multi-Source Capture Session ---
+# Tray of mixed inputs (notes, links, voice transcripts, images) committed in
+# one shot into a workspace folder. Folder mode picks how the destination is
+# resolved: 'auto' (AI names a fresh workspace), 'create' (caller provides
+# name → new workspace), 'existing' (caller provides project_id).
+
+class CaptureSessionItem(BaseModel):
+    kind: str  # note | link | voice | image
+    content: Optional[str] = ""
+    url: Optional[str] = ""
+    transcript: Optional[str] = ""
+    caption: Optional[str] = ""
+    ocr_text: Optional[str] = ""
+    data_url: Optional[str] = ""  # for image kind
+    title: Optional[str] = ""
+    alt: Optional[str] = ""
+
+
+class CaptureSessionRequest(BaseModel):
+    items: List[CaptureSessionItem]
+    folder_mode: str = "auto"  # 'auto' | 'create' | 'existing'
+    folder_name: Optional[str] = ""
+    project_id: Optional[str] = ""
+    hint: Optional[str] = ""
+
+
+@app.post("/capture/session")
+async def capture_session_endpoint(request: CaptureSessionRequest):
+    """Commit a multi-source capture tray as one workspace bundle."""
+    if not request.items:
+        raise HTTPException(status_code=400, detail="At least one item is required.")
+    if request.folder_mode not in {"auto", "create", "existing"}:
+        raise HTTPException(status_code=400, detail="folder_mode must be 'auto', 'create', or 'existing'")
+    if request.folder_mode == "existing" and not (request.project_id or "").strip():
+        raise HTTPException(status_code=400, detail="project_id is required when folder_mode='existing'")
+    if request.folder_mode == "create" and not (request.folder_name or "").strip():
+        raise HTTPException(status_code=400, detail="folder_name is required when folder_mode='create'")
+    items = [i.model_dump() for i in request.items]
+    result = await process_capture_session(
+        items=items,
+        folder_mode=request.folder_mode,
+        folder_name=request.folder_name or "",
+        project_id=request.project_id or "",
+        hint=request.hint or "",
+    )
     return result
 
 

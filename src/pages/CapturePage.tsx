@@ -4,6 +4,7 @@ import {
   Tag, ExternalLink, Save, Upload, Mic, MicOff, Code2, Twitter, Clipboard,
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
   AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
+  Clock, FolderOpen, Star, ArrowRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -116,6 +117,161 @@ const CaptureView = () => {
   const [activeAgentDesc, setActiveAgentDesc] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceRecorder();
+
+  // ── Time Capture (capture-my-last-N-hours bundle) ───────────────
+  const [bundling, setBundling] = useState<null | number>(null); // hours we're bundling, or null
+  const [bundleResult, setBundleResult] = useState<any>(null);
+  // Synchronous lock — React state updates are async, so a rapid double-click
+  // can otherwise pass the `bundling !== null` check twice and fire two requests.
+  const bundlingLock = useRef(false);
+  const runTimeBundle = async (hours: number) => {
+    if (bundlingLock.current || bundling !== null) return;
+    bundlingLock.current = true;
+    setBundling(hours);
+    setBundleResult(null);
+    try {
+      const r = await fetch('/capture/time-bundle', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hours }),
+      });
+      const data = await r.json();
+      setBundleResult(data);
+      if (data?.ok) {
+        showToast(`Bundled ${data.stats?.captured || 0} captures into "${data.project?.name || 'workspace'}"`);
+      } else if (data?.reason === 'no_recent') {
+        showToast(`No captures in the last ${hours}h yet`);
+      } else if (data?.reason === 'all_bundled') {
+        showToast('All recent captures already in a workspace');
+      } else {
+        showToast(data?.message || data?.detail || 'Time bundle failed');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Time bundle failed');
+    } finally {
+      setBundling(null);
+      bundlingLock.current = false;
+    }
+  };
+
+  // ── Multi-Source Capture Session (tray of mixed inputs → 1 workspace) ──
+  type SessionItem =
+    | { id: string; kind: 'note';  content: string }
+    | { id: string; kind: 'link';  url: string }
+    | { id: string; kind: 'voice'; transcript: string }
+    | { id: string; kind: 'image'; data_url: string; caption: string };
+
+  const [sessionMode, setSessionMode] = useState(false);
+  const [sessionItems, setSessionItems] = useState<SessionItem[]>([]);
+  const [sessionDraftKind, setSessionDraftKind] = useState<'note' | 'link' | 'voice' | 'image'>('note');
+  const [sessionDraftText, setSessionDraftText] = useState('');
+  const [sessionFolderMode, setSessionFolderMode] = useState<'auto' | 'create' | 'existing'>('auto');
+  const [sessionFolderName, setSessionFolderName] = useState('');
+  const [sessionExistingId, setSessionExistingId] = useState('');
+  const [sessionHint, setSessionHint] = useState('');
+  const [sessionProjects, setSessionProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [sessionResult, setSessionResult] = useState<any>(null);
+  const sessionImageInputRef = useRef<HTMLInputElement>(null);
+  const sessionVoice = useVoiceRecorder();
+  const sessionSubmitLock = useRef(false);
+
+  // Lazily fetch existing workspaces when user picks the Existing mode.
+  useEffect(() => {
+    if (!sessionMode || sessionFolderMode !== 'existing' || sessionProjects.length > 0) return;
+    fetch('/workspace/projects')
+      .then(r => r.json())
+      .then(d => setSessionProjects(((d?.projects || []) as any[]).map(p => ({ id: p.id, name: p.name }))))
+      .catch(() => {});
+  }, [sessionMode, sessionFolderMode, sessionProjects.length]);
+
+  const newSessionId = () => Math.random().toString(36).slice(2, 10);
+
+  const addSessionItem = (item: SessionItem) => setSessionItems(prev => [...prev, item]);
+  const removeSessionItem = (id: string) => setSessionItems(prev => prev.filter(x => x.id !== id));
+
+  const commitDraftItem = () => {
+    const text = sessionDraftText.trim();
+    if (sessionDraftKind === 'note') {
+      if (!text) { showToast('Note is empty'); return; }
+      addSessionItem({ id: newSessionId(), kind: 'note', content: text });
+    } else if (sessionDraftKind === 'link') {
+      if (!text || !/^https?:\/\//i.test(text)) { showToast('Enter a valid URL'); return; }
+      addSessionItem({ id: newSessionId(), kind: 'link', url: text });
+    } else {
+      return;
+    }
+    setSessionDraftText('');
+  };
+
+  const commitVoiceToSession = () => {
+    const t = (sessionVoice.transcript || '').trim();
+    if (!t || t.startsWith('Transcribing')) { showToast('No transcript yet'); return; }
+    addSessionItem({ id: newSessionId(), kind: 'voice', transcript: t });
+    sessionVoice.setTranscript('');
+  };
+
+  const handleSessionImagePick = (file: File | null) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Image too large (max 2MB)'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      if (!dataUrl) return;
+      addSessionItem({ id: newSessionId(), kind: 'image', data_url: dataUrl, caption: file.name.replace(/\.[^.]+$/, '') });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitSession = async () => {
+    if (sessionSubmitLock.current || sessionSubmitting) return;
+    if (sessionItems.length === 0) { showToast('Add at least one item'); return; }
+    if (sessionFolderMode === 'create' && !sessionFolderName.trim()) { showToast('Folder name required'); return; }
+    if (sessionFolderMode === 'existing' && !sessionExistingId) { showToast('Pick an existing folder'); return; }
+    sessionSubmitLock.current = true;
+    setSessionSubmitting(true);
+    setSessionResult(null);
+    try {
+      const r = await fetch('/capture/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: sessionItems.map(it => {
+            if (it.kind === 'note')  return { kind: 'note',  content: it.content };
+            if (it.kind === 'link')  return { kind: 'link',  url: it.url };
+            if (it.kind === 'voice') return { kind: 'voice', transcript: it.transcript };
+            return { kind: 'image', data_url: it.data_url, caption: it.caption };
+          }),
+          folder_mode: sessionFolderMode,
+          folder_name: sessionFolderName.trim(),
+          project_id: sessionExistingId,
+          hint: sessionHint.trim(),
+        }),
+      });
+      const data = await r.json();
+      setSessionResult(data);
+      if (data?.ok) {
+        showToast(`Session saved · ${data.stats?.captured || 0} items → "${data.project?.name || 'workspace'}"`);
+        setSessionItems([]);
+        setSessionFolderName('');
+        setSessionHint('');
+      } else {
+        showToast(data?.message || data?.detail || 'Session save failed');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Session save failed');
+    } finally {
+      setSessionSubmitting(false);
+      sessionSubmitLock.current = false;
+    }
+  };
+
+  const sessionItemLabel = (it: SessionItem) => {
+    if (it.kind === 'note')  return it.content.slice(0, 80);
+    if (it.kind === 'link')  return it.url;
+    if (it.kind === 'voice') return it.transcript.slice(0, 80);
+    return it.caption || 'image';
+  };
 
   /* Local PDF preview (object URL) */
   useEffect(() => {
@@ -315,6 +471,428 @@ const CaptureView = () => {
         <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>
           8 input modes · 7 AI agents · Full pipeline visibility
         </p>
+      </motion.div>
+
+      {/* ── Time Capture: bundle the last N hours into one workspace ──── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        className="view-card"
+        style={{
+          padding: '14px 16px',
+          background: 'linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(168,85,247,0.06) 100%)',
+          border: '1px solid var(--primary-border)',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(34,211,238,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Clock size={18} color="#22d3ee" />
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1.2 }}>
+              Capture my recent activity
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
+              Bundle scattered captures into one AI-organized workspace · skips already-bundled items
+            </div>
+          </div>
+          <div style={{
+            display: 'flex', gap: 8, flexWrap: 'wrap',
+            // Hard-disable the entire button group at the DOM level when a bundle
+            // is in flight — pointer-events:none beats React's async state updates
+            // and stops rapid double-clicks before JS event handlers even fire.
+            pointerEvents: bundling !== null ? 'none' : 'auto',
+          }} aria-busy={bundling !== null}>
+            {[{ h: 6, label: 'Last 6 hours' }, { h: 24, label: 'Full day (24h)' }].map(opt => (
+              <button key={opt.h}
+                type="button"
+                onClick={() => runTimeBundle(opt.h)}
+                disabled={bundling !== null}
+                aria-disabled={bundling !== null}
+                style={{
+                  padding: '8px 14px', fontSize: 12, fontWeight: 700,
+                  borderRadius: 999,
+                  border: '1px solid var(--primary-border)',
+                  background: bundling === opt.h ? 'var(--primary)' : 'var(--surface-2)',
+                  color: bundling === opt.h ? '#fff' : 'var(--text-1)',
+                  cursor: bundling !== null ? 'wait' : 'pointer',
+                  opacity: bundling !== null && bundling !== opt.h ? 0.55 : 1,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'all 0.15s',
+                }}>
+                {bundling === opt.h ? <Loader2 size={12} className="spin" /> : <Sparkles size={12} />}
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {bundleResult && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              style={{ overflow: 'hidden' }}>
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                {bundleResult.ok ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* Title + counters */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                      <FolderOpen size={16} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1.3 }}>
+                          {bundleResult.project?.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                          {bundleResult.stats?.captured} captures · {bundleResult.stats?.folders} folders
+                          {bundleResult.stats?.skipped_already_bundled > 0 && ` · ${bundleResult.stats.skipped_already_bundled} skipped (dedup)`}
+                        </div>
+                      </div>
+                      <a href="/workspace"
+                        style={{
+                          padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                          background: 'var(--primary)', color: '#fff', textDecoration: 'none',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}>
+                        Open <ArrowRight size={11} />
+                      </a>
+                    </div>
+
+                    {/* Summary */}
+                    {bundleResult.summary && (
+                      <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                        {bundleResult.summary}
+                      </div>
+                    )}
+
+                    {/* Folders */}
+                    {bundleResult.project?.folders?.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {bundleResult.project.folders.map((f: any) => (
+                          <span key={f.id} style={{
+                            padding: '3px 9px', fontSize: 10.5, fontWeight: 700,
+                            background: 'var(--surface-2)', border: '1px solid var(--border)',
+                            borderRadius: 999, color: 'var(--text-2)',
+                          }}>
+                            {f.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Key learnings */}
+                    {bundleResult.key_learnings?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px', marginBottom: 4 }}>
+                          KEY LEARNINGS
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55 }}>
+                          {bundleResult.key_learnings.slice(0, 5).map((l: string, i: number) => (
+                            <li key={i}>{l}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Highlights */}
+                    {bundleResult.highlights?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Star size={10} /> HIGHLIGHTS
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {bundleResult.highlights.map((h: any, i: number) => (
+                            <div key={i} style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.4 }}>
+                              <span style={{ fontWeight: 700, color: 'var(--text-1)' }}>{h.title}</span>
+                              {h.why && <span style={{ color: 'var(--text-3)' }}> — {h.why}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-3)' }}>
+                    <AlertCircle size={14} color="var(--text-3)" />
+                    <span>{bundleResult.message || 'Nothing to bundle right now.'}</span>
+                    <button onClick={() => setBundleResult(null)} style={{
+                      marginLeft: 'auto', padding: '4px 8px', fontSize: 11, background: 'transparent',
+                      border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-3)', cursor: 'pointer',
+                    }}>Dismiss</button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* ── Capture Session: tray of mixed inputs → ONE workspace folder ── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        className="view-card"
+        style={{ padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(168,85,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Layers size={18} color="#a855f7" />
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1.2 }}>
+              Capture Session — multi-source bundle
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
+              Add notes, links, voice, images — commit them all into one folder
+            </div>
+          </div>
+          <button type="button" onClick={() => setSessionMode(v => !v)}
+            style={{
+              padding: '7px 14px', fontSize: 12, fontWeight: 700, borderRadius: 999,
+              border: '1px solid var(--primary-border)',
+              background: sessionMode ? 'var(--primary)' : 'var(--surface-2)',
+              color: sessionMode ? '#fff' : 'var(--text-1)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+            {sessionMode ? 'Session ON' : 'Start session'}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {sessionMode && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              style={{ overflow: 'hidden' }}>
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* ── Add-item area (kind picker + draft input) ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(['note', 'link', 'voice', 'image'] as const).map(k => {
+                      const Icon = k === 'note' ? StickyNote : k === 'link' ? Link2 : k === 'voice' ? Mic : FileDigit;
+                      return (
+                        <button key={k} type="button" onClick={() => setSessionDraftKind(k)}
+                          style={{
+                            padding: '6px 12px', fontSize: 11.5, fontWeight: 700, borderRadius: 8,
+                            border: '1px solid var(--border)',
+                            background: sessionDraftKind === k ? 'var(--primary-bg)' : 'var(--surface-2)',
+                            color: sessionDraftKind === k ? 'var(--primary)' : 'var(--text-2)',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                          }}>
+                          <Icon size={11} /> {k}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {(sessionDraftKind === 'note' || sessionDraftKind === 'link') && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="text"
+                        value={sessionDraftText}
+                        onChange={e => setSessionDraftText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitDraftItem(); } }}
+                        placeholder={sessionDraftKind === 'note' ? 'Type a note and press Enter…' : 'Paste a URL and press Enter…'}
+                        style={{
+                          flex: 1, padding: '8px 12px', fontSize: 13, borderRadius: 8,
+                          border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)',
+                        }} />
+                      <button type="button" onClick={commitDraftItem}
+                        style={{
+                          padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8,
+                          border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer',
+                        }}>Add</button>
+                    </div>
+                  )}
+
+                  {sessionDraftKind === 'voice' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {!sessionVoice.recording ? (
+                          <button type="button" onClick={sessionVoice.start} disabled={sessionVoice.transcribing}
+                            style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none',
+                              background: '#10b981', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Mic size={12} /> Record
+                          </button>
+                        ) : (
+                          <button type="button" onClick={sessionVoice.stop}
+                            style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none',
+                              background: '#ef4444', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <MicOff size={12} /> Stop
+                          </button>
+                        )}
+                        {sessionVoice.transcribing && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Transcribing…</span>}
+                        {sessionVoice.transcript && !sessionVoice.transcribing && (
+                          <button type="button" onClick={commitVoiceToSession}
+                            style={{ padding: '6px 12px', fontSize: 11.5, fontWeight: 700, borderRadius: 8,
+                              border: '1px solid var(--primary-border)', background: 'var(--primary-bg)', color: 'var(--primary)', cursor: 'pointer' }}>
+                            Add transcript to session
+                          </button>
+                        )}
+                      </div>
+                      {sessionVoice.transcript && !sessionVoice.transcribing && (
+                        <div style={{ fontSize: 12, color: 'var(--text-2)', padding: 10, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', maxHeight: 100, overflowY: 'auto' }}>
+                          {sessionVoice.transcript}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {sessionDraftKind === 'image' && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input ref={sessionImageInputRef} type="file" accept="image/*"
+                        onChange={e => { handleSessionImagePick(e.target.files?.[0] || null); if (e.target) e.target.value = ''; }}
+                        style={{ display: 'none' }} />
+                      <button type="button" onClick={() => sessionImageInputRef.current?.click()}
+                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: '1px solid var(--border)',
+                          background: 'var(--surface-2)', color: 'var(--text-1)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Upload size={12} /> Pick image (max 2MB)
+                      </button>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Stored in session as captioned data URL</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Tray of staged items ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px' }}>
+                    SESSION TRAY · {sessionItems.length} item{sessionItems.length === 1 ? '' : 's'}
+                  </div>
+                  {sessionItems.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', padding: '8px 0' }}>
+                      Nothing added yet — pick a kind above and add your first item.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                      {sessionItems.map(it => {
+                        const Icon = it.kind === 'note' ? StickyNote : it.kind === 'link' ? Link2 : it.kind === 'voice' ? Mic : FileDigit;
+                        return (
+                          <div key={it.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                            background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                          }}>
+                            <Icon size={12} color="var(--text-3)" />
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{it.kind}</span>
+                            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {sessionItemLabel(it)}
+                            </span>
+                            <button type="button" onClick={() => removeSessionItem(it.id)}
+                              aria-label="Remove item"
+                              style={{ padding: 4, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Folder picker (auto / create / existing) ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px' }}>
+                    DESTINATION FOLDER
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {([
+                      { id: 'auto',     label: 'AI auto-folder', hint: 'AI names a new folder from your captures' },
+                      { id: 'create',   label: 'New folder',     hint: 'Pick a name yourself' },
+                      { id: 'existing', label: 'Existing…',      hint: 'Add into a workspace you already have' },
+                    ] as const).map(opt => (
+                      <button key={opt.id} type="button" onClick={() => setSessionFolderMode(opt.id)}
+                        title={opt.hint}
+                        style={{
+                          padding: '6px 12px', fontSize: 11.5, fontWeight: 700, borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: sessionFolderMode === opt.id ? 'var(--primary-bg)' : 'var(--surface-2)',
+                          color: sessionFolderMode === opt.id ? 'var(--primary)' : 'var(--text-2)',
+                          cursor: 'pointer',
+                        }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {sessionFolderMode === 'auto' && (
+                    <input type="text" value={sessionHint}
+                      onChange={e => setSessionHint(e.target.value)}
+                      placeholder="Optional hint to steer the AI naming (e.g. 'morning research')"
+                      style={{ marginTop: 4, padding: '7px 10px', fontSize: 12, borderRadius: 6,
+                        border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)' }} />
+                  )}
+
+                  {sessionFolderMode === 'create' && (
+                    <input type="text" value={sessionFolderName}
+                      onChange={e => setSessionFolderName(e.target.value)}
+                      placeholder="New folder name (required)"
+                      style={{ marginTop: 4, padding: '7px 10px', fontSize: 12, borderRadius: 6,
+                        border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)' }} />
+                  )}
+
+                  {sessionFolderMode === 'existing' && (
+                    <select value={sessionExistingId}
+                      onChange={e => setSessionExistingId(e.target.value)}
+                      style={{ marginTop: 4, padding: '7px 10px', fontSize: 12, borderRadius: 6,
+                        border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)' }}>
+                      <option value="">— pick a workspace —</option>
+                      {sessionProjects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* ── Submit ── */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, pointerEvents: sessionSubmitting ? 'none' : 'auto' }}
+                  aria-busy={sessionSubmitting}>
+                  <button type="button" onClick={() => { setSessionItems([]); setSessionResult(null); }}
+                    disabled={sessionSubmitting || sessionItems.length === 0}
+                    style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8,
+                      border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)',
+                      cursor: sessionItems.length === 0 ? 'not-allowed' : 'pointer', opacity: sessionItems.length === 0 ? 0.5 : 1 }}>
+                    Clear tray
+                  </button>
+                  <button type="button" onClick={submitSession}
+                    disabled={sessionSubmitting || sessionItems.length === 0}
+                    aria-disabled={sessionSubmitting || sessionItems.length === 0}
+                    style={{ padding: '8px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none',
+                      background: sessionItems.length > 0 ? 'var(--primary)' : 'var(--surface-3)',
+                      color: '#fff', cursor: sessionSubmitting ? 'wait' : (sessionItems.length === 0 ? 'not-allowed' : 'pointer'),
+                      display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {sessionSubmitting ? <Loader2 size={12} className="spin" /> : <CheckCircle2 size={12} />}
+                    {sessionSubmitting ? 'Committing…' : 'Finish session'}
+                  </button>
+                </div>
+
+                {/* ── Result card ── */}
+                <AnimatePresence>
+                  {sessionResult && sessionResult.ok && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ marginTop: 4, padding: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <FolderOpen size={14} color="var(--primary)" style={{ marginTop: 2 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{sessionResult.project?.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                            {sessionResult.stats?.captured} item{sessionResult.stats?.captured === 1 ? '' : 's'} saved · folder mode: {sessionResult.stats?.folder_mode}
+                          </div>
+                          {sessionResult.summary && (
+                            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 6, lineHeight: 1.5 }}>
+                              {sessionResult.summary}
+                            </div>
+                          )}
+                        </div>
+                        <a href="/workspace" style={{
+                          padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6,
+                          background: 'var(--primary)', color: '#fff', textDecoration: 'none',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}>
+                          Open <ArrowRight size={10} />
+                        </a>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* ── Live Agent Pipeline (visible in BOTH form and preview states) ─ */}
