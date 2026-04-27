@@ -17,16 +17,16 @@ type LandingProps = {
 };
 
 // ── DATA ─────────────────────────────────────────────────────────
-const HERO_WORDS = ['thinks with you.', 'connects your ideas.', 'plans your week.'];
+const HERO_WORDS = ['thinks with you.', 'connects your ideas.', 'plans your week.', 'never forgets.', 'studies for you.'];
 
 const AGENTS = [
-  { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#3b82f6', desc: 'Picks the right specialist for every query and streams the answer.' },
-  { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#22d3ee', desc: 'YouTube, web, PDFs, voice, Slack — all turned into clean memory.' },
-  { icon: Search, name: 'Recall', tagline: 'Semantic memory', color: '#818cf8', desc: 'Vector + reranking finds meaning, not just keywords.' },
-  { icon: Network, name: 'Graph', tagline: 'Living knowledge', color: '#818cf8', desc: 'Auto-links ideas, people and projects into a graph.' },
-  { icon: Calendar, name: 'Planner', tagline: 'Time + tasks', color: '#3b82f6', desc: 'Turns insights into prioritized work and deep-work blocks.' },
-  { icon: BookOpen, name: 'Briefing', tagline: 'Daily digest', color: '#fb7185', desc: 'AI brief every morning of yesterday + what to focus on today.' },
-  { icon: Shield, name: 'Guardian', tagline: 'Privacy & policy', color: '#60a5fa', desc: 'Encryption, redaction and audit so your second brain stays yours.' },
+  { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#3b82f6', desc: 'Picks the right specialist for every query and streams the answer in real time via SSE.' },
+  { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#22d3ee', desc: 'YouTube transcripts, web pages, PDFs, voice notes — all turned into clean tagged memory.' },
+  { icon: Search, name: 'Recall', tagline: 'Semantic memory', color: '#818cf8', desc: '3-tier search (tag + domain + full text) finds meaning, not just keywords.' },
+  { icon: Network, name: 'Graph', tagline: 'Living knowledge', color: '#818cf8', desc: 'Auto-links ideas, people and projects into a 3D mind graph that grows with you.' },
+  { icon: Calendar, name: 'Planner', tagline: 'Tasks + calendar', color: '#3b82f6', desc: 'Turns insights into prioritized tasks, study plans and deep-work blocks.' },
+  { icon: BookOpen, name: 'Briefing', tagline: 'Daily digest', color: '#fb7185', desc: 'AI brief every morning of yesterday + what to focus on today, cached for speed.' },
+  { icon: BarChart3, name: 'Analytics', tagline: 'Insight engine', color: '#60a5fa', desc: 'Tracks learning velocity, domain expertise and streaks across every module.' },
 ];
 
 const HOW_IT_WORKS = [
@@ -34,24 +34,24 @@ const HOW_IT_WORKS = [
     step: '01',
     icon: Telescope,
     title: 'Capture anything',
-    desc: 'Drop a link, paste a doc, record a voice note, forward an email. Capture Agent ingests and structures it instantly.',
-    samples: ['🎙️ Voice memo · 4:12', '📺 YouTube · 47 min lecture', '📄 PDF · Q3 strategy.pdf', '🔗 Article · Stratechery'],
+    desc: 'Drop a YouTube link, paste an article, upload a PDF, record a voice note. Capture Agent ingests, transcribes via Whisper, and auto-tags with AI in seconds.',
+    samples: ['Voice memo · transcribed · 4:12', 'YouTube · 47 min lecture', 'PDF · Q3 strategy.pdf', 'Web article · auto-tagged'],
     accent: '#22d3ee',
   },
   {
     step: '02',
     icon: Network,
     title: 'Connect everything',
-    desc: 'Graph Agent silently links new memories to old ones. Concepts, people, projects, decisions — all wired together.',
-    samples: ['"RAG" → linked to 14 memories', '"Maya" → 3 new mentions', 'Cluster: GTM playbook (12)', '+ 8 new edges added'],
+    desc: 'Graph Agent silently links new memories to old. Discover Agent (live YouTube Data API) brings in fresh learning material wired to what you already know.',
+    samples: ['"RAG" linked to 14 memories', '"Transformers" · 8 new edges', 'Cluster: GTM playbook (12)', 'Discover · 6 fresh videos pulled'],
     accent: '#818cf8',
   },
   {
     step: '03',
     icon: Compass,
-    title: 'Recall instantly',
-    desc: 'Ask in plain English. Orchestrator routes to the right agents and streams an answer with cited memories.',
-    samples: ['→ "What did Maya say about pricing?"', '→ Found 6 memories · 0.4s', '→ Answer streamed with sources', '→ Saved to your daily brief'],
+    title: 'Recall, plan, master',
+    desc: 'Ask in plain English. Orchestrator streams a cited answer. Planner schedules deep-work. Flashcards (SRS) and Study Plan turn memory into mastery.',
+    samples: ['"What did Maya say about pricing?"', 'Streamed answer · 6 citations · 0.4s', 'Deep-work block scheduled · Mon 9am', 'Flashcards generated · 12 cards'],
     accent: '#3b82f6',
   },
 ];
@@ -97,22 +97,25 @@ const TESTIMONIALS = [
 ];
 
 const FAQ = [
-  { q: 'How is this different from Notion or Mem?', a: 'Recall X247 is multi-agent first. Instead of a single chatbot or a static wiki, seven specialist AIs coordinate to capture, link, recall, plan and brief you continuously.' },
-  { q: 'Where is my data stored?', a: 'Your knowledge lives in a private graph tied to your account. Auth runs through Firebase; everything is encrypted in transit. Your data is never used to train any model.' },
-  { q: 'Which models power the agents?', a: 'GPT-4o-mini today via OpenRouter, with Anthropic and local-model swap-in coming soon. Each agent picks the best model for its job.' },
-  { q: 'Is there a free tier?', a: 'Yes — all core capture, recall and agent features are free forever. Premium tiers unlock advanced analytics, longer context and team workspaces.' },
-  { q: 'Can I import from other tools?', a: 'Yes. We support Notion, Obsidian, Apple Notes, Readwise, Pocket, Roam and CSV out of the box. More integrations land monthly.' },
-  { q: 'Does it work offline?', a: 'Capture works offline and syncs when you reconnect. Recall and agent features need a live connection for inference.' },
+  { q: 'How is this different from Notion or Mem?', a: 'Recall X247 is multi-agent first. Instead of a single chatbot or static wiki, seven specialist AIs coordinate to capture, link, recall, plan, brief and analyze continuously — across 24 purpose-built modules from Notes and Bookmarks to a 3D Mind Graph and SRS Flashcards.' },
+  { q: 'Where does the YouTube content come from?', a: 'Discover Agent uses the real YouTube Data API v3 with live view counts, durations, channel metadata and publish dates. When the API is unavailable it falls back to AI-curated suggestions from top creators (3Blue1Brown, Fireship, IBM Technology and more) so the experience never breaks.' },
+  { q: 'Where is my data stored?', a: 'Your knowledge lives in a private Google Cloud Firestore graph tied to your account. Auth runs through Firebase; everything is encrypted in transit. Shareable memory links use one-way tokens — your data is never used to train any model.' },
+  { q: 'Which models power the agents?', a: 'Google Gemini 2.0 Flash as primary, with OpenAI GPT-4o-mini fallback for rate limits. Voice capture uses OpenAI Whisper. Each agent picks the best model for its job and you can swap models per-agent in Settings.' },
+  { q: 'What modules ship with the free tier?', a: 'All 24 modules — Capture, Recall, Discover, Notes, Bookmarks, Habits, Tasks, Calendar, Flashcards (SRS), Study Plan, Mind Graph, Timeline, Analytics, Daily Briefing, Voice capture, Shareable links — every module is included free forever. Premium only unlocks scale and team features.' },
+  { q: 'Can I import from other tools?', a: 'Yes. Notion, Obsidian, Apple Notes, Readwise, Pocket, Roam, CSV and 30+ integrations across Google Workspace, Slack, GitHub, Linear, Stripe and more land out of the box.' },
 ];
 
 const COMPARE: Array<{ label: string; recall: string | boolean; notion: string | boolean; mem: string | boolean }> = [
   { label: 'Multi-agent orchestration', recall: '7 specialist agents', notion: false, mem: 'Single AI' },
-  { label: 'Semantic recall', recall: true, notion: 'Limited', mem: true },
-  { label: 'Living knowledge graph', recall: true, notion: false, mem: false },
-  { label: 'YouTube + audio capture', recall: true, notion: false, mem: false },
-  { label: 'Daily AI briefings', recall: true, notion: false, mem: 'Beta' },
-  { label: 'Open model architecture', recall: true, notion: false, mem: false },
-  { label: 'Free forever tier', recall: true, notion: 'Trial only', mem: 'Trial only' },
+  { label: 'Semantic recall (3-tier)', recall: true, notion: 'Limited', mem: true },
+  { label: '3D living knowledge graph', recall: true, notion: false, mem: false },
+  { label: 'YouTube live discovery (Data API)', recall: true, notion: false, mem: false },
+  { label: 'Voice capture (Whisper)', recall: true, notion: false, mem: false },
+  { label: 'SRS flashcards + study plan', recall: true, notion: false, mem: false },
+  { label: 'Daily AI briefings (cached)', recall: true, notion: false, mem: 'Beta' },
+  { label: 'Habits + Notes + Bookmarks built-in', recall: true, notion: 'Via DBs', mem: false },
+  { label: 'Shareable public memory links', recall: true, notion: 'Page only', mem: false },
+  { label: 'All 24 modules free forever', recall: true, notion: 'Trial only', mem: 'Trial only' },
 ];
 
 const LOGOS = ['Lumen Labs', 'Arcfield', 'Stripe', 'Linear', 'Notion', 'OpenAI', 'Vercel', 'Anthropic'];
@@ -158,33 +161,96 @@ const LIVE_FEED = [
 const FEATURES = [
   {
     icon: BrainCircuit, title: 'Neural memory graph', size: 'wide',
-    desc: 'Every idea becomes a node. Every concept an edge. Watch your second brain wire itself in real time.',
+    desc: 'Every idea becomes a node. Every concept an edge. A live 3D graph that wires itself as you think — surfacing connections you would never spot.',
     color: '#3b82f6', tag: 'Graph Agent',
   },
   {
     icon: Mic, title: 'Voice-first capture', size: 'tall',
-    desc: 'Record a thought, get a structured memory. Works offline, syncs instantly.',
+    desc: 'Record a thought, get a structured tagged memory. Powered by OpenAI Whisper. Works on phone, tablet, desktop.',
     color: '#22d3ee', tag: 'Capture Agent',
   },
   {
+    icon: Compass, title: 'Live YouTube discovery', size: 'small',
+    desc: 'Real Data API v3 — live view counts, channels, durations on every topic.',
+    color: '#fb7185', tag: 'Discover Agent',
+  },
+  {
     icon: Zap, title: 'Sub-400ms recall', size: 'small',
-    desc: 'Semantic search across every memory you\'ve ever captured.',
+    desc: '3-tier semantic search across every memory you have ever captured.',
     color: '#818cf8', tag: 'Recall Agent',
   },
   {
-    icon: FlaskConical, title: 'Open model swap', size: 'small',
-    desc: 'GPT-4o, Claude, local models — each agent picks the best for its job.',
-    color: '#3b82f6', tag: 'Architecture',
-  },
-  {
     icon: BarChart3, title: 'Daily AI briefings', size: 'tall',
-    desc: 'Every morning: what happened yesterday, what matters today, what you\'re forgetting.',
+    desc: 'Every morning: what happened yesterday, what matters today, what you are forgetting. Cached and ready before you wake up.',
     color: '#fb7185', tag: 'Briefing Agent',
   },
   {
     icon: Lock, title: 'Private by design', size: 'wide',
-    desc: 'Your graph never trains a model. End-to-end encrypted. Firebase Auth + SOC 2 controls.',
-    color: '#60a5fa', tag: 'Guardian Agent',
+    desc: 'Your graph never trains a model. End-to-end encrypted in transit. Firebase Auth + Firestore. Shareable links use revocable one-way tokens.',
+    color: '#60a5fa', tag: 'Guardian',
+  },
+];
+
+// ── ALL 24 MODULES grouped by the 5 nav groups (matches the live app sidebar) ──
+const MODULE_MAP = [
+  {
+    group: 'AI Brain',
+    color: '#3b82f6',
+    icon: BrainCircuit,
+    desc: 'The orchestration layer. Where seven agents coordinate.',
+    items: [
+      { icon: Layers,   name: 'Dashboard',     blurb: 'Power Hub · streaks · daily brief' },
+      { icon: Cpu,      name: 'Agent Hub',     blurb: 'Chat with 7 specialist agents (SSE stream)' },
+      { icon: Search,   name: 'Neural Recall', blurb: '3-tier semantic search · sub-400ms' },
+      { icon: Compass,  name: 'Discover',      blurb: 'Live YouTube Data API v3 + curated web' },
+    ],
+  },
+  {
+    group: 'Knowledge',
+    color: '#22d3ee',
+    icon: Database,
+    desc: 'Capture once. Find forever.',
+    items: [
+      { icon: Plus,      name: 'Capture',   blurb: 'YouTube · web · PDF · voice (Whisper) · note' },
+      { icon: Database,  name: 'Vault',     blurb: 'Every memory · auto-tagged · shareable' },
+      { icon: FileText,  name: 'Notes',     blurb: 'Markdown editor with split preview' },
+      { icon: BookOpen,  name: 'Bookmarks', blurb: 'Read-later with status filters' },
+    ],
+  },
+  {
+    group: 'Productivity',
+    color: '#818cf8',
+    icon: Calendar,
+    desc: 'Insights become action.',
+    items: [
+      { icon: Check,        name: 'Tasks',       blurb: 'Priority · due dates · agent-created' },
+      { icon: Calendar,     name: 'Calendar',    blurb: 'Deep-work blocks scheduled by Planner' },
+      { icon: Activity,     name: 'Habits',      blurb: 'Daily tracker · streaks · 30-day heatmap' },
+      { icon: Hexagon,      name: 'Flashcards',  blurb: 'Spaced repetition (SM-2) · auto-generated' },
+      { icon: Telescope,    name: 'Study Plan',  blurb: 'AI builds your weekly study calendar' },
+    ],
+  },
+  {
+    group: 'Insight',
+    color: '#fb7185',
+    icon: BarChart3,
+    desc: 'Watch your second brain grow.',
+    items: [
+      { icon: Clock,    name: 'Timeline',  blurb: 'Every memory in time order' },
+      { icon: Network,  name: 'Mind Graph', blurb: '3D live force-directed graph' },
+      { icon: BarChart3,name: 'Analytics', blurb: 'Learning velocity · domain expertise · streaks' },
+    ],
+  },
+  {
+    group: 'System',
+    color: '#60a5fa',
+    icon: Shield,
+    desc: 'Control what flows in.',
+    items: [
+      { icon: Wifi,         name: 'Integrations', blurb: '30+ services: Google · Slack · GitHub · Notion' },
+      { icon: FlaskConical, name: 'Pitch Deck',   blurb: 'Live demo of the multi-agent OS' },
+      { icon: Shield,       name: 'Settings',     blurb: 'Theme · model selection · 2FA · API keys' },
+    ],
   },
 ];
 
@@ -293,6 +359,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
           <nav className="lx-nav-links">
             <a href="#how" className="lx-nav-link">How it works</a>
             <a href="#agents" className="lx-nav-link">Agents</a>
+            <a href="#modules" className="lx-nav-link">Modules</a>
             <a href="#use" className="lx-nav-link">Use cases</a>
             <a href="#pricing" className="lx-nav-link">Pricing</a>
             <a href="#faq" className="lx-nav-link">FAQ</a>
@@ -324,6 +391,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             <nav className="lx-mobile-links">
               <a href="#how" onClick={() => setMobileMenuOpen(false)}>How it works</a>
               <a href="#agents" onClick={() => setMobileMenuOpen(false)}>Agents</a>
+              <a href="#modules" onClick={() => setMobileMenuOpen(false)}>Modules</a>
               <a href="#use" onClick={() => setMobileMenuOpen(false)}>Use cases</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
@@ -707,6 +775,53 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
                 <h3 className="lx-bento-title">{f.title}</h3>
                 <p className="lx-bento-desc">{f.desc}</p>
                 <div className="lx-bento-accent-line" />
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── MODULE MAP — every page in the app, grouped ──────────── */}
+      <section id="modules" className="lx-section">
+        <SectionHeader
+          eyebrow="The full second brain · 24 modules"
+          title={<>One app. <span className="lx-grad-silver">Every part of how you think.</span></>}
+          sub="Five neural groups. Twenty-four purpose-built modules. Each one a click away from your dashboard Power Hub."
+        />
+        <div className="lx-modgrid">
+          {MODULE_MAP.map((g, gi) => {
+            const GIcon = g.icon;
+            return (
+              <motion.div
+                key={g.group}
+                className="lx-modgroup"
+                style={{ ['--accent' as any]: g.color }}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.5, delay: gi * 0.06 }}
+              >
+                <div className="lx-modgroup-glow" />
+                <div className="lx-modgroup-head">
+                  <div className="lx-modgroup-icon"><GIcon size={16} /></div>
+                  <div className="lx-modgroup-title">{g.group}</div>
+                  <div className="lx-modgroup-count">{g.items.length} modules</div>
+                </div>
+                <p className="lx-modgroup-desc">{g.desc}</p>
+                <div className="lx-modlist">
+                  {g.items.map((m) => {
+                    const MIcon = m.icon;
+                    return (
+                      <div key={m.name} className="lx-modrow">
+                        <div className="lx-modrow-icon"><MIcon size={13} /></div>
+                        <div className="lx-modrow-text">
+                          <div className="lx-modrow-name">{m.name}</div>
+                          <div className="lx-modrow-blurb">{m.blurb}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </motion.div>
             );
           })}
