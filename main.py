@@ -977,6 +977,35 @@ async def ws_apply_organize(project_id: str, req: WorkspaceOrganizeApply):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# --- Insight extraction (AI layer over a folder/project) ---
+
+class InsightApplyRequest(BaseModel):
+    insight: Dict[str, Any]
+    action: Dict[str, Any]
+
+
+@app.post("/workspace/projects/{project_id}/extract-insights")
+async def ws_extract_insights(project_id: str, folder_id: Optional[str] = None):
+    """Scan a folder (or whole project when folder_id omitted) and return
+    AI-extracted insights with auto priority + meaningful suggested actions."""
+    from app.insight_agent import extract_insights
+    result = await extract_insights(project_id, folder_id)
+    if not result.get("ok") and result.get("error") == "project not found":
+        raise HTTPException(status_code=404, detail="project not found")
+    return result
+
+
+@app.post("/workspace/projects/{project_id}/insights/apply")
+async def ws_apply_insight(project_id: str, req: InsightApplyRequest):
+    """Execute one suggested action (add_task | create_plan | save_to_memory)
+    by routing to the existing task / plan / memory subsystems."""
+    from app.insight_agent import apply_insight_action
+    result = await apply_insight_action(project_id, req.insight, req.action)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "apply failed"))
+    return result
+
+
 # --- Calendar ICS subscription feed ---
 
 def _ics_escape(text: str) -> str:
