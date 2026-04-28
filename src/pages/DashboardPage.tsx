@@ -795,7 +795,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
               <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{domains.length} active</span>
             </div>
             {domains.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 14, alignItems: 'center' }}>
+              <div className="dash-domains-grid" style={{ display: 'grid', gridTemplateColumns: '140px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
                 <ResponsiveContainer width="100%" height={140}>
                   <RadarChart data={radarData} margin={{ top: 5, right: 8, bottom: 5, left: 8 }}>
                     <PolarGrid stroke="var(--border)" />

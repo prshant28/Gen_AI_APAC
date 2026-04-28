@@ -3782,10 +3782,15 @@
 
 .dash-grid-2 {
   display: grid; gap: 14px;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
+.dash-grid-2 > * { min-width: 0; }
 @media (min-width: 900px) {
-  .dash-grid-2 { grid-template-columns: 1fr 1fr; }
+  .dash-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.dash-domains-grid > * { min-width: 0; }
+@media (max-width: 480px) {
+  .dash-domains-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
 
 .dash-insight-strip {
