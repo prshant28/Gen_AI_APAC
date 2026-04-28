@@ -271,7 +271,7 @@ const KnowledgeGraphView = () => {
                 </div>
                 {selectedNode.memory && (
                   <>
-                    <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 3 }}>📂 {selectedNode.memory.domain}</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 3 }}>{selectedNode.memory.domain}</div>
                     <div style={{ color: 'var(--text-3)', fontSize: 11, lineHeight: 1.5, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{selectedNode.memory.summary}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {selectedNode.memory.tags.slice(0, 3).map(t => (

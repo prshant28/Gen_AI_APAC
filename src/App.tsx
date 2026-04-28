@@ -49,12 +49,13 @@ import StudyPlanPage from './pages/StudyPlanPage';
 import DiscoverPage from './pages/DiscoverPage';
 import './pages/pages.css';
 
-// ── Pinned essentials — the 4 daily-driver pages, always visible at the top ──
+// ── Pinned essentials — the 5 daily-driver pages, always visible at the top ──
 const PINNED_NAV = [
   { id: 'dashboard', label: 'Dashboard', desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
   { id: 'capture',   label: 'Capture',   desc: 'Save anything',                path: '/capture',   icon: Plus,            color: '#06b6d4' },
   { id: 'vault',     label: 'Vault',     desc: 'Browse your knowledge',        path: '/vault',     icon: Database,        color: '#818cf8' },
   { id: 'recall',    label: 'Recall AI', desc: 'Ask & get answers',            path: '/recall',    icon: Bot,             color: '#00d4ff' },
+  { id: 'agent',     label: 'Agent Hub', desc: 'Multi-agent workflows',        path: '/agent',     icon: Cpu,             color: '#a78bfa' },
 ];
 
 // ── Collapsible groups — secondary features, organized by intent ───────────
@@ -88,7 +89,6 @@ const NAV_GROUPS = [
     label: 'Insights',
     icon: BarChart2,
     items: [
-      { id: 'agent',      label: 'Agent Hub',    path: '/agent',     icon: Cpu,        color: '#3b82f6' },
       { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#818cf8' },
       { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#06b6d4' },
       { id: 'analytics',  label: 'Analytics',    path: '/analytics', icon: BarChart2,  color: '#10b981' },

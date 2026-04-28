@@ -57,7 +57,7 @@ const FlashcardModal = ({ memory, onClose }: { memory: Memory; onClose: () => vo
               <div style={{ width: 72, height: 72, borderRadius: '50%', background: score >= 80 ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)', border: `2px solid ${score >= 80 ? '#10b981' : '#f59e0b'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: `0 0 24px ${score >= 80 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
                 <span style={{ fontSize: 22, fontWeight: 900, color: score >= 80 ? '#10b981' : '#f59e0b' }}>{score}%</span>
               </div>
-              <div style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, marginBottom: 4 }}>{score >= 80 ? '🎉 Great job!' : score >= 50 ? '👍 Good progress!' : '💪 Keep going!'}</div>
+              <div style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, marginBottom: 4 }}>{score >= 80 ? 'Great job!' : score >= 50 ? 'Good progress!' : 'Keep going!'}</div>
               <div style={{ color: 'var(--text-3)', fontSize: 12, marginBottom: 16 }}>{known}/{cards.length} correct</div>
               <button onClick={onClose} style={{ padding: '10px 24px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
             </div>

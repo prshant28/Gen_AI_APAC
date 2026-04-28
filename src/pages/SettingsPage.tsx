@@ -181,8 +181,8 @@ const SettingsView = () => {
           {/* Hackathon Features */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             style={{ background: 'linear-gradient(135deg,#6366f1 0%,#4f46e5 40%,#7c3aed 100%)', padding: 'clamp(18px,3vw,24px)', borderRadius: 16, color: '#fff' }}>
-            <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>🏆</span> Hackathon Features
+            <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 14 }}>
+              Hackathon Features
             </h3>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[

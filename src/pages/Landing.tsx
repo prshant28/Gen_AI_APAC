@@ -1371,7 +1371,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         </div>
         <div className="lx-footer-bottom">
           <span>© 2026 Recall X247 Labs · All rights reserved.</span>
-          <span className="lx-footer-meta">v3.0 · Made on Earth 🌍</span>
+          <span className="lx-footer-meta">v3.0 · Made on Earth</span>
         </div>
       </footer>
 

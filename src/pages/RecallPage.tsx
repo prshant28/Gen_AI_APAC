@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Brain, Send, Search, Sparkles, Clock, Database,
+  Brain, Send, Search, Sparkles, Clock, Database, Bot,
   Youtube, Globe, FileText, StickyNote, Loader2,
   ArrowRight, Zap, BookOpen, ChevronRight, Mic, MicOff, X,
   Hash, Lightbulb, Layers, Compass, Flame, History, Command,
@@ -56,13 +56,6 @@ const SUGGESTION_GROUPS: { id: string; title: string; icon: any; color: string; 
   },
 ];
 
-const FeatureBadge = ({ icon: Icon, label, color }: { icon: any; label: string; color: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: `${color}12`, border: `1px solid ${color}25`, borderRadius: 20 }}>
-    <Icon size={11} color={color} />
-    <span style={{ color, fontSize: 10.5, fontWeight: 600 }}>{label}</span>
-  </div>
-);
-
 const RecallView = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<RecallMessage[]>([]);
@@ -71,7 +64,14 @@ const RecallView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [memCount, setMemCount] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [showDiff, setShowDiff] = useState(false);
+  // Show "Recall vs Agent Hub" card on first visit; persist dismissal so it doesn't keep returning.
+  const [showDiff, setShowDiff] = useState<boolean>(() => {
+    try { return localStorage.getItem('recall-x247-diff-dismissed') !== '1'; } catch { return true; }
+  });
+  const dismissDiff = useCallback(() => {
+    setShowDiff(false);
+    try { localStorage.setItem('recall-x247-diff-dismissed', '1'); } catch {}
+  }, []);
   const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([]);
   const [streak, setStreak] = useState<number>(0);
   const [recentMems, setRecentMems] = useState<any[]>([]);
@@ -139,7 +139,7 @@ const RecallView = () => {
       { id: userId, role: 'user', content: msg, ts: new Date().toISOString() },
       { id: aiId, role: 'assistant', content: '', ts: new Date().toISOString(), streaming: true }
     ]);
-    setInput(''); setIsLoading(true); setShowDiff(false);
+    setInput(''); setIsLoading(true);
 
     try {
       const res = await fetch('/recall', {
@@ -171,47 +171,37 @@ const RecallView = () => {
   return (
     <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 5rem)', minHeight: 0, gap: 0, padding: '10px 0 0' }}>
 
-      {/* Header */}
+      {/* Header — compact, no duplicate subtitle (hero below has it) */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 10, flexShrink: 0, padding: '0 2px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(147,51,234,0.15))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(99,102,241,0.2)' }}>
-                <Search size={17} color="#818cf8" />
-              </div>
-              <div>
-                <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Neural Recall</h1>
-                <p style={{ color: 'var(--text-3)', fontSize: 11.5, margin: 0 }}>Search & query your personal knowledge base</p>
-              </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(147,51,234,0.15))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(99,102,241,0.2)' }}>
+              <Search size={18} color="#818cf8" />
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <FeatureBadge icon={Database} label={`${memCount ?? '—'} memories indexed`} color="#6366f1" />
-              <FeatureBadge icon={Brain} label="Semantic search" color="#9333ea" />
-              <FeatureBadge icon={Zap} label="Instant answers" color="#10b981" />
-            </div>
+            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Neural Recall</h1>
           </div>
 
-          {/* Differentiation card — dismissible */}
+          {/* Differentiation card — dismissible, no emojis */}
           <AnimatePresence>
             {showDiff && messages.length === 0 && (
               <motion.div initial={{ opacity: 0, x: 20, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 20, scale: 0.97 }}
-                style={{ ...card, padding: '12px 14px', maxWidth: 300, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.05)', position: 'relative', flexShrink: 0 }}>
-                <button onClick={() => setShowDiff(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex' }}>
+                style={{ ...card, padding: '12px 14px', maxWidth: 320, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.05)', position: 'relative', flexShrink: 0 }}>
+                <button onClick={dismissDiff} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex' }} title="Dismiss">
                   <X size={12} />
                 </button>
-                <div style={{ color: '#818cf8', fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 6 }}>💡 RECALL vs AGENT HUB</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ padding: '7px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
-                    <div style={{ color: '#818cf8', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>⚡ Neural Recall (here)</div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Fast Q&A from your saved memories. Single AI, instant answers.</div>
+                <div style={{ color: '#818cf8', fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 8 }}>Recall vs Agent Hub</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={{ padding: '8px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
+                    <div style={{ color: '#818cf8', fontSize: 11, fontWeight: 700, marginBottom: 2 }}>Neural Recall (here)</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 11 }}>Fast Q&A from your saved memories.</div>
                   </div>
-                  <div style={{ padding: '7px 10px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 8 }}>
-                    <div style={{ color: '#a78bfa', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>🤖 Agent Hub</div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10 }}>7 specialized agents for complex tasks: capture, schedule, analyze & more.</div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 8 }}>
+                    <div style={{ color: '#a78bfa', fontSize: 11, fontWeight: 700, marginBottom: 2 }}>Agent Hub</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 11 }}>7 specialised agents for multi-step workflows.</div>
                   </div>
                   <button onClick={() => navigate('/agent')}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center', padding: '5px 10px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 8, color: '#a78bfa', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Try Agent Hub <ArrowRight size={10} />
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center', padding: '7px 10px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 8, color: '#a78bfa', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Try Agent Hub <ArrowRight size={11} />
                   </button>
                 </div>
               </motion.div>
@@ -238,51 +228,51 @@ const RecallView = () => {
             ]).filter(s => s.count > 0);
 
             return (
-              <div className="recall-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 4px', gap: 12 }}>
-                {/* Compact hero */}
-                <div className="recall-empty-hero-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0 2px' }}>
+              <div className="recall-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0 8px', gap: 18 }}>
+                {/* Hero — larger, single source of truth for the page intro */}
+                <div className="recall-empty-hero-row" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 0 2px' }}>
                   <motion.div className="recall-hero" initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.1 }}
-                    style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.22), rgba(147,51,234,0.12))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 22px rgba(99,102,241,0.2)', flexShrink: 0 }}>
-                    <Search size={20} color="#818cf8" />
+                    style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.22), rgba(147,51,234,0.12))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px rgba(99,102,241,0.22)', flexShrink: 0 }}>
+                    <Search size={28} color="#818cf8" />
                   </motion.div>
                   <div className="recall-empty-text">
-                    <div style={{ color: 'var(--text-1)', fontSize: 16, fontWeight: 700, lineHeight: 1.15 }}>Ask your Second Brain</div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.45, marginTop: 2 }}>
-                      Get instant intelligent answers from everything you've saved.
+                    <div style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.3px' }}>Ask your Second Brain</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 14, lineHeight: 1.45, marginTop: 4 }}>
+                      Instant answers from everything you've saved.
                     </div>
                   </div>
                 </div>
 
                 {/* MAIN 2-COL GRID */}
-                <div className="recall-empty-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)', gap: 14, width: '100%', maxWidth: 940, alignItems: 'start' }}>
+                <div className="recall-empty-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)', gap: 18, width: '100%', maxWidth: 1040, alignItems: 'start' }}>
 
                   {/* LEFT — Categorized suggestions + history */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 11, minWidth: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
                     {SUGGESTION_GROUPS.map((group, gi) => {
                       const GIcon = group.icon;
                       return (
                         <motion.div key={group.id} className="recall-grp"
                           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + gi * 0.06 }}
-                          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div className="recall-grp-head" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 2px' }}>
-                            <div className="recall-grp-icon" style={{ width: 18, height: 18, borderRadius: 5, background: `${group.color}1c`, border: `1px solid ${group.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <GIcon size={10} color={group.color} />
+                          style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                          <div className="recall-grp-head" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 2px' }}>
+                            <div className="recall-grp-icon" style={{ width: 24, height: 24, borderRadius: 7, background: `${group.color}1c`, border: `1px solid ${group.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <GIcon size={13} color={group.color} />
                             </div>
-                            <span className="recall-grp-title" style={{ color: group.color, fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>{group.title}</span>
-                            <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 4 }} />
+                            <span className="recall-grp-title" style={{ color: group.color, fontSize: 12, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>{group.title}</span>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 6 }} />
                           </div>
-                          <div className="recall-sug-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 5 }}>
+                          <div className="recall-sug-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
                             {group.items.map(s => {
                               const SIcon = s.icon;
                               return (
                                 <button key={s.label} className="recall-sug-btn" onClick={() => handleSend(s.q)} title={s.q}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.16s', minWidth: 0 }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.16s', minWidth: 0 }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${group.color}55`; (e.currentTarget as HTMLButtonElement).style.background = `${group.color}10`; }}
                                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                                  <div className="recall-sug-icon" style={{ width: 22, height: 22, borderRadius: 6, background: `${group.color}15`, border: `1px solid ${group.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <SIcon size={11} color={group.color} />
+                                  <div className="recall-sug-icon" style={{ width: 30, height: 30, borderRadius: 8, background: `${group.color}15`, border: `1px solid ${group.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <SIcon size={14} color={group.color} />
                                   </div>
-                                  <span className="recall-sug-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 11.5, lineHeight: 1.3, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
+                                  <span className="recall-sug-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.35, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
                                 </button>
                               );
                             })}
@@ -294,25 +284,25 @@ const RecallView = () => {
                     {/* Recent questions history */}
                     {history.length > 0 && (
                       <motion.div className="recall-grp recall-hist" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
-                        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div className="recall-grp-head" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 2px' }}>
-                          <div className="recall-grp-icon" style={{ width: 18, height: 18, borderRadius: 5, background: 'rgba(148,163,184,0.12)', border: '1px solid rgba(148,163,184,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <History size={10} color="var(--text-3)" />
+                        style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                        <div className="recall-grp-head" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 2px' }}>
+                          <div className="recall-grp-icon" style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(148,163,184,0.12)', border: '1px solid rgba(148,163,184,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <History size={13} color="var(--text-3)" />
                           </div>
-                          <span className="recall-grp-title" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Recent questions</span>
-                          <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 4 }} />
+                          <span className="recall-grp-title" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Recent questions</span>
+                          <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 6 }} />
                           <button className="recall-hist-clear" onClick={() => { setHistory([]); try { localStorage.removeItem('recall-x247-history'); } catch {} }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: 'inherit' }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11.5, fontWeight: 600, padding: '4px 8px', borderRadius: 5, fontFamily: 'inherit' }}
                             title="Clear history">Clear</button>
                         </div>
-                        <div className="recall-hist-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        <div className="recall-hist-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                           {history.slice(0, 6).map((q, i) => (
                             <button key={`${q}-${i}`} className="recall-hist-chip" onClick={() => handleSend(q)} title={q}
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', maxWidth: 280 }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', maxWidth: 320 }}
                               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.08)'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                              <Clock size={9} color="var(--text-3)" />
-                              <span style={{ color: 'var(--text-2)', fontSize: 10.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q}</span>
+                              <Clock size={11} color="var(--text-3)" />
+                              <span style={{ color: 'var(--text-2)', fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q}</span>
                             </button>
                           ))}
                         </div>
@@ -322,72 +312,72 @@ const RecallView = () => {
 
                   {/* RIGHT — Knowledge panel */}
                   <motion.div className="recall-kb" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
-                    style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, background: 'linear-gradient(160deg, rgba(99,102,241,0.06) 0%, rgba(147,51,234,0.03) 100%)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, minWidth: 0 }}>
-                    <div className="recall-kb-head" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Database size={11} color="#818cf8" />
-                      <span className="recall-kb-title" style={{ color: '#818cf8', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Your knowledge</span>
+                    style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, background: 'linear-gradient(160deg, rgba(99,102,241,0.06) 0%, rgba(147,51,234,0.03) 100%)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 14, minWidth: 0 }}>
+                    <div className="recall-kb-head" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Database size={14} color="#818cf8" />
+                      <span className="recall-kb-title" style={{ color: '#818cf8', fontSize: 12, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Your knowledge</span>
                     </div>
 
                     {/* Stats row */}
-                    <div className="recall-kb-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                      <div className="recall-kb-stat" style={{ padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9 }}>
-                        <div className="recall-kb-stat-num" style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, letterSpacing: '-0.4px', lineHeight: 1 }}>{memCount ?? '—'}</div>
-                        <div className="recall-kb-stat-lbl" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, marginTop: 3, letterSpacing: '0.4px' }}>Memories</div>
+                    <div className="recall-kb-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                      <div className="recall-kb-stat" style={{ padding: '13px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11 }}>
+                        <div className="recall-kb-stat-num" style={{ color: 'var(--text-1)', fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1 }}>{memCount ?? '—'}</div>
+                        <div className="recall-kb-stat-lbl" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 600, marginTop: 5, letterSpacing: '0.4px' }}>Memories</div>
                       </div>
-                      <div className="recall-kb-stat" style={{ padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                          <div className="recall-kb-stat-num" style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, letterSpacing: '-0.4px', lineHeight: 1 }}>{streak}</div>
-                          <Flame size={11} color={streak > 0 ? '#f59e0b' : 'var(--text-3)'} />
+                      <div className="recall-kb-stat" style={{ padding: '13px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                          <div className="recall-kb-stat-num" style={{ color: 'var(--text-1)', fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1 }}>{streak}</div>
+                          <Flame size={14} color={streak > 0 ? '#f59e0b' : 'var(--text-3)'} />
                         </div>
-                        <div className="recall-kb-stat-lbl" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, marginTop: 3, letterSpacing: '0.4px' }}>Day streak</div>
+                        <div className="recall-kb-stat-lbl" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 600, marginTop: 5, letterSpacing: '0.4px' }}>Day streak</div>
                       </div>
                     </div>
 
                     {/* Source mix */}
                     {totalSrc > 0 && (
                       <div className="recall-kb-section">
-                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Source mix</div>
-                        <div className="recall-kb-bar" style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-2)' }}>
+                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 8 }}>Source mix</div>
+                        <div className="recall-kb-bar" style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: 'var(--surface-2)' }}>
                           {srcEntries.map(s => (
                             <div key={s.key} title={`${s.count} ${s.label}`} style={{ flex: s.count, background: SRC_CLR[s.key], transition: 'flex 0.3s' }} />
                           ))}
                         </div>
-                        <div className="recall-kb-legend" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                        <div className="recall-kb-legend" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 9 }}>
                           {srcEntries.map(s => (
-                            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: SRC_CLR[s.key] }} />
-                              <span className="recall-kb-legend-text" style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 600 }}>{s.count} {s.label}</span>
+                            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ width: 9, height: 9, borderRadius: '50%', background: SRC_CLR[s.key] }} />
+                              <span className="recall-kb-legend-text" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 600 }}>{s.count} {s.label}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Top topics */}
+                    {/* Top topics — duplicate "click to ask" stripped, action implicit via cursor + title */}
                     {topTags.length > 0 && (
                       <div className="recall-kb-section">
-                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Top topics · click to ask</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 8 }}>Top topics</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {topTags.slice(0, 8).map(t => (
                             <button key={t.tag} className="recall-topic-chip" onClick={() => handleSend(`What do I know about ${t.tag}? Give me a structured summary with sources.`)}
                               title={`Ask about ${t.tag}`}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.22)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 11px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.22)', borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
                               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.18)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.1)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.22)'; }}>
-                              <Hash size={8.5} color="#818cf8" />
-                              <span className="recall-topic-text" style={{ color: 'var(--text-2)', fontSize: 10, fontWeight: 600 }}>{t.tag}</span>
-                              <span className="recall-topic-count" style={{ color: 'var(--text-3)', fontSize: 9, fontWeight: 700 }}>{t.count}</span>
+                              <Hash size={11} color="#818cf8" />
+                              <span className="recall-topic-text" style={{ color: 'var(--text-2)', fontSize: 12, fontWeight: 600 }}>{t.tag}</span>
+                              <span className="recall-topic-count" style={{ color: 'var(--text-3)', fontSize: 11, fontWeight: 700 }}>{t.count}</span>
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Recent captures */}
+                    {/* Recent captures — same: action implicit */}
                     {recentMems.length > 0 && (
                       <div className="recall-kb-section">
-                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Recent captures · click to ask</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div className="recall-kb-sec-title" style={{ color: 'var(--text-3)', fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 8 }}>Recent captures</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {recentMems.slice(0, 3).map(m => {
                             const RIcon = SRC_ICON[m.source_type] ?? Brain;
                             const rclr = SRC_CLR[m.source_type] ?? '#6366f1';
@@ -396,14 +386,14 @@ const RecallView = () => {
                             return (
                               <button key={m.id} className="recall-cap-row" onClick={() => handleSend(`Tell me more about "${safeTitle}". What are the key points and how does it connect to the rest of my knowledge?`)}
                                 title={safeTitle}
-                                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' }}
                                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${rclr}55`; (e.currentTarget as HTMLButtonElement).style.background = `${rclr}10`; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                                <div className="recall-cap-icon" style={{ width: 20, height: 20, borderRadius: 5, background: `${rclr}15`, border: `1px solid ${rclr}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  <RIcon size={10} color={rclr} />
+                                <div className="recall-cap-icon" style={{ width: 28, height: 28, borderRadius: 7, background: `${rclr}15`, border: `1px solid ${rclr}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <RIcon size={13} color={rclr} />
                                 </div>
-                                <span className="recall-cap-text" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 10.5, lineHeight: 1.3, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-                                <ChevronRight size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />
+                                <span className="recall-cap-text" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 13, lineHeight: 1.3, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                                <ChevronRight size={14} color="var(--text-3)" style={{ flexShrink: 0 }} />
                               </button>
                             );
                           })}
@@ -413,20 +403,20 @@ const RecallView = () => {
                   </motion.div>
                 </div>
 
-                {/* Pro tips strip */}
+                {/* Pro tips strip — bigger */}
                 <motion.div className="recall-tips" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '7px 12px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 10, width: '100%', maxWidth: 940, marginTop: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
-                    <Lightbulb size={11} color="#f59e0b" />
-                    <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>Pro tips:</span>
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, padding: '11px 16px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 12, width: '100%', maxWidth: 1040, marginTop: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-3)', fontSize: 12 }}>
+                    <Lightbulb size={13} color="#f59e0b" />
+                    <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>Tips:</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
-                    <Command size={10} /> <kbd style={{ padding: '1px 5px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10, fontFamily: 'inherit' }}>Enter</kbd> to send
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 12 }}>
+                    <Command size={12} /> <kbd style={{ padding: '2px 7px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11, fontFamily: 'inherit' }}>Enter</kbd> to send
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
-                    <Mic size={10} /> Tap mic for voice input
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 12 }}>
+                    <Mic size={12} /> Tap mic for voice
                   </div>
-                  <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Ask in plain English — citations included</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 12 }}>Ask in plain English — citations included</div>
                 </motion.div>
               </div>
             );
@@ -567,8 +557,8 @@ const RecallView = () => {
                 {msg.agents && msg.agents.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {msg.agents.map(a => (
-                      <span key={a} style={{ padding: '2px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, color: '#818cf8', fontSize: 9.5, fontWeight: 700 }}>
-                        🤖 {a}
+                      <span key={a} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, color: '#818cf8', fontSize: 9.5, fontWeight: 700 }}>
+                        <Bot size={9} /> {a}
                       </span>
                     ))}
                   </div>
@@ -609,7 +599,7 @@ const RecallView = () => {
               <Search size={13} color="#818cf8" />
             </div>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isListening ? '🎙 Listening...' : 'Ask your Second Brain anything... (Enter to send)'}
+              placeholder={isListening ? 'Listening...' : 'Ask your Second Brain anything... (Enter to send)'}
               disabled={isLoading}
               rows={1}
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto' }}

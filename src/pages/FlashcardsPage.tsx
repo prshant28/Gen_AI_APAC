@@ -86,7 +86,7 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ color: 'var(--text-1)', fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
-                  {score >= 80 ? '🎉 Excellent work!' : score >= 50 ? '👍 Good progress!' : '💪 Keep practicing!'}
+                  {score >= 80 ? 'Excellent work!' : score >= 50 ? 'Good progress!' : 'Keep practicing!'}
                 </div>
                 <div style={{ color: 'var(--text-3)', fontSize: 13 }}>You got <span style={{ color: '#10b981', fontWeight: 700 }}>{known}</span> of <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>{cards.length}</span> cards correct</div>
               </div>

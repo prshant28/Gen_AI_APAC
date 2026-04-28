@@ -155,7 +155,7 @@ const TasksModule = () => {
           {(['pending', 'completed'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: '6px 16px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? 'var(--surface)' : 'transparent', color: tab === t ? 'var(--text-1)' : 'var(--text-3)', fontSize: 12, fontWeight: tab === t ? 700 : 500, transition: 'all 0.18s', boxShadow: tab === t ? 'var(--shadow-sm)' : 'none' }}>
-              {t === 'pending' ? `📋 Pending (${tasks.length})` : `✅ Done (${completedTasks.length})`}
+              {t === 'pending' ? `Pending (${tasks.length})` : `Done (${completedTasks.length})`}
             </button>
           ))}
         </div>

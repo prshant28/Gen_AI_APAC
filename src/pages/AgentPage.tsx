@@ -772,7 +772,7 @@ const AgentHubView = () => {
               <Cpu size={17} color="#a78bfa" />
             </div>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isListening ? '🎙 Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents to capture, recall, schedule, analyse... (Enter to send, Shift+Enter for new line)'}
+              placeholder={isListening ? 'Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents to capture, recall, schedule, analyse... (Enter to send, Shift+Enter for new line)'}
               disabled={isStreaming}
               rows={1}
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '6px 0' }}
