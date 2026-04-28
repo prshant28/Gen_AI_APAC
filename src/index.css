@@ -1020,3 +1020,76 @@ h6.md-h { font-size: 12.5px; color: var(--text-2); }
   border-color: rgba(129, 140, 248, 0.55) !important;
   background: rgba(99, 102, 241, 0.12) !important;
 }
+
+/* ── MOBILE SCALE-UP (≤640px) — bigger cards, readable text, 44px+ taps ── */
+@media (max-width: 640px) {
+  /* Recall: hero */
+  .recall-empty                  { gap: 16px !important; }
+  .recall-empty-hero-row         { gap: 14px !important; padding: 6px 4px 4px !important; }
+  .recall-empty .recall-hero     { width: 56px !important; height: 56px !important; }
+  .recall-empty .recall-hero svg { width: 26px !important; height: 26px !important; }
+  .recall-empty-text > div:first-child { font-size: 19px !important; line-height: 1.2 !important; }
+  .recall-empty-text > div:last-child  { font-size: 13px !important; line-height: 1.5 !important; }
+
+  /* Recall: stack 2-col into 1-col with breathing room */
+  .recall-empty-grid             { gap: 18px !important; max-width: 100% !important; }
+
+  /* Recall: suggestion groups & buttons */
+  .recall-grp                    { gap: 9px !important; }
+  .recall-grp-head               { gap: 9px !important; padding: 0 2px 2px !important; }
+  .recall-grp-icon               { width: 24px !important; height: 24px !important; border-radius: 7px !important; }
+  .recall-grp-icon svg           { width: 13px !important; height: 13px !important; }
+  .recall-grp-title              { font-size: 12.5px !important; letter-spacing: 1.2px !important; }
+  .recall-sug-list               { gap: 8px !important; grid-template-columns: 1fr !important; }
+  .recall-sug-btn                { padding: 13px 14px !important; min-height: 52px !important; border-radius: 12px !important; gap: 11px !important; }
+  .recall-sug-icon               { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .recall-sug-icon svg           { width: 15px !important; height: 15px !important; }
+  .recall-sug-label              { font-size: 14.5px !important; line-height: 1.35 !important; white-space: normal !important; }
+
+  /* Recall: history chips */
+  .recall-hist-list              { gap: 7px !important; }
+  .recall-hist-chip              { padding: 8px 12px !important; min-height: 36px !important; border-radius: 18px !important; max-width: 100% !important; }
+  .recall-hist-chip span         { font-size: 13px !important; }
+  .recall-hist-chip svg          { width: 12px !important; height: 12px !important; }
+  .recall-hist-clear             { font-size: 12.5px !important; padding: 6px 10px !important; }
+
+  /* Recall: knowledge panel */
+  .recall-kb                     { padding: 16px !important; gap: 14px !important; border-radius: 14px !important; }
+  .recall-kb-title               { font-size: 12.5px !important; letter-spacing: 1.2px !important; }
+  .recall-kb-stats               { gap: 10px !important; }
+  .recall-kb-stat                { padding: 14px 14px !important; border-radius: 12px !important; }
+  .recall-kb-stat-num            { font-size: 28px !important; }
+  .recall-kb-stat-lbl            { font-size: 12.5px !important; margin-top: 6px !important; }
+  .recall-kb-section             { margin-top: 2px; }
+  .recall-kb-sec-title           { font-size: 12px !important; letter-spacing: 0.9px !important; margin-bottom: 8px !important; }
+  .recall-kb-bar                 { height: 10px !important; border-radius: 5px !important; }
+  .recall-kb-legend              { gap: 12px !important; margin-top: 8px !important; }
+  .recall-kb-legend-text         { font-size: 12px !important; }
+
+  /* Recall: topic chips & recent capture rows — tappable (≥44px) */
+  .recall-topic-chip             { padding: 11px 13px !important; min-height: 44px !important; border-radius: 22px !important; gap: 7px !important; }
+  .recall-topic-chip svg         { width: 12px !important; height: 12px !important; }
+  .recall-topic-text             { font-size: 13px !important; }
+  .recall-topic-count            { font-size: 11.5px !important; }
+  .recall-hist-chip              { min-height: 44px !important; padding: 10px 14px !important; }
+  .recall-hist-clear             { min-height: 36px !important; padding: 8px 12px !important; font-size: 12.5px !important; }
+  .recall-cap-row                { padding: 12px 12px !important; min-height: 52px !important; border-radius: 10px !important; gap: 10px !important; }
+  .recall-cap-icon               { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .recall-cap-icon svg           { width: 14px !important; height: 14px !important; }
+  .recall-cap-text               { font-size: 13.5px !important; }
+
+  /* Recall: pro tips strip */
+  .recall-tips                   { padding: 11px 14px !important; gap: 14px !important; }
+  .recall-tips > div             { font-size: 12px !important; }
+
+  /* Recall: input wrap — bigger comfort */
+  .recall-input-wrap             { padding: 12px 14px !important; }
+}
+
+/* Extra-small phones (≤380px) — slightly smaller but still readable */
+@media (max-width: 380px) {
+  .recall-empty-text > div:first-child { font-size: 17px !important; }
+  .recall-sug-label                    { font-size: 13.5px !important; }
+  .recall-kb-stat-num                  { font-size: 24px !important; }
+  .recall-cap-text                     { font-size: 12.5px !important; }
+}
