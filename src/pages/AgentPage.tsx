@@ -777,10 +777,12 @@ const AgentHubView = () => {
               <Cpu size={17} color="#a78bfa" />
             </div>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents to capture, recall, schedule, analyse... (Enter to send, Shift+Enter for new line)'}
+              placeholder={isListening ? 'Listening...' : isStreaming ? 'Agents are working...' : 'Ask agents anything...'}
               disabled={isStreaming}
               rows={1}
-              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '6px 0' }}
+              wrap="off"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '6px 0', whiteSpace: 'pre' }}
+              title="Enter to send, Shift+Enter for new line"
             />
             <button onClick={toggleVoice}
               style={{ width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0, background: isListening ? 'rgba(239,68,68,0.15)' : 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>

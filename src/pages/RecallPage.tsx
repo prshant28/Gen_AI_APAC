@@ -601,10 +601,12 @@ const RecallView = () => {
               <Search size={13} color="#818cf8" />
             </div>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Listening...' : 'Ask your Second Brain anything... (Enter to send)'}
+              placeholder={isListening ? 'Listening...' : 'Ask your Second Brain anything...'}
               disabled={isLoading}
               rows={1}
-              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto' }}
+              wrap="off"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto', whiteSpace: 'pre' }}
+              title="Enter to send"
             />
             <button onClick={toggleVoice}
               style={{ width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer', background: isListening ? 'rgba(239,68,68,0.12)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
