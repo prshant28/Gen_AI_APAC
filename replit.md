@@ -40,7 +40,7 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Core AI Functionality:** Multi-agent orchestration and natural language processing.
 - **Knowledge Management:** Capture, semantic search, memory vault, and mind graph.
 - **Productivity Tools:** Task management, advanced calendar (month/agenda views, topic categorization, ICS import/export, Google/Apple/Outlook subscribe), flashcards with spaced repetition, study plan generation, markdown notes, bookmarks, and habits.
-- **Advanced Dashboard:** Displays key metrics like activity pulse, capture heatmap, streaks, top topics, today's focus, and a 7-day forecast.
+- **Advanced Dashboard (redesigned 2026-04):** Stat cards moved to the top, duplicate panels removed (Knowledge Pulse strip, Capture Activity line chart, Domain Distribution bar chart, System Status), and every section now uses a unified `SectionHeader` (icon pill + title + uppercase eyebrow + optional action link) plus a 3px left-accent for visual consistency. Adds a derived "Smart Insights" strip (Learning velocity, Topic lead, Next revisit) and a combined Knowledge map (radar + domain list in one panel).
 - **Advanced Workspace:** Includes workspace KPIs, Workspace Recall search, per-project analytics with a 30-day heatmap, project templates (blank/hackathon/course/research), Markdown export, drag-and-drop section organization, task due-dates with one-click "send to calendar" bridge, "generate flashcards" bridge for memory items, mobile-responsive layout, and a demo project.
 - **Analytics:** Tracks learning velocity, domain expertise, and streaks.
 - **User Management:** Profile management, security, and data export.

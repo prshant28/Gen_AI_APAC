@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass, Bell, ExternalLink, RotateCw, PauseCircle, ArrowUp, ArrowDown, Minus, Target, Hash, History, CalendarClock, Tag, Trophy } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy } from 'lucide-react';
 import { showToast } from '../App';
 import { motion } from 'motion/react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import type { Memory } from '../lib/types';
 
 type DashAdvanced = {
@@ -18,36 +18,34 @@ type DashAdvanced = {
   totals?: Record<string, number>;
 };
 
-const useCountUp = (target: number, durationMs = 700) => {
-  const [val, setVal] = useState(0);
-  const startRef = useRef<number>(0);
-  const fromRef = useRef<number>(0);
-  useEffect(() => {
-    fromRef.current = val;
-    startRef.current = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - startRef.current) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const next = Math.round(fromRef.current + (target - fromRef.current) * eased);
-      setVal(next);
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
-  return val;
-};
-
-const CountUp = ({ value }: { value: number }) => {
-  const v = useCountUp(value);
-  return <>{v.toLocaleString()}</>;
-};
-
 const DOMAIN_COLORS = ['#6366f1', '#9333ea', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
 const SRC_ICON: Record<string, any> = { youtube: Youtube, web: Globe, pdf: FileText, note: StickyNote };
 const SRC_CLR: Record<string, string> = { youtube: '#ef4444', web: '#00d4ff', pdf: '#f59e0b', note: '#10b981' };
+
+type SectionHeaderProps = {
+  icon: any;
+  color: string;
+  title: string;
+  eyebrow?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+const SectionHeader = ({ icon: Icon, color, title, eyebrow, actionLabel, onAction }: SectionHeaderProps) => (
+  <div className="dash-section-head">
+    <div className="dash-title-wrap">
+      <span className="dash-icon-pill" style={{ background: `${color}14`, border: `1px solid ${color}28`, color }}>
+        <Icon size={14} />
+      </span>
+      <h3>{title}</h3>
+      {eyebrow && <span className="dash-eyebrow">{eyebrow}</span>}
+    </div>
+    {actionLabel && onAction && (
+      <button className="dash-action-link" onClick={onAction} style={{ color }}>
+        {actionLabel} <ArrowUpRight size={11} />
+      </button>
+    )}
+  </div>
+);
 
 const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const navigate = useNavigate();
@@ -61,7 +59,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [habits, setHabits] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [adv, setAdv] = useState<DashAdvanced | null>(null);
-  const [advLoading, setAdvLoading] = useState(true);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const rawName = (user?.displayName ?? '').trim();
@@ -87,8 +84,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
     fetch('/dashboard/advanced')
       .then(r => r.ok ? r.json() : null)
       .then((d: DashAdvanced | null) => { if (d) setAdv(d); })
-      .catch(() => {})
-      .finally(() => setAdvLoading(false));
+      .catch(() => {});
   }, []);
 
   const refreshAdvanced = async () => {
@@ -177,11 +173,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
     ? domains.slice(0, 6).map((d: any) => ({ subject: d.name, value: d.value, fullMark: Math.max(...domains.map((x: any) => x.value)) + 1 }))
     : [{ subject: 'AI/ML', value: 0, fullMark: 10 }, { subject: 'Science', value: 0, fullMark: 10 }, { subject: 'Tech', value: 0, fullMark: 10 }, { subject: 'Business', value: 0, fullMark: 10 }, { subject: 'Health', value: 0, fullMark: 10 }];
 
-  const activityData = [
-    { day: 'Mon', captures: 3 }, { day: 'Tue', captures: 7 }, { day: 'Wed', captures: 2 },
-    { day: 'Thu', captures: 9 }, { day: 'Fri', captures: 5 }, { day: 'Sat', captures: 4 }, { day: 'Sun', captures: totalMem },
-  ];
-
   const statCards = [
     { label: 'Neural Memories', value: totalMem, icon: Brain, color: '#6366f1', trend: '+12%', sub: 'Total captured', route: '/vault' },
     { label: 'Pending Tasks', value: stats?.pending_tasks ?? 0, icon: CheckSquare, color: '#9333ea', trend: '2 due today', sub: 'Open tasks', route: '/tasks' },
@@ -203,9 +194,58 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
     card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', transition: 'all 0.2s' } as React.CSSProperties,
   };
 
+  // ── Smart Insights — derived from the data we already have ───────────────
+  const velocityWk = adv?.pulse?.memories_this_week;
+  const topicLead = (adv?.top_tags && adv.top_tags[0]) || null;
+  const nextRevisit = revisits[0] || revisitsUpcoming[0] || null;
+  const smartInsights: { id: string; icon: any; color: string; eyebrow: string; headline: string; sub: string; onClick?: () => void }[] = [];
+  if (velocityWk) {
+    const dirSign = velocityWk.direction === 'up' ? '+' : velocityWk.direction === 'down' ? '−' : '';
+    const dirClr = velocityWk.direction === 'up' ? '#10b981' : velocityWk.direction === 'down' ? '#ef4444' : '#94a3b8';
+    smartInsights.push({
+      id: 'velocity',
+      icon: TrendingUp,
+      color: dirClr,
+      eyebrow: 'LEARNING VELOCITY',
+      headline: `${dirSign}${Math.abs(velocityWk.diff)} this week`,
+      sub: `${velocityWk.current} captures · was ${velocityWk.previous} last week`,
+      onClick: () => navigate('/analytics'),
+    });
+  }
+  if (topicLead) {
+    smartInsights.push({
+      id: 'topic',
+      icon: Hash,
+      color: '#06b6d4',
+      eyebrow: 'TOPIC LEAD',
+      headline: topicLead.tag,
+      sub: `${topicLead.count} item${topicLead.count === 1 ? '' : 's'} tagged across your vault`,
+      onClick: () => navigate(`/vault?q=${encodeURIComponent(topicLead.tag)}`),
+    });
+  }
+  if (nextRevisit) {
+    const overdue = (nextRevisit.overdue_hours ?? 0) > 0;
+    const dueIn = nextRevisit.due_in_hours;
+    const meta = overdue
+      ? `Overdue by ${nextRevisit.overdue_hours < 24 ? nextRevisit.overdue_hours + 'h' : Math.round(nextRevisit.overdue_hours / 24) + 'd'}`
+      : dueIn != null
+        ? (dueIn < 24 ? `Due in ${Math.max(1, dueIn)}h` : `Due in ${Math.round(dueIn / 24)}d`)
+        : 'Coming up';
+    smartInsights.push({
+      id: 'revisit',
+      icon: Bell,
+      color: overdue ? '#ef4444' : '#f59e0b',
+      eyebrow: 'NEXT REVISIT',
+      headline: nextRevisit.title || 'Untitled',
+      sub: meta,
+      onClick: () => handleRevisitGo(nextRevisit),
+    });
+  }
+
   return (
     <div style={{ color: 'var(--text-1)' }}>
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
+      {/* ── 1. HEADER + AI BRIEFING ───────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 18 }}>
         <div className="dash-header-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -213,9 +253,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
               <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.08em', fontWeight: 500 }}>NEURAL OS ACTIVE</span>
             </div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
-              {totalMem === 0
-                ? <>{greetLabel}, <span style={{ color: 'var(--primary)' }}>{firstName}</span></>
-                : <>{greetLabel}, <span style={{ color: 'var(--primary)' }}>{firstName}</span></>}
+              {greetLabel}, <span style={{ color: 'var(--primary)' }}>{firstName}</span>
             </h1>
             <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span>{today}</span>
@@ -245,347 +283,72 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
         </div>
       </motion.div>
 
-      {/* ── Revisit Reminders ───────────────────────────────────── */}
-      {(revisits.length > 0 || revisitsUpcoming.length > 0) && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          style={{
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(244,114,182,0.06) 100%)',
-            border: '1px solid rgba(245,158,11,0.28)',
-            borderRadius: 16, padding: '16px 18px', marginBottom: 18,
-            boxShadow: '0 4px 18px -8px rgba(245,158,11,0.25)',
-          }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Bell size={14} color="#f59e0b" />
-            <span style={{ fontSize: 10.5, letterSpacing: '0.18em', color: '#f59e0b', fontWeight: 700 }}>REVISIT REMINDERS</span>
-            {revisits.length > 0 && (
-              <span style={{ background: '#ef4444', color: '#fff', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
-                {revisits.length} due now
-              </span>
-            )}
-            <button onClick={() => navigate('/revisits')} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              Manage all <ArrowUpRight size={11} />
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[...revisits, ...revisitsUpcoming].slice(0, 5).map(rv => {
-              const overdue = (rv.overdue_hours ?? 0) > 0;
-              const dueIn = rv.due_in_hours;
-              const meta = overdue
-                ? `Overdue by ${rv.overdue_hours < 24 ? rv.overdue_hours + 'h' : Math.round(rv.overdue_hours / 24) + 'd'}`
-                : dueIn != null
-                  ? (dueIn < 24 ? `Due in ${Math.max(1, dueIn)}h` : `Due in ${Math.round(dueIn / 24)}d`)
-                  : '';
-              return (
-                <div key={rv.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                  background: 'var(--surface)', border: `1px solid ${overdue ? 'rgba(239,68,68,0.35)' : 'var(--border)'}`,
-                  borderRadius: 10, minWidth: 0,
-                }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: overdue ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Bell size={13} color={overdue ? '#ef4444' : '#f59e0b'} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rv.title}</div>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
-                      <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', fontWeight: 600 }}>{meta}</span>
-                      <span>·</span>
-                      <span style={{ textTransform: 'capitalize' }}>{String(rv.frequency || '').replace('_', ' ')}</span>
-                      {rv.url && (<><span>·</span><span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{rv.url.replace(/^https?:\/\//, '').slice(0, 40)}</span></>)}
-                    </div>
-                  </div>
-                  <button onClick={() => handleRevisitGo(rv)} title="Go to" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
-                    {rv.url ? <ExternalLink size={11} /> : <ChevronRight size={11} />} Go to
-                  </button>
-                  <button onClick={() => handleRevisitDone(rv)} title="Mark done" style={dashIconBtn}><Check size={12} /></button>
-                  <button onClick={() => handleRevisitSnooze(rv, 1)} title="Snooze 1 day" style={dashIconBtn}><RotateCw size={12} /></button>
-                  <button onClick={() => handleRevisitPause(rv)} title="Pause" style={dashIconBtn}><PauseCircle size={12} /></button>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── Today's Focus + Pick Up Where You Left Off ─────────────── */}
-      {(adv?.today_focus?.length || adv?.pick_up) && (
-        <div className="dash-focus-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 16 }}>
-          {adv?.today_focus && adv.today_focus.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              style={{
-                ...S.card, padding: '18px 20px',
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(147,51,234,0.04) 100%)',
-                borderColor: 'rgba(99,102,241,0.22)',
+      {/* ── 2. KPI STAT CARDS — moved to TOP per your request ──────────────── */}
+      <div className="dash-section">
+        <SectionHeader icon={Activity} color="#6366f1" title="At a glance" eyebrow="LIVE METRICS" />
+        <div className="stat-cards-grid">
+          {statCards.map((s, i) => (
+            <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+              onClick={() => navigate(s.route)}
+              style={{ ...S.card, padding: '16px 18px', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLDivElement;
+                el.style.transform = 'translateY(-3px)';
+                el.style.boxShadow = `0 8px 24px ${s.color}22, inset 0 1px 0 rgba(255,255,255,0.9)`;
+                el.style.borderColor = `${s.color}50`;
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLDivElement;
+                el.style.transform = '';
+                el.style.boxShadow = isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)';
+                el.style.borderColor = 'var(--border)';
               }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Target size={14} color="#6366f1" />
-                  <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14 }}>Today's Focus</div>
-                  <span style={{ fontSize: 9, letterSpacing: '0.18em', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase' }}>Top {adv.today_focus.length}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}14`, border: `1px solid ${s.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 1px 0 rgba(255,255,255,0.6)` }}>
+                  <s.icon size={16} color={s.color} />
                 </div>
-                <span style={{ fontSize: 10.5, color: 'var(--text-3)' }}>Auto-ranked by urgency</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {adv.today_focus.map((item, i) => (
-                  <div key={`${item.kind}-${item.id || i}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      background: 'var(--surface)', border: `1px solid var(--border)`,
-                      borderRadius: 10, minWidth: 0,
-                    }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 6, background: `${item.color}1a`, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 800 }}>{i + 1}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ textTransform: 'uppercase', fontSize: 9, letterSpacing: '0.1em', color: item.color, fontWeight: 700 }}>{item.kind}</span>
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>{item.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{item.subtitle}</div>
-                    </div>
-                    <button onClick={() => handleFocusAction(item)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', background: item.color, color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
-                      {item.action_label} <ArrowUpRight size={11} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {adv?.pick_up && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-              role="button"
-              tabIndex={0}
-              aria-label={`Pick up where you left off: ${adv.pick_up.title}`}
-              onClick={() => navigate(`/memory/${adv.pick_up!.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  navigate(`/memory/${adv.pick_up!.id}`);
-                }
-              }}
-              style={{
-                ...S.card, padding: '18px 20px', cursor: 'pointer', position: 'relative', overflow: 'hidden',
-                background: 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(6,182,212,0.04) 100%)',
-                borderColor: 'rgba(16,185,129,0.22)',
-                outline: 'none',
-              }}
-              onFocus={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 2px rgba(16,185,129,0.55)'; }}
-              onBlur={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px rgba(16,185,129,0.18)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <History size={14} color="#10b981" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14 }}>Pick up where you left off</div>
-              </div>
-              <div style={{ fontSize: 9.5, letterSpacing: '0.16em', color: '#10b981', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-                {adv.pick_up.suggestion}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.25, marginBottom: 6 }}>
-                {adv.pick_up.title}
-              </div>
-              {adv.pick_up.summary && (
-                <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
-                  {adv.pick_up.summary}
-                </p>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                {adv.pick_up.domain && (
-                  <span style={{ fontSize: 10, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>{adv.pick_up.domain}</span>
-                )}
-                {adv.pick_up.source_type && (
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{adv.pick_up.source_type}</span>
-                )}
-                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  Resume <ArrowUpRight size={12} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 9.5, color: s.color, background: `${s.color}14`, border: `1px solid ${s.color}22`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, letterSpacing: '0.2px' }}>{s.trend}</span>
+                  <ArrowUpRight size={11} color={s.color} style={{ opacity: 0.6 }} />
                 </div>
               </div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 3, letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC', system-ui" }}>{s.value}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 1 }}>{s.label}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{s.sub}</div>
             </motion.div>
-          )}
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* ── Knowledge Pulse — delta strip ────────────────────────── */}
-      {adv?.pulse && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10,
-          marginBottom: 16,
-        }}>
-          {[
-            { key: 'memories_today', label: 'Memories today', icon: Brain, color: '#6366f1' },
-            { key: 'memories_this_week', label: 'This week', icon: TrendingUp, color: '#9333ea' },
-            { key: 'ai_calls_today', label: 'AI calls today', icon: Sparkles, color: '#ec4899' },
-            { key: 'ai_calls_this_week', label: 'AI calls / week', icon: Bot, color: '#06b6d4' },
-          ].map((p, i) => {
-            const v = adv.pulse![p.key];
-            if (!v) return null;
-            const DirIcon = v.direction === 'up' ? ArrowUp : v.direction === 'down' ? ArrowDown : Minus;
-            const dirClr = v.direction === 'up' ? '#10b981' : v.direction === 'down' ? '#ef4444' : 'var(--text-3)';
-            return (
-              <motion.div key={p.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}
-                style={{ ...S.card, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <p.icon size={12} color={p.color} />
-                    <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.04em' }}>{p.label}</span>
-                  </div>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, color: dirClr, fontWeight: 700 }}>
-                    <DirIcon size={10} /> {v.direction === 'flat' ? '0' : `${v.diff > 0 ? '+' : ''}${v.diff}`}
+      {/* ── 3. SMART INSIGHTS — derived from your live data ────────────────── */}
+      {smartInsights.length > 0 && (
+        <div className="dash-section">
+          <SectionHeader icon={Sparkles} color="#9333ea" title="Smart insights" eyebrow="AI-DERIVED" />
+          <div className="dash-insight-strip">
+            {smartInsights.map((ins, i) => (
+              <motion.button key={ins.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
+                onClick={ins.onClick}
+                style={{
+                  ...S.card, padding: '14px 16px', cursor: ins.onClick ? 'pointer' : 'default',
+                  textAlign: 'left', fontFamily: 'inherit', borderLeft: `3px solid ${ins.color}`,
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 22px ${ins.color}1f`; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = ''; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ width: 24, height: 24, borderRadius: 7, background: `${ins.color}1a`, color: ins.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ins.icon size={12} />
                   </span>
+                  <span style={{ fontSize: 9.5, color: ins.color, letterSpacing: '0.16em', fontWeight: 700 }}>{ins.eyebrow}</span>
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.4px' }}>
-                  <CountUp value={v.current} />
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>
-                  vs {v.previous} previous
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── 84-day Activity Heatmap + 7-day Forecast ─────────────── */}
-      {(adv?.activity_heatmap?.cells?.length || adv?.forecast_7d?.length) && (
-        <div className="dash-chart-row" style={{ marginBottom: 16 }}>
-          {adv?.activity_heatmap && adv.activity_heatmap.cells.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Activity size={13} color="#6366f1" />
-                    <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14 }}>Capture Heatmap</div>
-                  </div>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Last 12 weeks</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-3)' }}>
-                  Less
-                  {[0, 0.25, 0.5, 0.75, 1].map((s) => (
-                    <span key={s} style={{
-                      width: 10, height: 10, borderRadius: 2,
-                      background: s === 0 ? 'var(--surface-2)' : `rgba(99,102,241,${0.18 + s * 0.6})`,
-                      border: '1px solid var(--border)',
-                    }} />
-                  ))}
-                  More
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.ceil(adv.activity_heatmap.cells.length / 7)}, minmax(8px, 1fr))`, gridAutoFlow: 'column', gridTemplateRows: 'repeat(7, 14px)', gap: 3 }}>
-                {(() => {
-                  const cells = adv.activity_heatmap!.cells;
-                  const max = adv.activity_heatmap!.max || 1;
-                  // Pad start so first column starts on Monday
-                  const first = cells[0];
-                  const firstWd = first?.weekday ?? 0;
-                  const pads = Array.from({ length: firstWd }, (_, i) => ({ pad: true, key: `pad-${i}` }));
-                  return [
-                    ...pads.map(p => <div key={p.key} style={{ background: 'transparent' }} />),
-                    ...cells.map(c => {
-                      const intensity = c.count === 0 ? 0 : Math.max(0.18, Math.min(1, c.count / max));
-                      return (
-                        <div key={c.date}
-                          title={`${c.date} — ${c.count} capture${c.count === 1 ? '' : 's'}`}
-                          style={{
-                            width: '100%', height: 14, borderRadius: 3,
-                            background: c.count === 0 ? 'var(--surface-2)' : `rgba(99,102,241,${0.2 + intensity * 0.6})`,
-                            border: '1px solid var(--border)',
-                            cursor: 'default', transition: 'transform 0.12s',
-                          }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.35)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; }}
-                        />
-                      );
-                    }),
-                  ];
-                })()}
-              </div>
-              {adv.streak && (
-                <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--text-3)' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Flame size={11} color="#f59e0b" /> Current streak: <strong style={{ color: 'var(--text-1)' }}>{adv.streak.current}d</strong>
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Trophy size={11} color="#9333ea" /> Best in 12w: <strong style={{ color: 'var(--text-1)' }}>{adv.streak.longest}d</strong>
-                  </span>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {adv?.forecast_7d && adv.forecast_7d.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <CalendarClock size={13} color="#9333ea" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14 }}>Coming Up · Next 7 days</div>
-              </div>
-              <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 10 }}>Revisits + tasks scheduled</div>
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={adv.forecast_7d} margin={{ top: 5, right: 6, left: -22, bottom: 0 }}>
-                  <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }}
-                    cursor={{ fill: 'rgba(147,51,234,0.06)' }}
-                    labelFormatter={(_l, payload) => {
-                      const p = payload?.[0]?.payload;
-                      return p ? `${p.label} ${p.day}` : '';
-                    }}
-                  />
-                  <Bar dataKey="revisits" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} name="Revisits" />
-                  <Bar dataKey="tasks" stackId="a" fill="#9333ea" radius={[3, 3, 0, 0]} name="Tasks" />
-                </BarChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', gap: 14, marginTop: 4, fontSize: 11 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: '#f59e0b' }} /> Revisits
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: '#9333ea' }} /> Tasks
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      )}
-
-      {/* ── Top Topics — interactive tag cloud ──────────────────── */}
-      {adv?.top_tags && adv.top_tags.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          style={{ ...S.card, padding: '16px 20px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Tag size={13} color="#06b6d4" />
-              <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 14 }}>Top Topics</div>
-              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>by frequency in your vault</span>
-            </div>
-            <button onClick={() => navigate('/vault')} style={{ color: '#06b6d4', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
-              Explore vault <ArrowUpRight size={11} />
-            </button>
+                <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.3px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ins.headline}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4 }}>{ins.sub}</div>
+              </motion.button>
+            ))}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            {adv.top_tags.map((t) => {
-              const sz = 10 + t.weight * 6; // 10–16 px
-              const op = 0.45 + t.weight * 0.55;
-              return (
-                <button key={t.tag} onClick={() => navigate(`/vault?q=${encodeURIComponent(t.tag)}`)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '5px 11px', borderRadius: 999, cursor: 'pointer',
-                    background: `rgba(6,182,212,${0.06 + t.weight * 0.08})`,
-                    border: `1px solid rgba(6,182,212,${0.18 + t.weight * 0.25})`,
-                    color: 'var(--text-1)', fontSize: sz, fontWeight: 600,
-                    fontFamily: 'inherit', opacity: op, transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.opacity = String(op); }}>
-                  <Hash size={Math.round(sz * 0.7)} color="#06b6d4" /> {t.tag}
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>{t.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
+        </div>
       )}
 
+      {/* ── 4. EMPTY STATE — only when zero memories ───────────────────────── */}
       {stats && totalMem === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 14 }}
@@ -600,8 +363,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             marginBottom: 18,
             overflow: 'hidden',
             boxShadow: '0 8px 32px -10px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.06)',
-          }}
-        >
+          }}>
           <div aria-hidden style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, background: 'radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -646,80 +408,336 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
         </motion.div>
       )}
 
-      <div className="stat-cards-grid">
-        {statCards.map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            onClick={() => navigate(s.route)}
-            style={{ ...S.card, padding: '16px 18px', cursor: 'pointer', background: 'var(--surface)', position: 'relative', overflow: 'hidden' }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLDivElement;
-              el.style.transform = 'translateY(-3px)';
-              el.style.boxShadow = `0 8px 24px ${s.color}22, inset 0 1px 0 rgba(255,255,255,0.9)`;
-              el.style.borderColor = `${s.color}50`;
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLDivElement;
-              el.style.transform = '';
-              el.style.boxShadow = isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)';
-              el.style.borderColor = 'var(--border)';
-            }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}14`, border: `1px solid ${s.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 1px 0 rgba(255,255,255,0.6)` }}>
-                <s.icon size={16} color={s.color} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 9.5, color: s.color, background: `${s.color}14`, border: `1px solid ${s.color}22`, padding: '2px 7px', borderRadius: 20, fontWeight: 600, letterSpacing: '0.2px' }}>{s.trend}</span>
-                <ArrowUpRight size={11} color={s.color} style={{ opacity: 0.6 }} />
-              </div>
+      {/* ── 5. REVISIT REMINDERS ───────────────────────────────────────────── */}
+      {(revisits.length > 0 || revisitsUpcoming.length > 0) && (
+        <div className="dash-section">
+          <SectionHeader
+            icon={Bell}
+            color="#f59e0b"
+            title="Revisit reminders"
+            eyebrow={revisits.length > 0 ? `${revisits.length} DUE NOW` : 'UPCOMING'}
+            actionLabel="Manage all"
+            onAction={() => navigate('/revisits')}
+          />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            style={{ ...S.card, padding: '14px 16px', borderLeft: '3px solid #f59e0b' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[...revisits, ...revisitsUpcoming].slice(0, 5).map(rv => {
+                const overdue = (rv.overdue_hours ?? 0) > 0;
+                const dueIn = rv.due_in_hours;
+                const meta = overdue
+                  ? `Overdue by ${rv.overdue_hours < 24 ? rv.overdue_hours + 'h' : Math.round(rv.overdue_hours / 24) + 'd'}`
+                  : dueIn != null
+                    ? (dueIn < 24 ? `Due in ${Math.max(1, dueIn)}h` : `Due in ${Math.round(dueIn / 24)}d`)
+                    : '';
+                return (
+                  <div key={rv.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                    background: 'var(--surface-2)', border: `1px solid ${overdue ? 'rgba(239,68,68,0.35)' : 'var(--border)'}`,
+                    borderRadius: 10, minWidth: 0,
+                  }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: overdue ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Bell size={13} color={overdue ? '#ef4444' : '#f59e0b'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rv.title}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-3)', display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                        <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', fontWeight: 600 }}>{meta}</span>
+                        <span>·</span>
+                        <span style={{ textTransform: 'capitalize' }}>{String(rv.frequency || '').replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => handleRevisitGo(rv)} title="Go to" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
+                      {rv.url ? <ExternalLink size={11} /> : <ChevronRight size={11} />} Go
+                    </button>
+                    <button onClick={() => handleRevisitDone(rv)} title="Mark done" style={dashIconBtn}><Check size={12} /></button>
+                    <button onClick={() => handleRevisitSnooze(rv, 1)} title="Snooze 1 day" style={dashIconBtn}><RotateCw size={12} /></button>
+                    <button onClick={() => handleRevisitPause(rv)} title="Pause" style={dashIconBtn}><PauseCircle size={12} /></button>
+                  </div>
+                );
+              })}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1, marginBottom: 3, letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC', system-ui" }}>{s.value}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 1 }}>{s.label}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{s.sub}</div>
           </motion.div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      <div className="dash-chart-row" style={{ marginBottom: 16 }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ ...S.card, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Capture Activity</div>
-              <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Weekly knowledge flow</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#10b981', fontSize: 11, fontWeight: 500 }}>
-              <Activity size={12} /> <span>Live</span>
-            </div>
+      {/* ── 6. TODAY'S FOCUS + PICK UP WHERE YOU LEFT OFF ──────────────────── */}
+      {(adv?.today_focus?.length || adv?.pick_up) && (
+        <div className="dash-section">
+          <SectionHeader icon={Target} color="#6366f1" title="What to do next" eyebrow="AUTO-RANKED" />
+          <div className="dash-grid-2">
+            {adv?.today_focus && adv.today_focus.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #6366f1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Target size={13} color="#6366f1" />
+                    <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Today's focus · top {adv.today_focus.length}</div>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)' }}>by urgency</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {adv.today_focus.map((item, i) => (
+                    <div key={`${item.kind}-${item.id || i}`}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                        background: 'var(--surface-2)', border: `1px solid var(--border)`,
+                        borderRadius: 10, minWidth: 0,
+                      }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 6, background: `${item.color}1a`, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 800 }}>{i + 1}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ textTransform: 'uppercase', fontSize: 9, letterSpacing: '0.1em', color: item.color, fontWeight: 700 }}>{item.kind}</span>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>{item.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{item.subtitle}</div>
+                      </div>
+                      <button onClick={() => handleFocusAction(item)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', background: item.color, color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
+                        {item.action_label} <ArrowUpRight size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {adv?.pick_up && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                role="button" tabIndex={0}
+                aria-label={`Pick up where you left off: ${adv.pick_up.title}`}
+                onClick={() => navigate(`/memory/${adv.pick_up!.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/memory/${adv.pick_up!.id}`); } }}
+                style={{ ...S.card, padding: '16px 18px', cursor: 'pointer', borderLeft: '3px solid #10b981' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px rgba(16,185,129,0.18)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <History size={13} color="#10b981" />
+                  <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Pick up where you left off</div>
+                </div>
+                <div style={{ fontSize: 9.5, letterSpacing: '0.16em', color: '#10b981', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                  {adv.pick_up.suggestion}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.25, marginBottom: 6 }}>
+                  {adv.pick_up.title}
+                </div>
+                {adv.pick_up.summary && (
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
+                    {adv.pick_up.summary}
+                  </p>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {adv.pick_up.domain && (
+                    <span style={{ fontSize: 10, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>{adv.pick_up.domain}</span>
+                  )}
+                  {adv.pick_up.source_type && (
+                    <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{adv.pick_up.source_type}</span>
+                  )}
+                  <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    Resume <ArrowUpRight size={12} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </div>
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart data={activityData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }} cursor={{ stroke: 'rgba(99,102,241,0.15)' }} />
-              <Line type="monotone" dataKey="captures" stroke="#6366f1" strokeWidth={2.5} dot={{ fill: '#6366f1', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: '#6366f1' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
+        </div>
+      )}
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} style={{ ...S.card, padding: '18px 20px' }}>
-          <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Knowledge Radar</div>
-          <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 4 }}>Domain spread</div>
-          <ResponsiveContainer width="100%" height={170}>
-            <RadarChart data={radarData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-              <PolarGrid stroke="var(--border)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
-              <PolarRadiusAxis tick={false} axisLine={false} />
-              <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} strokeWidth={2} dot={{ r: 2, fill: '#6366f1' }} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </motion.div>
+      {/* ── 7. ACTIVITY INSIGHTS — Heatmap + 7-day Forecast ────────────────── */}
+      {(adv?.activity_heatmap?.cells?.length || adv?.forecast_7d?.length) && (
+        <div className="dash-section">
+          <SectionHeader icon={Activity} color="#06b6d4" title="Activity & forecast" eyebrow="LAST 12W · NEXT 7D" />
+          <div className="dash-grid-2">
+            {adv?.activity_heatmap && adv.activity_heatmap.cells.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #06b6d4' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Activity size={13} color="#06b6d4" />
+                      <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Capture heatmap</div>
+                    </div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Last 12 weeks</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-3)' }}>
+                    Less
+                    {[0, 0.25, 0.5, 0.75, 1].map((s) => (
+                      <span key={s} style={{
+                        width: 10, height: 10, borderRadius: 2,
+                        background: s === 0 ? 'var(--surface-2)' : `rgba(6,182,212,${0.18 + s * 0.6})`,
+                        border: '1px solid var(--border)',
+                      }} />
+                    ))}
+                    More
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.ceil(adv.activity_heatmap.cells.length / 7)}, minmax(8px, 1fr))`, gridAutoFlow: 'column', gridTemplateRows: 'repeat(7, 14px)', gap: 3 }}>
+                  {(() => {
+                    const cells = adv.activity_heatmap!.cells;
+                    const max = adv.activity_heatmap!.max || 1;
+                    const first = cells[0];
+                    const firstWd = first?.weekday ?? 0;
+                    const pads = Array.from({ length: firstWd }, (_, i) => ({ pad: true, key: `pad-${i}` }));
+                    return [
+                      ...pads.map(p => <div key={p.key} style={{ background: 'transparent' }} />),
+                      ...cells.map(c => {
+                        const intensity = c.count === 0 ? 0 : Math.max(0.18, Math.min(1, c.count / max));
+                        return (
+                          <div key={c.date}
+                            title={`${c.date} — ${c.count} capture${c.count === 1 ? '' : 's'}`}
+                            style={{
+                              width: '100%', height: 14, borderRadius: 3,
+                              background: c.count === 0 ? 'var(--surface-2)' : `rgba(6,182,212,${0.2 + intensity * 0.6})`,
+                              border: '1px solid var(--border)',
+                              cursor: 'default', transition: 'transform 0.12s',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.35)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; }}
+                          />
+                        );
+                      }),
+                    ];
+                  })()}
+                </div>
+              </motion.div>
+            )}
+
+            {adv?.forecast_7d && adv.forecast_7d.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #9333ea' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <CalendarClock size={13} color="#9333ea" />
+                  <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Coming up · next 7 days</div>
+                </div>
+                <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 10 }}>Revisits + tasks scheduled</div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={adv.forecast_7d} margin={{ top: 5, right: 6, left: -22, bottom: 0 }}>
+                    <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }}
+                      cursor={{ fill: 'rgba(147,51,234,0.06)' }}
+                      labelFormatter={(_l, payload) => {
+                        const p = payload?.[0]?.payload;
+                        return p ? `${p.label} ${p.day}` : '';
+                      }}
+                    />
+                    <Bar dataKey="revisits" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} name="Revisits" />
+                    <Bar dataKey="tasks" stackId="a" fill="#9333ea" radius={[3, 3, 0, 0]} name="Tasks" />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', gap: 14, marginTop: 4, fontSize: 11 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: '#f59e0b' }} /> Revisits
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: '#9333ea' }} /> Tasks
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── 8. KNOWLEDGE — Topics + Domains (radar + list combined) ────────── */}
+      <div className="dash-section">
+        <SectionHeader
+          icon={Network}
+          color="#6366f1"
+          title="Your knowledge map"
+          eyebrow="TOPICS · DOMAINS"
+          actionLabel="Open vault"
+          onAction={() => navigate('/vault')}
+        />
+        <div className="dash-grid-2">
+          {/* Top topics tag cloud */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #06b6d4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Tag size={13} color="#06b6d4" />
+              <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Top topics</div>
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>by frequency</span>
+            </div>
+            {adv?.top_tags && adv.top_tags.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {adv.top_tags.map((t) => {
+                  const sz = 10 + t.weight * 6;
+                  const op = 0.45 + t.weight * 0.55;
+                  return (
+                    <button key={t.tag} onClick={() => navigate(`/vault?q=${encodeURIComponent(t.tag)}`)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 11px', borderRadius: 999, cursor: 'pointer',
+                        background: `rgba(6,182,212,${0.06 + t.weight * 0.08})`,
+                        border: `1px solid rgba(6,182,212,${0.18 + t.weight * 0.25})`,
+                        color: 'var(--text-1)', fontSize: sz, fontWeight: 600,
+                        fontFamily: 'inherit', opacity: op, transition: 'all 0.12s',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.opacity = String(op); }}>
+                      <Hash size={Math.round(sz * 0.7)} color="#06b6d4" /> {t.tag}
+                      <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>{t.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>Tag your captures to see your top topics</div>
+            )}
+          </motion.div>
+
+          {/* Combined: radar + domain list — single panel */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #6366f1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Network size={13} color="#6366f1" />
+              <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Knowledge domains</div>
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{domains.length} active</span>
+            </div>
+            {domains.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 14, alignItems: 'center' }}>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RadarChart data={radarData} margin={{ top: 5, right: 8, bottom: 5, left: 8 }}>
+                    <PolarGrid stroke="var(--border)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                    <PolarRadiusAxis tick={false} axisLine={false} />
+                    <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} strokeWidth={2} dot={{ r: 2, fill: '#6366f1' }} />
+                  </RadarChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+                  {domains.slice(0, 5).map((d: any, i: number) => {
+                    const pct = Math.round((d.value / (totalMem || 1)) * 100);
+                    const clr = DOMAIN_COLORS[i % DOMAIN_COLORS.length];
+                    return (
+                      <div key={d.name}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ color: 'var(--text-2)', fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                          <span style={{ color: clr, fontSize: 11, fontWeight: 600 }}>{d.value}</span>
+                        </div>
+                        <div style={{ height: 4, background: 'var(--surface-3)', borderRadius: 4, overflow: 'hidden' }}>
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, delay: 0.3 + i * 0.07 }}
+                            style={{ height: '100%', borderRadius: 4, background: clr }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>Start capturing to see your domain spread</div>
+            )}
+          </motion.div>
+        </div>
       </div>
 
-      <div className="dash-bottom-row">
-        <div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ ...S.card, padding: '18px 20px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent Memories</div>
-              <button onClick={() => navigate('/vault')} style={{ color: '#6366f1', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500, flexShrink: 0 }}>
+      {/* ── 9. RECENT ACTIVITY — Memories + AI Interactions ────────────────── */}
+      <div className="dash-section">
+        <SectionHeader icon={History} color="#9333ea" title="Recent activity" eyebrow="LAST CAPTURES + QUERIES" />
+        <div className="dash-grid-2">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', overflow: 'hidden', borderLeft: '3px solid #6366f1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Brain size={13} color="#6366f1" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Recent memories</div>
+              </div>
+              <button onClick={() => navigate('/vault')} className="dash-action-link" style={{ color: '#6366f1' }}>
                 View all <ArrowUpRight size={11} />
               </button>
             </div>
@@ -729,37 +747,37 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
                   const Icon = SRC_ICON[mem.source_type] ?? Brain;
                   const clr = SRC_CLR[mem.source_type] ?? '#6366f1';
                   return (
-                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', transition: 'all 0.15s', cursor: 'default', overflow: 'hidden', minWidth: 0 }}
+                    <div key={mem.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', transition: 'all 0.15s', cursor: 'default', overflow: 'hidden', minWidth: 0 }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary-border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--primary-bg)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'; }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${clr}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon size={13} color={clr} />
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: `${clr}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={12} color={clr} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mem.title}</div>
+                        <div style={{ color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mem.title}</div>
                         <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' as const, lineHeight: 1.4 }}>{mem.summary}</div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
-                        <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 6px', borderRadius: 20, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{mem.source_type}</span>
-                        <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(mem.created_at).toLocaleDateString()}</span>
-                      </div>
+                      <span style={{ fontSize: 9, color: clr, background: `${clr}15`, padding: '2px 6px', borderRadius: 20, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', flexShrink: 0 }}>{mem.source_type}</span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div style={{ padding: '36px 0', textAlign: 'center' }}>
-                <Brain size={32} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
-                <p style={{ color: '#94a3b8', fontSize: 13 }}>No memories yet</p>
-                <button onClick={() => navigate('/capture')} style={{ marginTop: 10, color: '#6366f1', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Capture your first memory →</button>
+              <div style={{ padding: '28px 0', textAlign: 'center' }}>
+                <Brain size={28} color="var(--text-3)" style={{ margin: '0 auto 10px' }} />
+                <p style={{ color: 'var(--text-3)', fontSize: 12.5, margin: 0 }}>No memories yet</p>
+                <button onClick={() => navigate('/capture')} style={{ marginTop: 8, color: '#6366f1', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Capture your first memory →</button>
               </div>
             )}
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent AI Interactions</div>
-              <button onClick={() => navigate('/recall')} style={{ color: '#9333ea', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500, flexShrink: 0 }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', overflow: 'hidden', borderLeft: '3px solid #9333ea' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bot size={13} color="#9333ea" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Recent AI interactions</div>
+              </div>
+              <button onClick={() => navigate('/recall')} className="dash-action-link" style={{ color: '#9333ea' }}>
                 Open Recall <ArrowUpRight size={11} />
               </button>
             </div>
@@ -776,23 +794,28 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No interactions yet. Try Recall AI!</div>
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>No queries yet — try asking Recall AI a question</div>
             )}
           </motion.div>
+        </div>
+      </div>
 
-          {/* Today's Habits widget */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+      {/* ── 10. DAILY ROUTINE — Habits + Notes ─────────────────────────────── */}
+      <div className="dash-section">
+        <SectionHeader icon={Flame} color="#10b981" title="Daily routine" eyebrow="HABITS · NOTES" />
+        <div className="dash-grid-2">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #10b981' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Flame size={14} color="#10b981" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Today's Habits</div>
+                <Flame size={13} color="#10b981" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Today's habits</div>
                 {habits.length > 0 && (
                   <span style={{ padding: '1px 8px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, color: '#10b981', fontSize: 10, fontWeight: 700 }}>
                     {habits.filter(h => h.completed_today).length}/{habits.length}
                   </span>
                 )}
               </div>
-              <button onClick={() => navigate('/habits')} style={{ color: '#10b981', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+              <button onClick={() => navigate('/habits')} className="dash-action-link" style={{ color: '#10b981' }}>
                 View all <ArrowUpRight size={11} />
               </button>
             </div>
@@ -816,14 +839,13 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             )}
           </motion.div>
 
-          {/* Recent Notes widget */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} style={{ ...S.card, padding: '18px 20px', marginTop: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #f59e0b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <StickyNote size={14} color="#f59e0b" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Recent Notes</div>
+                <StickyNote size={13} color="#f59e0b" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Recent notes</div>
               </div>
-              <button onClick={() => navigate('/notes')} style={{ color: '#f59e0b', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+              <button onClick={() => navigate('/notes')} className="dash-action-link" style={{ color: '#f59e0b' }}>
                 Open notes <ArrowUpRight size={11} />
               </button>
             </div>
@@ -846,56 +868,53 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             )}
           </motion.div>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.42 }} style={{ ...S.card, padding: '18px 20px' }}>
-            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Knowledge Domains</div>
-            {domains.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-                {domains.slice(0, 5).map((d: any, i: number) => {
-                  const pct = Math.round((d.value / (totalMem || 1)) * 100);
-                  const clr = DOMAIN_COLORS[i % DOMAIN_COLORS.length];
-                  return (
-                    <div key={d.name}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{d.name}</span>
-                        <span style={{ color: clr, fontSize: 11, fontWeight: 600 }}>{d.value}</span>
-                      </div>
-                      <div style={{ height: 4, background: 'var(--surface-3)', borderRadius: 4, overflow: 'hidden' }}>
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: 0.5 + i * 0.1 }}
-                          style={{ height: '100%', borderRadius: 4, background: clr }} />
-                      </div>
-                    </div>
-                  );
-                })}
+      {/* ── 11. WEEKLY GOALS + POWER HUB ───────────────────────────────────── */}
+      <div className="dash-section">
+        <SectionHeader icon={Trophy} color="#f59e0b" title="Goals & quick actions" eyebrow="THIS WEEK" />
+        <div className="dash-grid-2">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #f59e0b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trophy size={13} color="#f59e0b" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Learning goals</div>
               </div>
-            ) : (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>Start capturing to see domains</div>
-            )}
+              <span style={{ padding: '3px 9px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 999, fontSize: 10, color: '#f59e0b', fontWeight: 700 }}>This week</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { label: 'Knowledge captures', current: totalMem, target: 20, color: '#6366f1' },
+                { label: 'AI recall sessions', current: stats?.ai_interactions ?? 0, target: 10, color: '#9333ea' },
+                { label: 'Flashcard reviews', current: stats?.flashcards ?? 0, target: 15, color: '#f59e0b' },
+                { label: 'Tasks completed', current: Math.max(0, (stats?.total_tasks ?? 0) - (stats?.pending_tasks ?? 0)), target: 8, color: '#10b981' },
+              ].map((goal) => {
+                const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+                return (
+                  <div key={goal.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                      <span style={{ color: 'var(--text-2)', fontSize: 12, fontWeight: 500 }}>{goal.label}</span>
+                      <span style={{ color: pct >= 100 ? '#10b981' : 'var(--text-3)', fontSize: 11, fontWeight: 600 }}>{goal.current}/{goal.target}</span>
+                    </div>
+                    <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: 0.2 }}
+                        style={{ height: '100%', borderRadius: 6, background: pct >= 100 ? '#10b981' : goal.color, boxShadow: `0 0 8px ${goal.color}40` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </motion.div>
 
-          {domains.length > 0 && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.47 }} style={{ ...S.card, padding: '18px 20px' }}>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Domain Distribution</div>
-              <ResponsiveContainer width="100%" height={120}>
-                <BarChart data={domains.slice(0, 6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={false} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {domains.slice(0, 6).map((_: any, i: number) => <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </motion.div>
-          )}
-
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} style={{ ...S.card, padding: '18px 20px' }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #6366f1' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Power Hub</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Zap size={13} color="#6366f1" />
+                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Power hub</div>
+              </div>
               <span style={{ fontSize: 9, letterSpacing: '0.18em', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase' }}>One-click</span>
             </div>
-            <div className="power-hub-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 }}>
+            <div className="power-hub-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 7 }}>
               {[
                 { label: 'Capture',     icon: Plus,           path: '/capture',    color: '#ffffff', bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', isAccent: true },
                 { label: 'Agent Hub',   icon: Cpu,            path: '/agent',      color: '#3b82f6', bg: `rgba(59,130,246,0.08)` },
@@ -907,7 +926,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
                 { label: 'Study Plan',  icon: GraduationCap,  path: '/plan',       color: '#7c3aed', bg: `rgba(124,58,237,0.08)` },
               ].map((a) => (
                 <button key={a.label} onClick={() => navigate(a.path)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = a.isAccent ? '0 4px 12px rgba(99,102,241,0.35)' : `0 4px 12px ${a.color}25`; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = `${a.color}50`; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}>
                   <a.icon size={13} color={a.isAccent ? '#ffffff' : a.color} />
@@ -917,66 +936,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             </div>
           </motion.div>
         </div>
-      </div>
-
-      <div className="dash-chart-row" style={{ marginTop: 16 }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} style={{ ...S.card, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>Learning Goals</div>
-              <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>Weekly progress tracker</div>
-            </div>
-            <div style={{ padding: '4px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, fontSize: 10.5, color: 'var(--primary)', fontWeight: 600 }}>This Week</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { label: 'Knowledge Captures', current: totalMem, target: 20, color: '#6366f1' },
-              { label: 'AI Recall Sessions', current: stats?.ai_interactions ?? 0, target: 10, color: '#9333ea' },
-              { label: 'Flashcard Reviews', current: stats?.flashcards ?? 0, target: 15, color: '#f59e0b' },
-              { label: 'Tasks Completed', current: Math.max(0, (stats?.total_tasks ?? 0) - (stats?.pending_tasks ?? 0)), target: 8, color: '#10b981' },
-            ].map((goal) => {
-              const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
-              return (
-                <div key={goal.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ color: 'var(--text-2)', fontSize: 12, fontWeight: 500 }}>{goal.label}</span>
-                    <span style={{ color: pct >= 100 ? '#10b981' : 'var(--text-3)', fontSize: 11, fontWeight: 600 }}>{goal.current}/{goal.target}</span>
-                  </div>
-                  <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.6 }}
-                      style={{ height: '100%', borderRadius: 6, background: pct >= 100 ? '#10b981' : goal.color, boxShadow: `0 0 8px ${goal.color}40` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.58 }} style={{ ...S.card, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-            <div style={{ color: 'var(--text-1)', fontWeight: 600, fontSize: 14 }}>System Status</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { label: 'Neural AI Engine', status: 'Online', color: '#10b981', icon: Brain },
-              { label: 'Knowledge Indexer', status: 'Active', color: '#6366f1', icon: Network },
-              { label: 'Recall Memory', status: `${totalMem} nodes`, color: '#9333ea', icon: Brain },
-              { label: 'Calendar Sync', status: 'Synced', color: '#f59e0b', icon: CheckSquare },
-              { label: 'Agent Hub', status: '7 Agents', color: '#ec4899', icon: Bot },
-            ].map((item) => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: `${item.color}15`, border: `1px solid ${item.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <item.icon size={12} color={item.color} />
-                  </div>
-                  <span style={{ color: 'var(--text-2)', fontSize: 12 }}>{item.label}</span>
-                </div>
-                <span style={{ fontSize: 11, color: item.color, fontWeight: 600, background: `${item.color}12`, padding: '2px 8px', borderRadius: 12, border: `1px solid ${item.color}20` }}>{item.status}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </div>
   );

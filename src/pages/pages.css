@@ -3752,3 +3752,47 @@
   color: var(--accent, #3b82f6);
   border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 22%, rgba(255,255,255,0.05));
 }
+
+/* ── Dashboard 2.0 — unified section system ────────────────────────────── */
+.dash-section { margin-bottom: 18px; }
+.dash-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; gap: 12px; flex-wrap: wrap;
+}
+.dash-section-head .dash-title-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.dash-section-head .dash-icon-pill {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.dash-section-head h3 {
+  font-size: 14px; font-weight: 700; color: var(--text-1);
+  margin: 0; letter-spacing: -0.2px;
+}
+.dash-section-head .dash-eyebrow {
+  font-size: 9.5px; letter-spacing: 0.18em; color: var(--text-3);
+  font-weight: 700; text-transform: uppercase;
+}
+.dash-action-link {
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 7px; transition: background 0.12s;
+}
+.dash-action-link:hover { background: var(--surface-2); }
+
+.dash-grid-2 {
+  display: grid; gap: 14px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .dash-grid-2 { grid-template-columns: 1fr 1fr; }
+}
+
+.dash-insight-strip {
+  display: grid; gap: 10px;
+  grid-template-columns: 1fr;
+  margin-bottom: 18px;
+}
+@media (min-width: 720px) {
+  .dash-insight-strip { grid-template-columns: repeat(3, 1fr); }
+}
