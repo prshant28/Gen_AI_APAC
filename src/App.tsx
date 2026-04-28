@@ -7,7 +7,7 @@ import {
   Database, Bot, Network, GitBranch, BarChart2, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  Plug, Bookmark, Flame, GraduationCap, Compass, Bell
+  Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -71,6 +71,7 @@ const NAV_GROUPS = [
   {
     label: 'Productivity',
     items: [
+      { id: 'workspace',  label: 'Workspace',    path: '/workspace',  icon: Kanban,         color: '#f59e0b' },
       { id: 'tasks',      label: 'Tasks',        path: '/tasks',      icon: CheckSquare,    color: '#10b981' },
       { id: 'calendar',   label: 'Calendar',     path: '/calendar',   icon: CalendarIcon,   color: '#818cf8' },
       { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },

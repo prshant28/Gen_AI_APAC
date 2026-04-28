@@ -645,3 +645,186 @@ async def apply_organization(
     data["updated_at"] = _utcnow_iso()
     await db.collection("workspace_projects").document(project_id).set(data)
     return {"ok": True, "updated_items": updated, "groups": cleaned_groups}
+
+
+# ─── Workspace analytics aggregators (powers the advanced Workspace UI) ────
+
+async def get_workspace_overview() -> Dict[str, Any]:
+    """Aggregate stats across all workspace projects.
+
+    Returns:
+        - totals: projects, items, tasks, tasks_done, items_with_tags
+        - completion_pct: 0-100
+        - top_projects: 5 most-recently-updated projects (id, name, color, items, tasks, done_pct)
+        - section_breakdown: count of items per section across all projects
+        - top_tags: top 12 {tag, count} across all items
+        - recent_activity: last 10 events (item added / task added / task done) with ISO timestamps
+        - activity_30d: 30-day [{date, count}] of items+tasks created
+    """
+    import collections as _c
+    projects = await list_projects()
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    cutoff_30 = today - datetime.timedelta(days=29)
+
+    total_items = 0
+    total_tasks = 0
+    total_done = 0
+    section_counts: Dict[str, int] = _c.Counter()
+    tag_counts: _c.Counter = _c.Counter()
+    activity_buckets: Dict[str, int] = {}
+    events: List[Dict[str, Any]] = []
+
+    def _to_date(iso: Any) -> Optional[datetime.date]:
+        if not iso: return None
+        try:
+            return datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).date()
+        except Exception:
+            return None
+
+    for p in projects:
+        items = p.get("items") or []
+        tasks = p.get("tasks") or []
+        total_items += len(items)
+        total_tasks += len(tasks)
+        done_n = sum(1 for t in tasks if t.get("done"))
+        total_done += done_n
+
+        for it in items:
+            sid = it.get("section_id") or "notes"
+            section_counts[sid] += 1
+            for tag in (it.get("tags") or [])[:7]:
+                if tag: tag_counts[str(tag).lower()[:24]] += 1
+            d = _to_date(it.get("added_at"))
+            if d and d >= cutoff_30:
+                key = d.isoformat()
+                activity_buckets[key] = activity_buckets.get(key, 0) + 1
+            if it.get("added_at"):
+                events.append({
+                    "kind": "item_added",
+                    "title": it.get("title", "Untitled"),
+                    "project_id": p["id"],
+                    "project_name": p["name"],
+                    "color": p.get("color", "#6366f1"),
+                    "ts": str(it.get("added_at"))[:19],
+                })
+        for t in tasks:
+            d = _to_date(t.get("created_at"))
+            if d and d >= cutoff_30:
+                key = d.isoformat()
+                activity_buckets[key] = activity_buckets.get(key, 0) + 1
+            if t.get("created_at"):
+                events.append({
+                    "kind": "task_done" if t.get("done") else "task_added",
+                    "title": t.get("text", "Untitled task"),
+                    "project_id": p["id"],
+                    "project_name": p["name"],
+                    "color": p.get("color", "#6366f1"),
+                    "ts": str(t.get("created_at"))[:19],
+                })
+
+    activity_30d: List[Dict[str, Any]] = []
+    for offset in range(30):
+        d = cutoff_30 + datetime.timedelta(days=offset)
+        activity_30d.append({"date": d.isoformat(), "count": activity_buckets.get(d.isoformat(), 0)})
+
+    top_projects = []
+    for p in projects[:5]:
+        t_total = len(p.get("tasks") or [])
+        t_done = sum(1 for t in (p.get("tasks") or []) if t.get("done"))
+        top_projects.append({
+            "id": p["id"],
+            "name": p["name"],
+            "color": p.get("color", "#6366f1"),
+            "items": len(p.get("items") or []),
+            "tasks": t_total,
+            "done": t_done,
+            "done_pct": round((t_done / t_total) * 100) if t_total else 0,
+            "updated_at": str(p.get("updated_at", ""))[:19],
+        })
+
+    events.sort(key=lambda e: e.get("ts", ""), reverse=True)
+
+    return {
+        "totals": {
+            "projects": len(projects),
+            "items": total_items,
+            "tasks": total_tasks,
+            "tasks_done": total_done,
+        },
+        "completion_pct": round((total_done / total_tasks) * 100) if total_tasks else 0,
+        "top_projects": top_projects,
+        "section_breakdown": dict(section_counts),
+        "top_tags": [{"tag": k, "count": v} for k, v in tag_counts.most_common(12)],
+        "recent_activity": events[:10],
+        "activity_30d": activity_30d,
+    }
+
+
+async def get_project_analytics(project_id: str) -> Optional[Dict[str, Any]]:
+    """Per-project analytics: counts, completion, 30-day activity, top tags,
+    section breakdown, kind breakdown, age in days."""
+    import collections as _c
+    p = await get_project(project_id)
+    if not p:
+        return None
+    items = p.get("items") or []
+    tasks = p.get("tasks") or []
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    cutoff_30 = today - datetime.timedelta(days=29)
+
+    def _to_date(iso: Any) -> Optional[datetime.date]:
+        if not iso: return None
+        try:
+            return datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).date()
+        except Exception:
+            return None
+
+    section_counts: _c.Counter = _c.Counter()
+    kind_counts: _c.Counter = _c.Counter()
+    tag_counts: _c.Counter = _c.Counter()
+    activity_buckets: Dict[str, int] = {}
+
+    for it in items:
+        section_counts[it.get("section_id") or "notes"] += 1
+        kind_counts[(it.get("kind") or "memory")] += 1
+        for tag in (it.get("tags") or [])[:7]:
+            if tag: tag_counts[str(tag).lower()[:24]] += 1
+        d = _to_date(it.get("added_at"))
+        if d and d >= cutoff_30:
+            key = d.isoformat()
+            activity_buckets[key] = activity_buckets.get(key, 0) + 1
+    for t in tasks:
+        d = _to_date(t.get("created_at"))
+        if d and d >= cutoff_30:
+            key = d.isoformat()
+            activity_buckets[key] = activity_buckets.get(key, 0) + 1
+
+    activity_30d: List[Dict[str, Any]] = []
+    for offset in range(30):
+        d = cutoff_30 + datetime.timedelta(days=offset)
+        activity_30d.append({"date": d.isoformat(), "count": activity_buckets.get(d.isoformat(), 0)})
+
+    done_n = sum(1 for t in tasks if t.get("done"))
+    created = _to_date(p.get("created_at"))
+    age_days = (today - created).days if created else 0
+
+    return {
+        "project_id": p["id"],
+        "name": p["name"],
+        "color": p.get("color", "#6366f1"),
+        "totals": {
+            "items": len(items),
+            "tasks": len(tasks),
+            "tasks_done": done_n,
+            "folders": len(p.get("folders") or []),
+            "groups": len(p.get("groups") or []),
+        },
+        "completion_pct": round((done_n / len(tasks)) * 100) if tasks else 0,
+        "section_breakdown": dict(section_counts),
+        "kind_breakdown": dict(kind_counts),
+        "top_tags": [{"tag": k, "count": v} for k, v in tag_counts.most_common(10)],
+        "activity_30d": activity_30d,
+        "activity_max": max(activity_buckets.values(), default=0),
+        "age_days": age_days,
+        "last_updated": str(p.get("updated_at", ""))[:19],
+    }

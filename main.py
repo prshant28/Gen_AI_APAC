@@ -1104,6 +1104,45 @@ async def ws_projects_list():
     return {"projects": await ws_list_projects()}
 
 
+@app.get("/workspace/overview")
+async def ws_overview_endpoint():
+    """Aggregated workspace stats: totals, completion %, top projects, recent
+    activity, 30-day activity heatmap, top tags. Powers the advanced
+    Workspace page header strip."""
+    try:
+        from app.workspace_agent import get_workspace_overview
+        data = await get_workspace_overview()
+        data["ok"] = True
+        return data
+    except Exception as e:
+        logger.exception("workspace overview failed")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": str(e),
+                "totals": {"projects": 0, "items": 0, "tasks": 0, "tasks_done": 0},
+                "completion_pct": 0,
+                "top_projects": [],
+                "section_breakdown": {},
+                "top_tags": [],
+                "recent_activity": [],
+                "activity_30d": [],
+            },
+        )
+
+
+@app.get("/workspace/projects/{project_id}/analytics")
+async def ws_project_analytics_endpoint(project_id: str):
+    """Per-project analytics: counts, completion %, 30-day activity, top tags,
+    section + kind breakdown."""
+    from app.workspace_agent import get_project_analytics
+    res = await get_project_analytics(project_id)
+    if res is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return res
+
+
 @app.post("/workspace/projects")
 async def ws_projects_create(req: WorkspaceProjectCreate):
     if not (req.name or "").strip():

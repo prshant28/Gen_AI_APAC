@@ -160,10 +160,12 @@ async def seed_demo_data(db) -> bool:
             return False
 
         # Seed memories
+        seeded_memory_ids: list = []
         for memory in DEMO_MEMORIES:
             data = dict(memory)
             data["id"] = str(uuid.uuid4())
             await db.collection("memories").document(data["id"]).set(data)
+            seeded_memory_ids.append((data["id"], data["title"], data.get("source_type", "note"), data.get("source_url", ""), data.get("tags", [])))
 
         # Seed tasks
         for task in DEMO_TASKS:
@@ -172,7 +174,72 @@ async def seed_demo_data(db) -> bool:
             data["created_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             await db.collection("tasks").document(data["id"]).set(data)
 
-        print(f"Demo data seeded: {len(DEMO_MEMORIES)} memories, {len(DEMO_TASKS)} tasks")
+        # Seed a demo workspace project so the advanced Workspace page is alive on first load.
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            project_id = "ws_demo_genai_apac"
+            folder_id = "fld_research"
+            ws_items = []
+            ws_tasks = []
+            for idx, (mid, title, src_type, src_url, tags) in enumerate(seeded_memory_ids[:5]):
+                ws_items.append({
+                    "id": f"wi_{idx}_{uuid.uuid4().hex[:6]}",
+                    "kind": "memory",
+                    "ref_id": mid,
+                    "title": title,
+                    "url": src_url,
+                    "folder_id": folder_id,
+                    "section_id": "resources" if src_type in ("youtube", "web") else "notes",
+                    "tags": tags[:5],
+                    "added_at": (now - datetime.timedelta(days=max(0, 6 - idx))).isoformat(),
+                    "meta": {"source_type": src_type, "summary": title[:160], "tags": tags[:5]},
+                })
+            for tt in [
+                ("Outline 3-min demo script with multi-agent flow", False, 1),
+                ("Record screen capture of Capture → Recall → Plan flow", False, 2),
+                ("Polish slide deck and pitch narrative", True, 4),
+                ("Submit final prototype + write-up to GenAI APAC portal", False, 0),
+            ]:
+                ws_tasks.append({
+                    "id": f"wt_{uuid.uuid4().hex[:8]}",
+                    "text": tt[0],
+                    "folder_id": folder_id,
+                    "done": tt[1],
+                    "created_at": (now - datetime.timedelta(days=tt[2])).isoformat(),
+                })
+            project = {
+                "id": project_id,
+                "name": "GenAI APAC Hackathon 2026",
+                "description": "Recall X247 — multi-agent second brain. Capture → Recall → Plan → Demo.",
+                "color": "#f59e0b",
+                "goal_type": "project",
+                "folders": [
+                    {"id": folder_id, "name": "Research", "description": "Captured material to study", "weight": 1.0,
+                     "sections": [
+                         {"id": "notes", "name": "Notes"},
+                         {"id": "tasks", "name": "Tasks"},
+                         {"id": "ideas", "name": "Ideas"},
+                         {"id": "resources", "name": "Resources"},
+                     ]},
+                    {"id": "fld_demo", "name": "Demo Day", "description": "Pitch + recording", "weight": 0.6,
+                     "sections": [
+                         {"id": "notes", "name": "Notes"},
+                         {"id": "tasks", "name": "Tasks"},
+                         {"id": "ideas", "name": "Ideas"},
+                         {"id": "resources", "name": "Resources"},
+                     ]},
+                ],
+                "items": ws_items,
+                "tasks": ws_tasks,
+                "groups": [],
+                "created_at": (now - datetime.timedelta(days=8)).isoformat(),
+                "updated_at": now.isoformat(),
+            }
+            await db.collection("workspace_projects").document(project_id).set(project)
+        except Exception as ws_e:
+            print(f"Workspace seed warning: {ws_e}")
+
+        print(f"Demo data seeded: {len(DEMO_MEMORIES)} memories, {len(DEMO_TASKS)} tasks, 1 workspace project")
         return True
     except Exception as e:
         print(f"Demo seed error: {e}")
