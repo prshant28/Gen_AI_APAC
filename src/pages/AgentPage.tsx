@@ -162,7 +162,9 @@ const AgentHubView = () => {
     // making the page appear to "open from the bottom". Only scroll once a real
     // conversation has started (>=1 user/assistant exchange beyond welcome).
     if (messages.length <= 1 && messages[0]?.id === 'welcome') return;
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Scroll the page (not an inner box) to the latest message. `block: 'end'`
+    // keeps the bottom of the conversation + the input bar in view.
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
   useEffect(() => { fetchWorkflows(); }, []);
 
@@ -638,8 +640,11 @@ const AgentHubView = () => {
             </div>
           )}
 
-          {/* MESSAGES */}
-          <div style={{ flex: 1, overflowY: 'auto', borderRadius: 14, border: '1px solid rgba(99,102,241,0.18)', background: 'var(--surface-2)', padding: '18px 18px 10px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.15)', minHeight: 320 }} className="scroll-custom agent-messages">
+          {/* MESSAGES — grows with content; the page scrolls, not this box.
+              This way every message (and its action result cards) stays
+              fully visible after a result instead of getting clipped/collapsed
+              by an inner scrollbox. */}
+          <div style={{ borderRadius: 14, border: '1px solid rgba(99,102,241,0.18)', background: 'var(--surface-2)', padding: '18px 18px 10px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.15)' }} className="agent-messages">
 
             {messages.map(msg => (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}

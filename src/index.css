@@ -722,7 +722,10 @@ img { max-width: 100%; }
 /* ── Agent Hub body responsive (chat-first layout) ───────────────────────── */
 .agent-main { isolation: isolate; min-width: 0; }
 .agent-sidebar { isolation: isolate; min-width: 0; }
-/* On WIDE screens only: pin the sidebar so it scrolls independently */
+/* On WIDE screens only: pin the sidebar so it scrolls independently while
+   the chat column flows down the page. The chat itself never gets an
+   inner scrollbox at any width — every message stays visible inline,
+   so action result cards never appear "collapsed" after a result. */
 @media (min-width: 1101px) {
   .agent-sidebar {
     position: sticky;
@@ -736,16 +739,8 @@ img { max-width: 100%; }
 @media (max-width: 1100px) {
   .agent-body-grid {
     grid-template-columns: 1fr !important;
-    /* let the grid grow with content; no minHeight clamp on mobile */
     min-height: 0 !important;
     row-gap: 28px !important;
-  }
-  /* Chat card: expand to fit ALL messages — no inner scrollbox on mobile */
-  .agent-main .agent-messages {
-    flex: 0 0 auto !important;
-    overflow: visible !important;
-    max-height: none !important;
-    min-height: 0 !important;
   }
   .agent-sidebar {
     position: static !important;
@@ -753,7 +748,6 @@ img { max-width: 100%; }
     max-height: none !important;
     align-self: stretch !important;
     overflow: visible !important;
-    /* clear visual separator from the chat block above */
     margin-top: 12px !important;
     padding-top: 16px !important;
     border-top: 1px dashed var(--border) !important;
