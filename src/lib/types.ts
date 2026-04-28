@@ -121,7 +121,7 @@ export interface WorkspaceProject {
   goal_type?: string;
   folders: WorkspaceFolder[];
   items: WorkspaceItem[];
-  tasks: { id: string; text: string; folder_id?: string; done: boolean; created_at?: string }[];
+  tasks: { id: string; text: string; folder_id?: string; done: boolean; created_at?: string; due_date?: string; calendar_event_id?: string }[];
   groups?: WorkspaceGroup[];
   default_sections?: WorkspaceSection[];
   created_at?: string;

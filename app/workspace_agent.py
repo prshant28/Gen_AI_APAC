@@ -17,7 +17,7 @@ import json
 import logging
 import re
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from app.db import get_db
 from app.config import settings
@@ -289,7 +289,32 @@ async def remove_item(project_id: str, item_id: str) -> bool:
     return True
 
 
-async def add_task(project_id: str, text: str, folder_id: Optional[str] = None) -> Dict[str, Any]:
+_DUE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _normalise_due(due_date: Optional[str]) -> str:
+    """Validate due_date as strict YYYY-MM-DD or empty. Raises ValueError on bad input."""
+    if due_date is None:
+        return ""
+    s = str(due_date).strip()
+    if not s:
+        return ""
+    if not _DUE_RE.match(s):
+        raise ValueError("due_date must be YYYY-MM-DD")
+    try:
+        from datetime import datetime as _dt
+        _dt.strptime(s, "%Y-%m-%d")
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("due_date is not a valid calendar date") from exc
+    return s
+
+
+async def add_task(
+    project_id: str,
+    text: str,
+    folder_id: Optional[str] = None,
+    due_date: Optional[str] = None,
+) -> Dict[str, Any]:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
     if not doc.exists:
@@ -301,11 +326,45 @@ async def add_task(project_id: str, text: str, folder_id: Optional[str] = None) 
         "folder_id": folder_id or "",
         "done": False,
         "created_at": _utcnow_iso(),
+        "due_date": _normalise_due(due_date),
+        "calendar_event_id": "",
     }
     data["tasks"] = (data.get("tasks") or []) + [task]
     data["updated_at"] = _utcnow_iso()
     await db.collection("workspace_projects").document(project_id).set(data)
     return task
+
+
+async def update_task(
+    project_id: str,
+    task_id: str,
+    text: Optional[str] = None,
+    due_date: Optional[str] = None,
+    calendar_event_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    db = await get_db()
+    doc = await db.collection("workspace_projects").document(project_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    tasks = data.get("tasks") or []
+    found = None
+    for t in tasks:
+        if t.get("id") == task_id:
+            if text is not None:
+                t["text"] = text[:240]
+            if due_date is not None:
+                t["due_date"] = _normalise_due(due_date)
+            if calendar_event_id is not None:
+                t["calendar_event_id"] = calendar_event_id
+            found = t
+            break
+    if not found:
+        return None
+    data["tasks"] = tasks
+    data["updated_at"] = _utcnow_iso()
+    await db.collection("workspace_projects").document(project_id).set(data)
+    return found
 
 
 async def toggle_task(project_id: str, task_id: str) -> Dict[str, Any]:
@@ -828,3 +887,240 @@ async def get_project_analytics(project_id: str) -> Optional[Dict[str, Any]]:
         "age_days": age_days,
         "last_updated": str(p.get("updated_at", ""))[:19],
     }
+
+
+# ── Templates ────────────────────────────────────────────────────────────────
+PROJECT_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    "blank": {
+        "id": "blank",
+        "name": "Blank project",
+        "description": "Start from scratch",
+        "color": "#6366f1",
+        "folders": [{"name": "General", "weight": 1.0}],
+        "starter_tasks": [],
+    },
+    "hackathon": {
+        "id": "hackathon",
+        "name": "Hackathon",
+        "description": "Idea → Build → Demo for a 24-72h sprint",
+        "color": "#f59e0b",
+        "folders": [
+            {"name": "Idea", "weight": 0.5},
+            {"name": "Build", "weight": 1.5},
+            {"name": "Demo", "weight": 1.0},
+        ],
+        "starter_tasks": [
+            ("Define problem in 1 sentence", "Idea"),
+            ("List 3 differentiators vs existing solutions", "Idea"),
+            ("Set up repo + minimal scaffold", "Build"),
+            ("Ship a vertical slice end-to-end", "Build"),
+            ("Record 2-min demo video", "Demo"),
+            ("Write submission writeup with screenshots", "Demo"),
+        ],
+    },
+    "course": {
+        "id": "course",
+        "name": "Course study",
+        "description": "Structured study plan for a course or subject",
+        "color": "#06b6d4",
+        "folders": [
+            {"name": "Lectures", "weight": 1.0},
+            {"name": "Practice", "weight": 1.0},
+            {"name": "Notes & Review", "weight": 0.7},
+        ],
+        "starter_tasks": [
+            ("Watch week 1 lectures", "Lectures"),
+            ("Solve practice problem set", "Practice"),
+            ("Make summary notes for week 1", "Notes & Review"),
+            ("Review flashcards before quiz", "Notes & Review"),
+        ],
+    },
+    "research": {
+        "id": "research",
+        "name": "Research paper",
+        "description": "Literature review → experiments → write-up",
+        "color": "#7c3aed",
+        "folders": [
+            {"name": "Literature", "weight": 1.0},
+            {"name": "Experiments", "weight": 1.5},
+            {"name": "Write-up", "weight": 1.2},
+        ],
+        "starter_tasks": [
+            ("Collect 10 seminal papers and annotate", "Literature"),
+            ("Identify gap and frame hypothesis", "Literature"),
+            ("Design baseline experiment", "Experiments"),
+            ("Run pilot experiment + log results", "Experiments"),
+            ("Draft introduction and related work", "Write-up"),
+        ],
+    },
+}
+
+
+def list_templates() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": t["id"],
+            "name": t["name"],
+            "description": t["description"],
+            "color": t["color"],
+            "folder_count": len(t["folders"]),
+            "starter_task_count": len(t["starter_tasks"]),
+        }
+        for t in PROJECT_TEMPLATES.values()
+    ]
+
+
+async def create_from_template(
+    template_id: str,
+    name: str,
+    color: Optional[str] = None,
+) -> Dict[str, Any]:
+    tpl = PROJECT_TEMPLATES.get(template_id)
+    if not tpl:
+        raise ValueError(f"unknown template: {template_id}")
+    folders = []
+    name_to_id: Dict[str, str] = {}
+    for f in tpl["folders"]:
+        fid = _short_id("fld")
+        name_to_id[f["name"]] = fid
+        folders.append({
+            "id": fid,
+            "name": f["name"],
+            "description": "",
+            "weight": f.get("weight", 1.0),
+            "sections": [
+                {"id": "notes", "name": "Notes"},
+                {"id": "tasks", "name": "Tasks"},
+                {"id": "ideas", "name": "Ideas"},
+                {"id": "resources", "name": "Resources"},
+            ],
+        })
+    project = await create_project(
+        name=name,
+        description=tpl["description"],
+        color=color or tpl["color"],
+        goal_type="project",
+        folders=folders,
+    )
+    pid = project["id"]
+    for txt, folder_name in tpl["starter_tasks"]:
+        await add_task(pid, text=txt, folder_id=name_to_id.get(folder_name, ""))
+    refreshed = await get_project(pid)
+    return refreshed or project
+
+
+# ── Export ───────────────────────────────────────────────────────────────────
+_MD_ESCAPE_RE = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>])")
+
+
+def _md_escape(text: Any) -> str:
+    """Escape Markdown control chars + collapse newlines so list items stay intact."""
+    s = str(text or "")
+    s = s.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    s = _MD_ESCAPE_RE.sub(r"\\\1", s)
+    return s.strip()[:300]
+
+
+def _md_safe_url(url: Any) -> str:
+    """Allowlist http/https URLs only; return '' for anything else."""
+    s = str(url or "").strip()
+    if not s:
+        return ""
+    low = s.lower()
+    if not (low.startswith("http://") or low.startswith("https://")):
+        return ""
+    if any(c in s for c in (" ", "\n", "\r", "\t", "<", ">", '"', "(", ")")):
+        return ""
+    return s[:500]
+
+
+def _md_link_or_text(title: Any, url: Any) -> str:
+    """Render a Markdown bullet leaf: link form only when URL passes allowlist."""
+    safe_title = _md_escape(title or "Untitled")
+    safe_url = _md_safe_url(url)
+    return f"[{safe_title}]({safe_url})" if safe_url else safe_title
+
+
+async def export_project_markdown(project_id: str) -> Optional[str]:
+    """Render a workspace project as a Markdown document for export/download."""
+    p = await get_project(project_id)
+    if not p:
+        return None
+    lines: List[str] = []
+    lines.append(f"# {_md_escape(p.get('name', 'Untitled project'))}")
+    if p.get("description"):
+        lines.append("")
+        lines.append(f"> {_md_escape(p['description'])}")
+    items = p.get("items") or []
+    tasks = p.get("tasks") or []
+    folders = p.get("folders") or []
+    done = sum(1 for t in tasks if t.get("done"))
+    pct = round((done / len(tasks)) * 100) if tasks else 0
+    lines.append("")
+    lines.append(f"_{len(items)} items · {len(tasks)} tasks · {done} done ({pct}%) · created {str(p.get('created_at',''))[:10]}_")
+
+    by_folder_items: Dict[str, List[Dict[str, Any]]] = {}
+    by_folder_tasks: Dict[str, List[Dict[str, Any]]] = {}
+    for it in items:
+        by_folder_items.setdefault(it.get("folder_id", ""), []).append(it)
+    for t in tasks:
+        by_folder_tasks.setdefault(t.get("folder_id", ""), []).append(t)
+
+    for f in folders:
+        fid = f["id"]
+        if not by_folder_items.get(fid) and not by_folder_tasks.get(fid):
+            continue
+        lines.append("")
+        lines.append(f"## {_md_escape(f.get('name', 'Folder'))}")
+        if f.get("description"):
+            lines.append(f"_{_md_escape(f['description'])}_")
+        for sec in ("notes", "tasks", "ideas", "resources"):
+            sec_items = [it for it in by_folder_items.get(fid, []) if it.get("section_id") == sec]
+            if sec_items:
+                lines.append("")
+                lines.append(f"### {sec.title()}")
+                for it in sec_items:
+                    bullet = "- " + _md_link_or_text(it.get("title"), it.get("url"))
+                    if it.get("tags"):
+                        safe_tags = ", ".join(_md_escape(tg) for tg in it["tags"][:12])
+                        bullet += "  \n  _tags: " + safe_tags + "_"
+                    lines.append(bullet)
+        ftasks = by_folder_tasks.get(fid, [])
+        if ftasks:
+            lines.append("")
+            lines.append("### Tasks")
+            for t in ftasks:
+                box = "x" if t.get("done") else " "
+                due_raw = t.get("due_date") or ""
+                due = f" — _due {_md_escape(due_raw)}_" if due_raw else ""
+                lines.append(f"- [{box}] {_md_escape(t.get('text', ''))}{due}")
+
+    orphan_items = by_folder_items.get("", [])
+    orphan_tasks = by_folder_tasks.get("", [])
+    if orphan_items or orphan_tasks:
+        lines.append("")
+        lines.append("## Unfiled")
+        for it in orphan_items:
+            lines.append("- " + _md_link_or_text(it.get("title"), it.get("url")))
+        for t in orphan_tasks:
+            box = "x" if t.get("done") else " "
+            due_raw = t.get("due_date") or ""
+            due = f" — _due {_md_escape(due_raw)}_" if due_raw else ""
+            lines.append(f"- [{box}] {_md_escape(t.get('text', ''))}{due}")
+
+    lines.append("")
+    lines.append("---")
+    lines.append(f"_Exported from Recall X247 Workspace · {_utcnow_iso()[:19]}Z_")
+    return "\n".join(lines)
+
+
+async def find_item_owner_project(item_id: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """Return (project_id, item) for the project that owns this item."""
+    db = await get_db()
+    snap = await db.collection("workspace_projects").get()
+    for doc in snap:
+        data = doc.to_dict()
+        for it in (data.get("items") or []):
+            if it.get("id") == item_id:
+                return data.get("id", getattr(doc, "id", "")), it
+    return None

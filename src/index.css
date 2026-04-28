@@ -673,6 +673,21 @@ img { max-width: 100%; }
 }
 @media (min-width: 960px) { .workspace-inner { grid-template-columns: 1fr 1fr; } }
 
+/* ── Workspace mobile/tablet polish ───────────────────────────────────────── */
+@media (max-width: 899px) {
+  .workspace-layout > div:first-child { order: 2; }
+  .workspace-layout > div:nth-child(2) { order: 1; }
+}
+@media (max-width: 720px) {
+  .workspace-analytics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .workspace-kpi-strip {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
 /* ── Vault grid ───────────────────────────────────────────────────────────── */
 .vault-grid {
   display: grid;

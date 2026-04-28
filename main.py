@@ -40,11 +40,16 @@ from app.workspace_agent import (
     remove_item as ws_remove_item,
     add_task as ws_add_task,
     toggle_task as ws_toggle_task,
+    update_task as ws_update_task,
     ai_organize_workspace as ws_ai_organize_workspace,
     apply_organization as ws_apply_organization,
     DEFAULT_SECTIONS as WS_DEFAULT_SECTIONS,
     ingest_plan as ws_ingest_plan,
     ai_organize_memories as ws_ai_organize_memories,
+    list_templates as ws_list_templates,
+    create_from_template as ws_create_from_template,
+    export_project_markdown as ws_export_project_markdown,
+    find_item_owner_project as ws_find_item_owner,
 )
 from app.workflow_engine import list_workflows, get_workflow, AGENT_REGISTRY
 from app.extras_agent import (
@@ -1092,6 +1097,18 @@ class WorkspaceItemUpdate(BaseModel):
 class WorkspaceTaskCreate(BaseModel):
     text: str
     folder_id: Optional[str] = None
+    due_date: Optional[str] = None
+
+
+class WorkspaceTaskUpdate(BaseModel):
+    text: Optional[str] = None
+    due_date: Optional[str] = None
+
+
+class WorkspaceFromTemplate(BaseModel):
+    template_id: str
+    name: str
+    color: Optional[str] = None
 
 
 class WorkspaceOrganizeApply(BaseModel):
@@ -1219,9 +1236,13 @@ async def ws_tasks_add(project_id: str, req: WorkspaceTaskCreate):
     if not (req.text or "").strip():
         raise HTTPException(status_code=400, detail="text required")
     try:
-        return await ws_add_task(project_id, text=req.text, folder_id=req.folder_id)
+        return await ws_add_task(
+            project_id, text=req.text, folder_id=req.folder_id, due_date=req.due_date
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        msg = str(e)
+        status = 400 if "due_date" in msg else 404
+        raise HTTPException(status_code=status, detail=msg)
 
 
 @app.post("/workspace/projects/{project_id}/tasks/{task_id}/toggle")
@@ -1230,6 +1251,96 @@ async def ws_tasks_toggle(project_id: str, task_id: str):
         return await ws_toggle_task(project_id, task_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.patch("/workspace/projects/{project_id}/tasks/{task_id}")
+async def ws_tasks_update(project_id: str, task_id: str, req: WorkspaceTaskUpdate):
+    try:
+        res = await ws_update_task(
+            project_id, task_id, text=req.text, due_date=req.due_date
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if res is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    return res
+
+
+@app.post("/workspace/projects/{project_id}/tasks/{task_id}/to-calendar")
+async def ws_task_to_calendar(project_id: str, task_id: str):
+    """Push a workspace task to the global calendar as a scheduled event."""
+    proj = await ws_get_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="project not found")
+    task = next((t for t in (proj.get("tasks") or []) if t.get("id") == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail="task not found")
+    due = (task.get("due_date") or "").strip()
+    if not due:
+        raise HTTPException(status_code=400, detail="task has no due_date — set one first")
+    event = await create_event(
+        title=task.get("text", "Workspace task"),
+        date=due,
+        time="09:00",
+        duration_minutes=30,
+        description=f"From workspace project: {proj.get('name','')}",
+        linked_task_id=task_id,
+        topic="Work",
+        linked_memory_id="",
+    )
+    event_id = event.get("id") if isinstance(event, dict) else ""
+    if event_id:
+        await ws_update_task(project_id, task_id, calendar_event_id=event_id)
+    return {"ok": True, "event": event}
+
+
+@app.post("/workspace/items/{item_id}/to-flashcards")
+async def ws_item_to_flashcards(item_id: str):
+    """Generate flashcards from a workspace item that references a memory."""
+    found = await ws_find_item_owner(item_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="item not found")
+    _pid, item = found
+    if (item.get("kind") or "") != "memory":
+        raise HTTPException(status_code=400, detail="flashcards only supported for memory-kind items")
+    ref = item.get("ref_id") or ""
+    if not ref:
+        raise HTTPException(status_code=400, detail="item has no ref_id")
+    result = await generate_flashcards(ref)
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return {"ok": True, "memory_id": ref, "result": result}
+
+
+@app.get("/workspace/templates")
+async def ws_templates():
+    return {"templates": ws_list_templates()}
+
+
+@app.post("/workspace/projects/from-template")
+async def ws_projects_from_template(req: WorkspaceFromTemplate):
+    if not (req.name or "").strip():
+        raise HTTPException(status_code=400, detail="name is required")
+    try:
+        return await ws_create_from_template(
+            template_id=req.template_id, name=req.name, color=req.color
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/workspace/projects/{project_id}/export.md")
+async def ws_project_export_md(project_id: str):
+    md = await ws_export_project_markdown(project_id)
+    if md is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    proj = await ws_get_project(project_id) or {}
+    safe_name = re.sub(r"[^a-z0-9_-]+", "-", (proj.get("name") or "project").lower()).strip("-")[:60] or "project"
+    return Response(
+        content=md,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.md"'},
+    )
 
 
 @app.post("/workspace/projects/{project_id}/ai-organize")

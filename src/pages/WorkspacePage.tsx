@@ -5,6 +5,7 @@ import {
   Youtube, FileText, ExternalLink, Wand2, X, FolderPlus, Save,
   StickyNote, CheckSquare, Lightbulb, Link2, Tag, Layers, GitBranch,
   TrendingUp, Search, Activity, ListTree, Folder, ArrowRight, Clock,
+  Calendar as CalendarIcon, Zap, GripVertical, Download, LayoutTemplate,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
@@ -18,6 +19,15 @@ import type {
 } from '../lib/types';
 
 type WsTask = WsProject['tasks'][number];
+
+type WsTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  folder_count: number;
+  starter_task_count: number;
+};
 
 type WsOverview = {
   totals: { projects: number; items: number; tasks: number; tasks_done: number };
@@ -133,8 +143,14 @@ const WorkspacePage: React.FC = () => {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskDue, setNewTaskDue] = useState('');
   const [activeFolder, setActiveFolder] = useState<string>('');
   const [activeSection, setActiveSection] = useState<WorkspaceSectionId | ''>('');
+  const [templates, setTemplates] = useState<WsTemplate[]>([]);
+  const [templateChoice, setTemplateChoice] = useState<string>('blank');
+  const [draggedItemId, setDraggedItemId] = useState<string>('');
+  const [dragOverSection, setDragOverSection] = useState<string>('');
+  const [flashing, setFlashing] = useState<string>('');
   const [groupBy, setGroupBy] = useState(false);
   const [organizing, setOrganizing] = useState(false);
   const [organizePipeline, setOrganizePipeline] = useState<AgentStep[] | null>(null);
@@ -161,6 +177,13 @@ const WorkspacePage: React.FC = () => {
   }, [activeId]);
 
   useEffect(() => { loadProjects(); }, []);  // eslint-disable-line
+
+  useEffect(() => {
+    fetch('/workspace/templates')
+      .then(r => r.ok ? r.json() : { templates: [] })
+      .then(d => setTemplates(d.templates || []))
+      .catch(() => { /* silent */ });
+  }, []);
 
   useEffect(() => {
     if (activeId) setParams(p => { const np = new URLSearchParams(p); np.set('project', activeId); return np; }, { replace: true });
@@ -230,17 +253,47 @@ const WorkspacePage: React.FC = () => {
     if (!newProjectName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch('/workspace/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName.trim(), description: newProjectDesc.trim(), goal_type: 'general' }),
-      });
-      const data = await res.json();
+      let data: any;
+      let res: Response;
+      if (templateChoice && templateChoice !== 'blank') {
+        res = await fetch('/workspace/projects/from-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template_id: templateChoice, name: newProjectName.trim() }),
+        });
+      } else {
+        res = await fetch('/workspace/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newProjectName.trim(), description: newProjectDesc.trim(), goal_type: 'general' }),
+        });
+      }
+      data = await res.json();
       if (res.ok) {
         setProjects(prev => [data, ...prev]);
         setActiveId(data.id);
         setNewProjectName(''); setNewProjectDesc(''); setShowNewProject(false);
-        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Project "${data.name}" created`, type: 'success' } }));
+        setTemplateChoice('blank');
+        const tmplName = templates.find(t => t.id === templateChoice)?.name;
+        const note = tmplName && tmplName !== 'Blank project' ? ` from "${tmplName}" template` : '';
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Project "${data.name}" created${note}`, type: 'success' } }));
+      }
+    } finally { setCreating(false); }
+  };
+
+  const quickStartFromTemplate = async (tmpl: WsTemplate) => {
+    setCreating(true);
+    try {
+      const res = await fetch('/workspace/projects/from-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: tmpl.id, name: tmpl.name }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(prev => [data, ...prev]);
+        setActiveId(data.id);
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Started "${data.name}" from template`, type: 'success' } }));
       }
     } finally { setCreating(false); }
   };
@@ -261,10 +314,15 @@ const WorkspacePage: React.FC = () => {
     if (!project || !newTaskText.trim()) return;
     const res = await fetch(`/workspace/projects/${project.id}/tasks`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: newTaskText.trim(), folder_id: activeFolder || undefined }),
+      body: JSON.stringify({
+        text: newTaskText.trim(),
+        folder_id: activeFolder || undefined,
+        due_date: newTaskDue || undefined,
+      }),
     });
     if (res.ok) {
       setNewTaskText('');
+      setNewTaskDue('');
       await refreshProject(project.id);
       loadOverview();
       if (activeId === project.id) loadAnalytics(project.id);
@@ -277,6 +335,61 @@ const WorkspacePage: React.FC = () => {
     await refreshProject(project.id);
     loadOverview();
     if (activeId === project.id) loadAnalytics(project.id);
+  };
+
+  const sendTaskToCalendar = async (task: WsTask) => {
+    if (!project) return;
+    if (!task.due_date) {
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: 'Set a due date first to send to calendar', type: 'error' } }));
+      return;
+    }
+    const res = await fetch(`/workspace/projects/${project.id}/tasks/${task.id}/to-calendar`, { method: 'POST' });
+    if (res.ok) {
+      await refreshProject(project.id);
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `"${task.text}" added to calendar`, type: 'success' } }));
+    } else {
+      const err = await res.json().catch(() => ({}));
+      window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: err.detail || 'Could not push to calendar', type: 'error' } }));
+    }
+  };
+
+  const generateFlashcardsForItem = async (itemId: string) => {
+    setFlashing(itemId);
+    try {
+      const res = await fetch(`/workspace/items/${itemId}/to-flashcards`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const cards = data?.result?.flashcards?.length || 0;
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Generated ${cards} flashcard${cards === 1 ? '' : 's'}`, type: 'success' } }));
+      } else {
+        window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: data.detail || 'Could not generate flashcards', type: 'error' } }));
+      }
+    } finally { setFlashing(''); }
+  };
+
+  const exportProjectMarkdown = () => {
+    if (!project) return;
+    const url = `/workspace/projects/${project.id}/export.md`;
+    window.open(url, '_blank');
+  };
+
+  const onItemDragStart = (e: React.DragEvent, itemId: string) => {
+    e.dataTransfer.setData('text/plain', itemId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedItemId(itemId);
+  };
+
+  const onItemDragEnd = () => {
+    setDraggedItemId('');
+    setDragOverSection('');
+  };
+
+  const onSectionDrop = async (e: React.DragEvent, sid: WorkspaceSectionId) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    setDragOverSection('');
+    setDraggedItemId('');
+    if (id) await moveItemToSection(id, sid);
   };
 
   const removeItem = async (itemId: string) => {
@@ -431,6 +544,7 @@ const WorkspacePage: React.FC = () => {
       {/* ── Workspace overview KPI strip ─────────────────────────────────── */}
       {overview && overview.totals.projects > 0 && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          className="workspace-kpi-strip"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
           {[
             { label: 'Projects',   value: overview.totals.projects,   icon: FolderTree,  color: '#6366f1' },
@@ -522,15 +636,15 @@ const WorkspacePage: React.FC = () => {
         </div>
       ) : projects.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{ ...card, borderStyle: 'dashed', padding: '50px 24px', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+          style={{ ...card, padding: '34px 24px 28px', textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(217,119,6,0.10))', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
             <FolderPlus size={26} color="#f59e0b" />
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px' }}>No projects yet</h3>
-          <p style={{ color: 'var(--text-3)', fontSize: 12.5, margin: '0 0 14px', maxWidth: 420, marginInline: 'auto' }}>
-            Run the Plan Generator and click "Save to Workspace", or create a blank project here.
+          <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 6px', color: 'var(--text-1)' }}>Your second brain starts here</h3>
+          <p style={{ color: 'var(--text-2)', fontSize: 13, margin: '0 0 18px', maxWidth: 480, marginInline: 'auto', lineHeight: 1.5 }}>
+            A workspace project keeps your captures, tasks, and insights together. Start blank, pick a template, or let the Plan Generator do the heavy lifting.
           </p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
             <button onClick={() => navigate('/plan')} style={{ padding: '9px 16px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Sparkles size={13} /> Open Plan Generator
             </button>
@@ -538,6 +652,25 @@ const WorkspacePage: React.FC = () => {
               <PlusCircle size={13} /> New blank project
             </button>
           </div>
+          {templates.length > 1 && (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, marginBottom: 10 }}>Or try a template</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, maxWidth: 720, marginInline: 'auto' }}>
+                {templates.filter(t => t.id !== 'blank').map(t => (
+                  <button key={t.id} onClick={() => quickStartFromTemplate(t)} disabled={creating}
+                    style={{ padding: '12px 14px', background: 'var(--surface-2)', border: `1px solid ${t.color}40`, borderRadius: 12, color: 'var(--text-1)', cursor: creating ? 'wait' : 'pointer', fontFamily: 'inherit', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12.5 }}>
+                      <LayoutTemplate size={12} color={t.color} /> {t.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>{t.description}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 3 }}>
+                      {t.folder_count} folders · {t.starter_task_count} starter tasks
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       ) : (
         <div className="workspace-layout">
@@ -577,12 +710,28 @@ const WorkspacePage: React.FC = () => {
                 <input value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)}
                   placeholder="Short description (optional)"
                   style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11.5, padding: '6px 10px', outline: 'none', fontFamily: 'inherit', marginBottom: 8 }} />
+                {templates.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, marginBottom: 5 }}>Template</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {templates.map(t => {
+                        const sel = templateChoice === t.id;
+                        return (
+                          <button key={t.id} onClick={() => setTemplateChoice(t.id)} title={t.description}
+                            style={{ padding: '4px 8px', background: sel ? t.color + '25' : 'var(--surface-2)', border: `1px solid ${sel ? t.color + '60' : 'var(--border)'}`, borderRadius: 12, color: sel ? 'var(--text-1)' : 'var(--text-3)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {t.id === 'blank' ? 'Blank' : t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={createProject} disabled={creating || !newProjectName.trim()}
                     style={{ flex: 1, padding: '6px 0', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 7, color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {creating ? 'Creating…' : 'Add'}
                   </button>
-                  <button onClick={() => setShowNewProject(false)}
+                  <button onClick={() => { setShowNewProject(false); setTemplateChoice('blank'); }}
                     style={{ flex: 1, padding: '6px 0', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                 </div>
               </div>
@@ -616,6 +765,11 @@ const WorkspacePage: React.FC = () => {
                     title="See how capture → insight → task → memory connect for this project">
                     <GitBranch size={12} /> Timeline
                   </button>
+                  <button onClick={exportProjectMarkdown}
+                    style={{ padding: '7px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                    title="Download a Markdown summary of this project">
+                    <Download size={12} /> Export .md
+                  </button>
                   <button onClick={() => deleteProject(project.id)}
                     style={{ padding: '7px 9px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: '#ef4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}
                     title="Delete project">
@@ -628,6 +782,7 @@ const WorkspacePage: React.FC = () => {
               {/* ── Per-project analytics: KPIs + 30-day heatmap + top tags ── */}
               {analytics && (
                 <motion.div key={`an-${analytics.project_id}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="workspace-analytics-grid"
                   style={{ ...card, padding: '14px 18px', display: 'grid', gridTemplateColumns: 'minmax(200px, 280px) 1fr', gap: 18, alignItems: 'stretch' }}>
                   {/* Left: progress ring + key metrics */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -774,13 +929,63 @@ const WorkspacePage: React.FC = () => {
                       <Plus size={12} /> Discover
                     </button>
                   </div>
+                  {/* Section chip strip — also drop targets for drag-and-drop */}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <button onClick={() => setActiveSection('')}
+                      style={{ padding: '4px 10px', background: activeSection === '' ? 'var(--surface-3)' : 'var(--surface-2)', border: `1px solid ${activeSection === '' ? 'var(--border-2)' : 'var(--border)'}`, borderRadius: 12, color: activeSection === '' ? 'var(--text-1)' : 'var(--text-3)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      All
+                    </button>
+                    {SECTION_ORDER.map(sid => {
+                      const Sec = SECTION_META[sid];
+                      const Icn = Sec.icon;
+                      const cnt = sectionCounts[sid] || 0;
+                      const sel = activeSection === sid;
+                      const dragOver = dragOverSection === sid;
+                      return (
+                        <button key={sid}
+                          onClick={() => setActiveSection(sid === activeSection ? '' : sid)}
+                          onDragOver={e => { if (draggedItemId) { e.preventDefault(); setDragOverSection(sid); } }}
+                          onDragLeave={() => setDragOverSection('')}
+                          onDrop={e => onSectionDrop(e, sid)}
+                          title={`Drop items here to mark as "${Sec.name}"`}
+                          style={{
+                            padding: '4px 10px',
+                            background: dragOver ? Sec.color + '30' : (sel ? Sec.color + '20' : 'var(--surface-2)'),
+                            border: `1px solid ${dragOver ? Sec.color : (sel ? Sec.color + '50' : 'var(--border)')}`,
+                            borderRadius: 12,
+                            color: sel || dragOver ? 'var(--text-1)' : 'var(--text-3)',
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            transform: dragOver ? 'scale(1.05)' : 'scale(1)',
+                            transition: 'transform 120ms ease',
+                          }}>
+                          <Icn size={10} color={Sec.color} /> {Sec.name} {cnt > 0 && <span style={{ opacity: 0.7 }}>({cnt})</span>}
+                        </button>
+                      );
+                    })}
+                    {draggedItemId && (
+                      <span style={{ fontSize: 10, color: 'var(--text-3)', alignSelf: 'center', marginLeft: 6 }}>Drop on a section</span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 480, overflowY: 'auto' }}>
                     <AnimatePresence>
                       {visibleItems.map(it => {
                         const isVid = it.meta?.type === 'video' || !!it.meta?.youtube_id;
+                        const isMem = it.kind === 'memory';
+                        const dragging = draggedItemId === it.id;
                         return (
-                          <motion.div key={it.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 6 }}
-                            style={{ display: 'flex', gap: 8, padding: '7px 9px', borderRadius: 8, background: 'var(--surface-2)', alignItems: 'center', position: 'relative' }}>
+                          <motion.div key={it.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 6 }}>
+                          <div
+                            draggable
+                            onDragStart={e => onItemDragStart(e, it.id)}
+                            onDragEnd={onItemDragEnd}
+                            style={{ display: 'flex', gap: 8, padding: '7px 9px', borderRadius: 8, background: 'var(--surface-2)', alignItems: 'center', position: 'relative', opacity: dragging ? 0.5 : 1, cursor: 'grab' }}>
+                            <GripVertical size={12} color="var(--text-3)" style={{ flexShrink: 0, opacity: 0.6 }} />
                             {isVid && it.meta?.thumbnail ? (
                               <img src={it.meta.thumbnail} alt="" style={{ width: 56, height: 32, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
                             ) : (
@@ -796,6 +1001,14 @@ const WorkspacePage: React.FC = () => {
                                 {it.meta?.domain && <span>{it.meta.domain}</span>}
                               </div>
                             </div>
+                            {isMem && it.ref_id && (
+                              <button onClick={() => generateFlashcardsForItem(it.id)} disabled={flashing === it.id}
+                                style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', cursor: flashing === it.id ? 'wait' : 'pointer', padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 3, borderRadius: 6, fontSize: 10, fontWeight: 700, fontFamily: 'inherit' }}
+                                title="Generate flashcards from this memory">
+                                {flashing === it.id ? <Loader2 size={10} style={{ animation: 'spin 1s linear infinite' }} /> : <Zap size={10} />}
+                                Cards
+                              </button>
+                            )}
                             {it.url && (
                               <a href={it.url} target="_blank" rel="noopener noreferrer"
                                 style={{ color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}>
@@ -807,14 +1020,21 @@ const WorkspacePage: React.FC = () => {
                               title="Remove">
                               <Trash2 size={11} />
                             </button>
+                          </div>
                           </motion.div>
                         );
                       })}
                     </AnimatePresence>
                     {visibleItems.length === 0 && (
-                      <p style={{ color: 'var(--text-3)', fontSize: 12, textAlign: 'center', padding: '20px 0', margin: 0 }}>
-                        {activeFolder ? 'No items in this folder' : 'No resources yet — go to Discover or run the Plan Generator'}
-                      </p>
+                      <div style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-3)' }}>
+                        <FileText size={20} style={{ opacity: 0.4, marginBottom: 8 }} />
+                        <p style={{ fontSize: 12, margin: '0 0 4px', fontWeight: 600, color: 'var(--text-2)' }}>
+                          {activeFolder ? 'This folder is empty' : activeSection ? `Nothing tagged "${SECTION_META[activeSection as WorkspaceSectionId]?.name}" yet` : 'No resources yet'}
+                        </p>
+                        <p style={{ fontSize: 11, margin: 0 }}>
+                          Try Discover, Plan Generator, or drag items here from another section.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </motion.div>
@@ -829,11 +1049,14 @@ const WorkspacePage: React.FC = () => {
                       {visibleTasks.length > 0 ? Math.round((visibleTasks.filter(t => t.done).length / visibleTasks.length) * 100) : 0}% done
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
                     <input value={newTaskText} onChange={e => setNewTaskText(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') addTask(); }}
                       placeholder={activeFolder ? `New task in folder…` : 'New task…'}
-                      style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, padding: '6px 10px', outline: 'none', fontFamily: 'inherit' }} />
+                      style={{ flex: '1 1 140px', minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, padding: '6px 10px', outline: 'none', fontFamily: 'inherit' }} />
+                    <input type="date" value={newTaskDue} onChange={e => setNewTaskDue(e.target.value)}
+                      title="Optional due date"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, padding: '6px 8px', outline: 'none', fontFamily: 'inherit', colorScheme: 'dark light' }} />
                     <button onClick={addTask} disabled={!newTaskText.trim()}
                       style={{ padding: '6px 12px', background: 'var(--primary)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 700, cursor: !newTaskText.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: !newTaskText.trim() ? 0.5 : 1 }}>
                       Add
@@ -841,19 +1064,57 @@ const WorkspacePage: React.FC = () => {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 480, overflowY: 'auto' }}>
                     <AnimatePresence>
-                      {visibleTasks.map(t => (
-                        <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                          onClick={() => toggleTask(t.id)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'var(--surface-2)', cursor: 'pointer' }}>
-                          <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : 'var(--border-2)'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {t.done && <CheckCheck size={10} color="#fff" />}
-                          </div>
-                          <span style={{ color: t.done ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none' }}>{t.text}</span>
-                        </motion.div>
-                      ))}
+                      {visibleTasks.map(t => {
+                        const due = t.due_date || '';
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        const overdue = !!due && !t.done && due < todayStr;
+                        const dueSoon = !!due && !t.done && due === todayStr;
+                        const onCal = !!t.calendar_event_id;
+                        return (
+                          <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: overdue ? 'rgba(239,68,68,0.07)' : 'var(--surface-2)', border: overdue ? '1px solid rgba(239,68,68,0.25)' : '1px solid transparent' }}>
+                            <div onClick={() => toggleTask(t.id)} style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.done ? project.color : 'var(--border-2)'}`, background: t.done ? project.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                              {t.done && <CheckCheck size={10} color="#fff" />}
+                            </div>
+                            <span onClick={() => toggleTask(t.id)}
+                              style={{ color: t.done ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, textDecoration: t.done ? 'line-through' : 'none', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {t.text}
+                            </span>
+                            {due && (
+                              <span title={overdue ? 'Overdue' : dueSoon ? 'Due today' : `Due ${due}`}
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: 6,
+                                  background: overdue ? 'rgba(239,68,68,0.15)' : dueSoon ? 'rgba(245,158,11,0.15)' : 'var(--surface-3)',
+                                  color: overdue ? '#ef4444' : dueSoon ? '#f59e0b' : 'var(--text-3)',
+                                  border: `1px solid ${overdue ? 'rgba(239,68,68,0.3)' : dueSoon ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  flexShrink: 0,
+                                }}>
+                                <Clock size={9} /> {due.slice(5)}
+                              </span>
+                            )}
+                            {due && !t.done && (
+                              <button onClick={() => sendTaskToCalendar(t)}
+                                title={onCal ? 'Already on calendar — re-send' : 'Send to calendar'}
+                                style={{ background: onCal ? 'rgba(34,197,94,0.12)' : 'var(--surface-3)', border: `1px solid ${onCal ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`, color: onCal ? '#22c55e' : 'var(--text-3)', cursor: 'pointer', padding: '3px 6px', display: 'flex', alignItems: 'center', borderRadius: 6, flexShrink: 0 }}>
+                                <CalendarIcon size={10} />
+                              </button>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </AnimatePresence>
                     {visibleTasks.length === 0 && (
-                      <p style={{ color: 'var(--text-3)', fontSize: 12, textAlign: 'center', padding: '16px 0', margin: 0 }}>No tasks yet</p>
+                      <div style={{ textAlign: 'center', padding: '20px 8px', color: 'var(--text-3)' }}>
+                        <CheckSquare size={18} style={{ opacity: 0.4, marginBottom: 6 }} />
+                        <p style={{ fontSize: 12, margin: '0 0 3px', fontWeight: 600, color: 'var(--text-2)' }}>Inbox zero</p>
+                        <p style={{ fontSize: 11, margin: 0 }}>Add a task with a due date and push it straight to your calendar.</p>
+                      </div>
                     )}
                   </div>
                 </motion.div>
