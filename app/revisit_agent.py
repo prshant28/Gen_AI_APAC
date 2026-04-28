@@ -287,8 +287,8 @@ async def resume_revisit(revisit_id: str) -> dict:
     return await update_revisit(revisit_id, status="active")
 
 
-def suggest_frequency_from_text(text: str) -> dict:
-    """Heuristic-only: scan title/notes/url for keywords and suggest a sensible default."""
+def _heuristic_suggestion(text: str) -> dict:
+    """Pure-keyword fallback when LLM is unavailable."""
     t = (text or "").lower()
     hits = lambda kws: any(k in t for k in kws)
 
@@ -307,3 +307,119 @@ def suggest_frequency_from_text(text: str) -> dict:
     if hits(["course", "lesson", "tutorial", "study", "review notes"]):
         return {"frequency": "twice_weekly", "reason": "Study material — review twice a week"}
     return {"frequency": "weekly", "reason": "No strong signal — defaulting to weekly check-in"}
+
+
+def suggest_frequency_from_text(text: str) -> dict:
+    """Sync wrapper — kept for any legacy callers. Returns heuristic only."""
+    return _heuristic_suggestion(text)
+
+
+async def ai_plan_revisit(
+    title: str = "",
+    url: str = "",
+    notes: str = "",
+    text: str = "",
+) -> dict:
+    """LLM-driven advanced revisit plan.
+
+    Returns a richer suggestion than the heuristic — frequency, an optional
+    interval / specific_date, a smart action label, and a one-line reason.
+    Falls back to the heuristic if the LLM is unavailable or returns garbage.
+
+    Output schema:
+        {
+          "frequency": "<one of FREQUENCIES>",
+          "interval_days": <int, only if custom_days>,
+          "specific_date": "YYYY-MM-DD" (only if specific_date / once),
+          "action_label": "Visit", "Open notes", "Re-read", etc.,
+          "smart_notes": "1 short sentence — what to do when this fires",
+          "reason": "1 short sentence — why this cadence",
+          "source": "ai" | "heuristic"
+        }
+    """
+    blob = " | ".join([s for s in [title, url, notes, text] if s]).strip()
+    if not blob:
+        return {**_heuristic_suggestion(""), "source": "heuristic"}
+
+    today_iso = _now_utc().date().isoformat()
+    prompt = f"""You are scheduling a "come back to this later" reminder for a knowledge worker.
+Today is {today_iso} (UTC). Pick the most useful cadence given the captured item below.
+
+Allowed frequency keys (pick exactly one):
+  - "once"          — single check-in, no recurrence
+  - "daily"         — every day (habits, daily standups, journaling)
+  - "twice_weekly"  — every 3-4 days (active study, ongoing project)
+  - "weekly"        — every 7 days (general review, weekly digest)
+  - "biweekly"      — every 14 days (slow-moving topics)
+  - "monthly"       — every 30 days (long-term reference)
+  - "custom_days"   — every N days (give an "interval_days" between 2 and 90)
+  - "specific_date" — fires once on a chosen date (give "specific_date" YYYY-MM-DD)
+
+Captured item:
+TITLE: {title or "(none)"}
+URL:   {url or "(none)"}
+NOTES: {notes or "(none)"}
+EXTRA: {text or "(none)"}
+
+Rules:
+- If the item mentions a deadline / submission date / event date in the future, use "specific_date".
+- For habits / daily routines / journaling, use "daily".
+- For active study material or ongoing courses, use "twice_weekly".
+- For one-off interviews / meetings / demos with no clear date, use "once" with a specific_date 1-3 days before the likely event.
+- Default to "weekly" only if no strong signal.
+- "action_label" must be 1-3 words (e.g. "Visit", "Re-read", "Open notes", "Register", "Submit").
+- "smart_notes" must be ONE short sentence (under 100 chars) describing what to do when the reminder fires.
+- "reason" must be ONE short sentence (under 90 chars) explaining the chosen cadence.
+
+Return ONLY valid JSON with these exact keys (omit interval_days / specific_date if not relevant):
+{{
+  "frequency": "...",
+  "interval_days": 0,
+  "specific_date": "",
+  "action_label": "...",
+  "smart_notes": "...",
+  "reason": "..."
+}}"""
+
+    try:
+        from app.ai_helper import chat_json
+        from app.config import settings
+        raw = await chat_json(
+            messages=[{"role": "user", "content": prompt}],
+            model=settings.OPENAI_MODEL,
+            temperature=0.2,
+        )
+    except Exception:
+        return {**_heuristic_suggestion(blob), "source": "heuristic"}
+
+    if not isinstance(raw, dict):
+        return {**_heuristic_suggestion(blob), "source": "heuristic"}
+
+    freq = str(raw.get("frequency") or "").strip().lower()
+    if freq not in FREQUENCIES:
+        return {**_heuristic_suggestion(blob), "source": "heuristic"}
+
+    out = {
+        "frequency": freq,
+        "action_label": str(raw.get("action_label") or "Open").strip()[:40] or "Open",
+        "smart_notes": str(raw.get("smart_notes") or "").strip()[:200],
+        "reason": str(raw.get("reason") or "").strip()[:200] or "AI suggested cadence",
+        "source": "ai",
+    }
+
+    if freq == "custom_days":
+        try:
+            n = int(raw.get("interval_days") or 0)
+            out["interval_days"] = max(2, min(90, n)) if n > 0 else 3
+        except Exception:
+            out["interval_days"] = 3
+    elif freq == "specific_date":
+        sd = str(raw.get("specific_date") or "").strip()
+        if sd and _parse_iso(sd):
+            out["specific_date"] = sd[:10]
+        else:
+            # AI picked specific_date but no date — fall back to 7 days out
+            future = _now_utc() + datetime.timedelta(days=7)
+            out["specific_date"] = future.date().isoformat()
+
+    return out

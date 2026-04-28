@@ -55,6 +55,7 @@ export default defineConfig(({mode}) => {
         '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         // SPA + API conflict pages — bypass to SPA only on real page nav
+        '/revisits': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/revisits' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/notes': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/bookmarks': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/habits': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },

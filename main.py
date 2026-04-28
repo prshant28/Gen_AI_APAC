@@ -23,7 +23,7 @@ from app.calendar_agent import create_event, list_upcoming_events, delete_event,
 from app.revisit_agent import (
     create_revisit, list_revisits, list_due, get_revisit,
     mark_visited, snooze_revisit, update_revisit, delete_revisit,
-    pause_revisit, resume_revisit, suggest_frequency_from_text,
+    pause_revisit, resume_revisit, suggest_frequency_from_text, ai_plan_revisit,
     FREQUENCIES,
 )
 from app.discover_agent import discover_resources
@@ -816,8 +816,24 @@ async def resume_revisit_endpoint(revisit_id: str):
     return result
 
 @app.post("/revisits/suggest")
-def suggest_revisit_endpoint(request: RevisitSuggestRequest):
-    return suggest_frequency_from_text(request.text)
+async def suggest_revisit_endpoint(request: RevisitSuggestRequest):
+    """Quick LLM-backed suggestion. Returns at minimum {frequency, reason},
+    plus optional interval_days / specific_date / action_label / smart_notes
+    when the AI can infer them."""
+    return await ai_plan_revisit(text=request.text)
+
+
+@app.post("/revisits/ai-plan")
+async def ai_plan_revisit_endpoint(request: dict = Body(default_factory=dict)):
+    """Full AI plan from a structured payload (title/url/notes/text).
+    Frontend uses this for the 'AI Smart Plan' button to autofill the entire
+    form (frequency + interval/date + action_label + smart_notes + reason)."""
+    return await ai_plan_revisit(
+        title=str(request.get("title") or "")[:300],
+        url=str(request.get("url") or "")[:1000],
+        notes=str(request.get("notes") or "")[:1000],
+        text=str(request.get("text") or "")[:1000],
+    )
 
 
 # --- Study Plan & Briefing ---
