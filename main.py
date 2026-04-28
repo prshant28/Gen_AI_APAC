@@ -19,7 +19,7 @@ from app.coordinator import run_coordinator, run_coordinator_stream, clear_sessi
 from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
-from app.calendar_agent import create_event, list_upcoming_events, delete_event
+from app.calendar_agent import create_event, list_upcoming_events, delete_event, get_event, import_ics_events
 from app.discover_agent import discover_resources
 from app.plan_agent import generate_plan, GOAL_TYPES
 from app.workspace_agent import (
@@ -137,6 +137,15 @@ class ScheduleRequest(BaseModel):
     date: str
     time: str
     duration_minutes: Optional[int] = 60
+    topic: Optional[str] = "Other"
+    description: Optional[str] = ""
+    linked_task_id: Optional[str] = ""
+    linked_memory_id: Optional[str] = ""
+
+
+class CalendarImportRequest(BaseModel):
+    ics_text: str
+    topic: Optional[str] = "Other"
 
 class StudyPlanRequest(BaseModel):
     topic: Optional[str] = ""
@@ -585,12 +594,99 @@ async def schedule_endpoint(request: ScheduleRequest):
         title=request.title,
         date=request.date,
         time=request.time,
-        duration_minutes=request.duration_minutes
+        duration_minutes=request.duration_minutes,
+        description=request.description or "",
+        linked_task_id=request.linked_task_id or "",
+        topic=request.topic or "Other",
+        linked_memory_id=request.linked_memory_id or "",
     )
 
 @app.get("/schedule")
-async def list_schedule_endpoint():
-    return await list_upcoming_events(days=14)
+async def list_schedule_endpoint(days: int = 60):
+    return await list_upcoming_events(days=days)
+
+
+# --- Calendar (advanced) ---
+
+CALENDAR_TOPICS = [
+    {"id": "Study",    "label": "Study",    "color": "#6366f1"},
+    {"id": "Work",     "label": "Work",     "color": "#06b6d4"},
+    {"id": "Personal", "label": "Personal", "color": "#10b981"},
+    {"id": "Research", "label": "Research", "color": "#f59e0b"},
+    {"id": "Health",   "label": "Health",   "color": "#ef4444"},
+    {"id": "Other",    "label": "Other",    "color": "#94a3b8"},
+]
+
+
+@app.get("/calendar/topics")
+async def calendar_topics_endpoint():
+    return {"topics": CALENDAR_TOPICS}
+
+
+@app.get("/calendar/events/{event_id}")
+async def calendar_event_detail(event_id: str):
+    ev = await get_event(event_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return ev
+
+
+@app.delete("/calendar/events/{event_id}")
+async def calendar_event_delete(event_id: str):
+    msg = await delete_event(event_id)
+    if isinstance(msg, str) and msg.lower().startswith("error"):
+        raise HTTPException(status_code=404, detail=msg)
+    return {"success": True, "message": msg}
+
+
+@app.post("/calendar/import")
+async def calendar_import_endpoint(request: CalendarImportRequest):
+    if not (request.ics_text or "").strip():
+        raise HTTPException(status_code=400, detail="ics_text is required")
+    return await import_ics_events(request.ics_text, topic=request.topic or "Other")
+
+
+@app.get("/calendar/google/wizard")
+async def calendar_google_wizard():
+    """Returns an ordered, UI-friendly Connect Google Calendar workflow.
+    The hosted /calendar.ics feed is the source of truth and is read-only.
+    """
+    base = "/calendar.ics"
+    return {
+        "method": "subscribe",
+        "feed_path": base,
+        "steps": [
+            {
+                "id": 1,
+                "title": "Copy your private feed URL",
+                "body": "Recall publishes a live read-only iCal feed of your events and open tasks. Copy the link below — it stays the same forever.",
+                "action": "copy_url",
+            },
+            {
+                "id": 2,
+                "title": "Open Google Calendar",
+                "body": "In a new tab, open Google Calendar and click the + next to Other calendars, then choose From URL.",
+                "action": "open_google",
+                "url": "https://calendar.google.com/calendar/u/0/r/settings/addbyurl",
+            },
+            {
+                "id": 3,
+                "title": "Paste the feed URL",
+                "body": "Paste the copied URL into the URL of calendar field and click Add calendar. Google will sync within a few minutes.",
+                "action": "paste",
+            },
+            {
+                "id": 4,
+                "title": "You are connected",
+                "body": "Recall events and open tasks now appear in Google. Updates flow automatically every few hours. Two-way write-back can be enabled later by an admin via a Google service account.",
+                "action": "done",
+            },
+        ],
+        "notes": [
+            "This feed is read-only by design — Google will never change your Recall data.",
+            "Use Import (.ics) to pull events from another calendar into Recall.",
+        ],
+    }
 
 
 # --- Study Plan & Briefing ---
@@ -1171,6 +1267,17 @@ async def calendar_ics():
             end = end_dt.strftime("%Y%m%dT%H%M%S")
         except Exception:
             end = start
+        topic = (ev.get("topic") or "Other").strip() or "Other"
+        ev_desc = ev.get("description") or ""
+        linked = ev.get("linked_task_id") or ""
+        desc_parts = []
+        if ev_desc:
+            desc_parts.append(ev_desc)
+        if linked:
+            desc_parts.append(f"Linked task: {linked}")
+        desc_parts.append(f"Topic: {topic}")
+        desc_parts.append("Source: Recall X247")
+        full_desc = "\n".join(desc_parts)
         lines += [
             "BEGIN:VEVENT",
             f"UID:{eid}@recall-x247",
@@ -1178,7 +1285,8 @@ async def calendar_ics():
             f"DTSTART:{start}",
             f"DTEND:{end}",
             f"SUMMARY:{_ics_escape(title)}",
-            f"DESCRIPTION:{_ics_escape('Event from Recall X247')}",
+            f"DESCRIPTION:{_ics_escape(full_desc)}",
+            f"CATEGORIES:{_ics_escape(topic)}",  # _ics_escape strips CR/control chars to prevent VEVENT injection
             "END:VEVENT",
         ]
 

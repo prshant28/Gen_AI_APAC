@@ -37,7 +37,9 @@ class CalendarAgent:
             return None
 
     async def create_event(self, title: str, date: str, time: str, duration_minutes: int = 60, 
-                           description: str = "", linked_task_id: str = "") -> dict:
+                           description: str = "", linked_task_id: str = "",
+                           topic: str = "Other", linked_memory_id: str = "",
+                           source: str = "manual") -> dict:
         """
         Creates a calendar event. Uses Google Calendar if configured, otherwise Firestore.
         """
@@ -54,6 +56,9 @@ class CalendarAgent:
             "duration_minutes": duration_minutes,
             "description": description,
             "linked_task_id": linked_task_id,
+            "linked_memory_id": linked_memory_id,
+            "topic": topic or "Other",
+            "source": source or "manual",
             "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
 
@@ -220,8 +225,12 @@ class CalendarAgent:
 calendar_agent = CalendarAgent()
 
 # Exportable functions for MCP
-async def create_event(title, date, time, duration_minutes=60, description="", linked_task_id=""):
-    return await calendar_agent.create_event(title, date, time, duration_minutes, description, linked_task_id)
+async def create_event(title, date, time, duration_minutes=60, description="", linked_task_id="",
+                       topic="Other", linked_memory_id="", source="manual"):
+    return await calendar_agent.create_event(
+        title, date, time, duration_minutes, description, linked_task_id,
+        topic=topic, linked_memory_id=linked_memory_id, source=source,
+    )
 
 async def list_upcoming_events(days=7):
     return await calendar_agent.list_upcoming_events(days)
@@ -231,3 +240,138 @@ async def delete_event(event_id):
 
 async def get_todays_schedule():
     return await calendar_agent.get_todays_schedule()
+
+
+async def get_event(event_id: str) -> Optional[dict]:
+    """Fetch a single stored event by id (mock/Firestore mode)."""
+    if calendar_agent.is_real:
+        # In live mode we don't expose lookup yet; fall back to None.
+        return None
+    db = await get_db()
+    doc = await db.collection("schedules").document(event_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict() or {}
+    data.setdefault("id", event_id)
+    return data
+
+
+def parse_ics_text(ics_text: str) -> List[Dict[str, Any]]:
+    """
+    Lightweight RFC 5545 VEVENT parser sufficient for typical exports
+    from Google / Apple / Outlook. Returns a list of normalized event dicts:
+        {title, date, time, duration_minutes, description}
+    Unsupported pieces (RRULE, attachments, attendees) are ignored.
+    """
+    # Unfold long lines: a CRLF/LF followed by a space or tab continues the previous line.
+    text = ics_text.replace("\r\n", "\n").replace("\r", "\n")
+    unfolded_lines: List[str] = []
+    for line in text.split("\n"):
+        if line.startswith(" ") or line.startswith("\t"):
+            if unfolded_lines:
+                unfolded_lines[-1] += line[1:]
+        else:
+            unfolded_lines.append(line)
+
+    events: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+
+    def _unescape(value: str) -> str:
+        return (value.replace("\\n", "\n").replace("\\N", "\n")
+                     .replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\"))
+
+    def _parse_dt(raw: str) -> Optional[datetime.datetime]:
+        # raw can be 20260512T093000Z, 20260512T093000, or 20260512 (date only)
+        raw = raw.strip()
+        try:
+            if raw.endswith("Z"):
+                return datetime.datetime.strptime(raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+            if "T" in raw:
+                return datetime.datetime.strptime(raw, "%Y%m%dT%H%M%S")
+            return datetime.datetime.strptime(raw, "%Y%m%d")
+        except Exception:
+            try:
+                # ISO fallback
+                return datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except Exception:
+                return None
+
+    for line in unfolded_lines:
+        if line == "BEGIN:VEVENT":
+            current = {}
+        elif line == "END:VEVENT":
+            if current is not None:
+                events.append(current)
+                current = None
+        elif current is not None and ":" in line:
+            key_full, _, value = line.partition(":")
+            key = key_full.split(";", 1)[0].upper()
+            if key == "SUMMARY":
+                current["title"] = _unescape(value).strip()
+            elif key == "DESCRIPTION":
+                current["description"] = _unescape(value).strip()
+            elif key == "LOCATION":
+                current.setdefault("description", "")
+                if value:
+                    loc = _unescape(value).strip()
+                    current["description"] = (current["description"] + ("\n" if current["description"] else "") + f"Location: {loc}").strip()
+            elif key == "DTSTART":
+                dt = _parse_dt(value)
+                if dt is not None:
+                    current["_start"] = dt
+            elif key == "DTEND":
+                dt = _parse_dt(value)
+                if dt is not None:
+                    current["_end"] = dt
+            elif key == "UID":
+                current["_uid"] = value.strip()
+
+    normalized: List[Dict[str, Any]] = []
+    for ev in events:
+        start: Optional[datetime.datetime] = ev.get("_start")
+        if not start:
+            continue
+        end: Optional[datetime.datetime] = ev.get("_end")
+        duration = 60
+        if end:
+            try:
+                duration = max(15, int((end - start).total_seconds() // 60))
+            except Exception:
+                duration = 60
+        normalized.append({
+            "title": ev.get("title") or "Imported event",
+            "date": start.date().isoformat(),
+            "time": start.strftime("%H:%M"),
+            "duration_minutes": duration,
+            "description": ev.get("description") or "",
+        })
+    return normalized
+
+
+async def import_ics_events(ics_text: str, topic: str = "Other") -> Dict[str, Any]:
+    """Parse an ICS payload and create local events for every VEVENT it contains."""
+    parsed = parse_ics_text(ics_text)
+    created: List[dict] = []
+    failed = 0
+    for ev in parsed:
+        try:
+            new_ev = await calendar_agent.create_event(
+                title=ev["title"],
+                date=ev["date"],
+                time=ev["time"],
+                duration_minutes=ev["duration_minutes"],
+                description=ev.get("description", ""),
+                linked_task_id="",
+                topic=topic or "Other",
+                source="ics_import",
+            )
+            created.append(new_ev)
+        except Exception as e:
+            print(f"ICS import error for '{ev.get('title')}': {e}")
+            failed += 1
+    return {
+        "imported": len(created),
+        "failed": failed,
+        "total_parsed": len(parsed),
+        "events": created[:50],
+    }

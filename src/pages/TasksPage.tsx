@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, CheckCircle2, Clock, Trash2, CheckSquare, Zap, AlertTriangle, ArrowDown, Calendar, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,6 +20,9 @@ const TasksModule = () => {
   const [creating, setCreating] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusId = searchParams.get('focus') || '';
+  const [highlightId, setHighlightId] = useState<string>('');
 
   const fetchTasks = useCallback(() => {
     setIsLoading(true);
@@ -32,6 +36,44 @@ const TasksModule = () => {
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
   useEffect(() => { if (showNewTask) setTimeout(() => titleRef.current?.focus(), 80); }, [showNewTask]);
+
+  // Calendar (or any other page) can deep-link to a specific task via ?focus=<id>.
+  // Scroll it into view, briefly highlight, then strip the param so reloads stay clean.
+  // A ref guards against re-running for the same id when fetchTasks re-fires.
+  const processedFocusRef = useRef<string>('');
+  const [missingFocus, setMissingFocus] = useState<string>('');
+  useEffect(() => {
+    if (!focusId || isLoading) return;
+    if (processedFocusRef.current === focusId) return;
+    const all = [...tasks, ...completedTasks];
+    const target = all.find(t => t.id === focusId);
+    processedFocusRef.current = focusId;
+
+    if (!target) {
+      // Linked task no longer exists (deleted, or in a different scope).
+      setMissingFocus(focusId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('focus');
+      setSearchParams(next, { replace: true });
+      const t = setTimeout(() => setMissingFocus(''), 4000);
+      return () => clearTimeout(t);
+    }
+
+    if (target.status === 'completed' && tab !== 'completed') setTab('completed');
+    if (target.status !== 'completed' && tab !== 'pending') setTab('pending');
+    setHighlightId(focusId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`task-row-${focusId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const t = setTimeout(() => {
+      setHighlightId('');
+      const next = new URLSearchParams(searchParams);
+      next.delete('focus');
+      setSearchParams(next, { replace: true });
+    }, 2400);
+    return () => clearTimeout(t);
+  }, [focusId, isLoading, tasks.length, completedTasks.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!newTask.title.trim() || creating) return;
@@ -171,6 +213,19 @@ const TasksModule = () => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {missingFocus && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, marginBottom: 10, fontSize: 12.5, color: '#b45309' }}>
+            <AlertTriangle size={14} color="#f59e0b" />
+            <span>The linked task isn't here anymore — it may have been deleted or completed and archived.</span>
+            <button onClick={() => setMissingFocus('')} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#b45309', display: 'flex' }}>
+              <X size={13} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
           <Loader2 size={28} color="#10b981" style={{ animation: 'spin 1s linear infinite' }} />
@@ -183,10 +238,10 @@ const TasksModule = () => {
               const PriIcon = pri.icon;
               const isOverdue = task.due_date && new Date(task.due_date) < new Date() && tab === 'pending';
               return (
-                <motion.div key={task.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ delay: i * 0.02 }}
-                  style={{ ...card, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s', position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${tab === 'pending' ? pri.color : '#10b981'}` }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}>
+                <motion.div key={task.id} id={`task-row-${task.id}`} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ delay: i * 0.02 }}
+                  style={{ ...card, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.25s', position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${tab === 'pending' ? pri.color : '#10b981'}`, boxShadow: highlightId === task.id ? '0 0 0 2px var(--primary), 0 8px 24px rgba(99,102,241,0.35)' : undefined, background: highlightId === task.id ? 'var(--primary-bg)' : undefined }}
+                  onMouseEnter={e => { if (highlightId !== task.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { if (highlightId !== task.id) e.currentTarget.style.background = 'var(--surface)'; }}>
 
                   {/* Checkbox / check */}
                   {tab === 'pending' ? (

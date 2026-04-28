@@ -35,7 +35,8 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 ### Feature Specifications
 - **Core AI Functionality:** Multi-agent orchestration and natural language processing for task execution and knowledge retrieval.
 - **Knowledge Management:** Capture, semantic search, a vault for stored memories, and a mind graph visualization.
-- **Productivity Tools:** Task management, calendar scheduling, flashcards with spaced repetition, study plan generation, notes (markdown editor), bookmarks (read-later), and habits (daily tracker).
+- **Productivity Tools:** Task management, advanced calendar (month + agenda views, topic categorization with color stripes, prev/next month nav, day-detail modal, ICS import/export, Google/Apple/Outlook subscribe wizard, click-event-to-linked-task deep-link via `/tasks?focus=<id>`), flashcards with spaced repetition, study plan generation, notes (markdown editor), bookmarks (read-later), and habits (daily tracker).
+- **Calendar API surface (FastAPI):** `GET/POST /schedule` (events), `GET /calendar/topics`, `GET /calendar/events/{id}`, `DELETE /calendar/events/{id}`, `POST /calendar/import` (RFC 5545 VEVENT parser in `app/calendar_agent.py:parse_ics_text`), `GET /calendar/google/wizard` (4-step connect flow), `GET /calendar.ics` (read-only feed enriched with `CATEGORIES` + topic + linked-task in `DESCRIPTION`).
 - **Analytics:** Tracks learning velocity, domain expertise, and streaks.
 - **User Management:** Includes profile management, security settings, and data export.
 - **Integrations:** A catalog of third-party integrations across various categories.
