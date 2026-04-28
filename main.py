@@ -1899,18 +1899,28 @@ async def list_logs_endpoint(limit: int = 10):
         return []
 
 
-# --- Static Files ---
+# --- Static Files / SPA fallback ---
 
-dist_path = os.path.join(os.getcwd(), "dist")
-if os.path.exists(dist_path):
-    app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
+dist_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
+if os.path.isdir(dist_path):
+    assets_path = os.path.join(dist_path, "assets")
+    if os.path.isdir(assets_path):
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
-    @app.get("/{full_path:path}")
+    _index_html = os.path.join(dist_path, "index.html")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        index_path = os.path.join(dist_path, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        return JSONResponse(status_code=404, content={"error": "Not Found"})
+        candidate = os.path.normpath(os.path.join(dist_path, full_path))
+        if (
+            candidate.startswith(dist_path)
+            and full_path
+            and os.path.isfile(candidate)
+        ):
+            return FileResponse(candidate)
+        if os.path.isfile(_index_html):
+            return FileResponse(_index_html)
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
 else:
     @app.get("/")
     async def root():
@@ -1919,7 +1929,7 @@ else:
             "version": "2.0.0",
             "status": "online",
             "ai_provider": "openai" if settings.using_openai else "gemini",
-            "description": "AI-powered Second Brain — powered by OpenAI GPT"
+            "description": "AI-powered Second Brain — powered by OpenAI GPT",
         }
 
 if __name__ == "__main__":
