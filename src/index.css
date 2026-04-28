@@ -713,13 +713,45 @@ img { max-width: 100%; }
 }
 /* On narrow screens: simple stacked block flow — no sticky, no overlap */
 @media (max-width: 1100px) {
-  .agent-body-grid { grid-template-columns: 1fr !important; }
+  .agent-body-grid {
+    grid-template-columns: 1fr !important;
+    /* let the grid grow with content; no minHeight clamp on mobile */
+    min-height: 0 !important;
+    row-gap: 28px !important;
+  }
+  /* Chat card: expand to fit ALL messages — no inner scrollbox on mobile */
+  .agent-main .agent-messages {
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
   .agent-sidebar {
     position: static !important;
     top: auto !important;
     max-height: none !important;
     align-self: stretch !important;
     overflow: visible !important;
+    /* clear visual separator from the chat block above */
+    margin-top: 12px !important;
+    padding-top: 16px !important;
+    border-top: 1px dashed var(--border) !important;
+  }
+  /* Inner registry / history / inspector cards: no internal scroll on mobile,
+     so all content reads naturally as part of the page flow. */
+  .agent-sidebar .view-card {
+    max-height: none !important;
+  }
+  .agent-sidebar .view-card .scroll-custom {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* Footer meta row: stack the two halves so Powered-by sits ABOVE the
+     chats / new-chat / tokens / calls cluster instead of fighting with it. */
+  .agent-main > div:last-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    row-gap: 8px !important;
   }
 }
 
