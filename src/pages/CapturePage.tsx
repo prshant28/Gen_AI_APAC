@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
+import { RevisitScheduler } from '../components/RevisitScheduler';
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 const safeHostname = (raw: string): string | null => {
@@ -116,6 +117,8 @@ const CaptureView = () => {
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string>('');
   const [dragOver, setDragOver]         = useState(false);
   const [justSavedId, setJustSavedId]   = useState<string | null>(null);
+  const [justSaved, setJustSaved]       = useState<{ id: string; title: string; url: string } | null>(null);
+  const [showRevisit, setShowRevisit]   = useState(false);
   const [agentState, setAgentState]     = useState<Record<string, AgentStatus>>({});
   const [activeAgentDesc, setActiveAgentDesc] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -413,6 +416,12 @@ const CaptureView = () => {
         }
         if (memId) {
           setJustSavedId(memId);
+          setJustSaved({
+            id: memId,
+            title: saved?.title || preview?.title || 'Captured item',
+            url: saved?.source_url || preview?.source_url || '',
+          });
+          setShowRevisit(true);
           setTimeout(() => setJustSavedId(prev => prev === memId ? null : prev), 15000);
         }
         // Skip auto-tag for duplicates (entry already tagged)
@@ -491,6 +500,21 @@ const CaptureView = () => {
               <X size={13} />
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Inline Revisit Scheduler — shown right after a save ───── */}
+      <AnimatePresence>
+        {showRevisit && justSaved && (
+          <RevisitScheduler
+            key={justSaved.id}
+            defaultTitle={justSaved.title}
+            defaultUrl={justSaved.url}
+            memoryId={justSaved.id}
+            hintText={`${justSaved.title} ${justSaved.url}`}
+            onCreated={() => { setShowRevisit(false); setJustSaved(null); }}
+            onCancel={() => { setShowRevisit(false); setJustSaved(null); }}
+          />
         )}
       </AnimatePresence>
 

@@ -1,0 +1,309 @@
+"""
+Revisit Reminder Agent
+======================
+Schedules and tracks "come back to this later" reminders for captured items
+(memories, URLs, freeform notes). Supports recurring patterns:
+  - once          : single shot (next_due then auto-completes)
+  - daily         : every day
+  - weekly        : every 7 days
+  - biweekly      : every 14 days  ("twice a month-ish")
+  - monthly       : every ~30 days
+  - twice_weekly  : every 3-4 days
+  - custom_days   : every N days (interval_days)
+  - specific_date : fires once on a chosen date
+
+All datetime values stored as ISO 8601 UTC strings for JSON friendliness.
+"""
+
+import uuid
+import datetime
+from typing import List, Optional
+from app.db import get_db
+
+
+FREQUENCIES = {
+    "once": None,           # no recurrence
+    "daily": 1,
+    "twice_weekly": 3,      # ~Mon + Thu cadence
+    "weekly": 7,
+    "biweekly": 14,
+    "monthly": 30,
+    "custom_days": None,    # uses interval_days
+    "specific_date": None,  # one-shot on specific date
+}
+
+
+def _now_utc() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _iso(dt: datetime.datetime) -> str:
+    return dt.astimezone(datetime.timezone.utc).isoformat()
+
+
+def _parse_iso(s: str) -> Optional[datetime.datetime]:
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def _compute_next_due(
+    frequency: str,
+    interval_days: int = 0,
+    specific_date: str = "",
+    starting_from: Optional[datetime.datetime] = None,
+) -> Optional[datetime.datetime]:
+    """Return next_due datetime (UTC) or None if frequency invalid / one-shot exhausted."""
+    base = starting_from or _now_utc()
+
+    if frequency == "specific_date":
+        d = _parse_iso(specific_date)
+        return d  # may be None — caller validates
+
+    if frequency == "once":
+        return _parse_iso(specific_date) or base
+
+    if frequency == "custom_days":
+        days = max(1, int(interval_days or 1))
+        return base + datetime.timedelta(days=days)
+
+    days = FREQUENCIES.get(frequency)
+    if days is None:
+        return None
+    return base + datetime.timedelta(days=int(days))
+
+
+async def create_revisit(
+    title: str,
+    frequency: str = "once",
+    memory_id: str = "",
+    url: str = "",
+    notes: str = "",
+    interval_days: int = 0,
+    specific_date: str = "",
+    action_label: str = "Open",
+    starts_at: str = "",
+) -> dict:
+    """Create a revisit reminder. starts_at lets caller delay first fire (ISO date or datetime)."""
+    if not title or not title.strip():
+        return {"error": "title is required"}
+    if frequency not in FREQUENCIES:
+        return {"error": f"invalid frequency '{frequency}'. Must be one of {list(FREQUENCIES)}"}
+    if frequency in ("specific_date", "once") and specific_date:
+        if not _parse_iso(specific_date):
+            return {"error": "specific_date must be ISO 8601 (YYYY-MM-DD or full datetime)"}
+    if frequency == "custom_days" and (not interval_days or int(interval_days) < 1):
+        return {"error": "interval_days >= 1 required for custom_days frequency"}
+
+    starts = _parse_iso(starts_at) if starts_at else None
+    next_due = _compute_next_due(frequency, interval_days, specific_date, starting_from=starts)
+    if next_due is None and frequency != "once":
+        next_due = _now_utc() + datetime.timedelta(days=1)
+
+    rid = str(uuid.uuid4())
+    now = _now_utc()
+    doc = {
+        "id": rid,
+        "title": title.strip()[:200],
+        "memory_id": (memory_id or "").strip(),
+        "url": (url or "").strip()[:1000],
+        "notes": (notes or "").strip()[:2000],
+        "frequency": frequency,
+        "interval_days": int(interval_days or 0),
+        "specific_date": specific_date or "",
+        "action_label": (action_label or "Open").strip()[:40],
+        "next_due": _iso(next_due) if next_due else "",
+        "last_visited": "",
+        "visit_count": 0,
+        "status": "active",   # active | paused | completed
+        "created_at": _iso(now),
+        "updated_at": _iso(now),
+    }
+    db = await get_db()
+    await db.collection("revisits").document(rid).set(doc)
+    return doc
+
+
+async def list_revisits(
+    status: str = "active",
+    limit: int = 100,
+) -> List[dict]:
+    """List revisits, ordered by next_due ASC at the DB level so power users
+    with thousands of reminders still see the most urgent ones first.
+    Falls back to in-memory sort if the order_by index is missing."""
+    db = await get_db()
+    coll = db.collection("revisits")
+    base = coll.where("status", "==", status) if (status and status != "all") else coll
+    docs: List[dict] = []
+    try:
+        query = base.order_by("next_due", direction="ASCENDING").limit(limit)
+        async for d in query.stream():
+            docs.append(d.to_dict())
+    except Exception:
+        # Composite index missing or backend unsupported — fetch + sort in Python
+        async for d in base.limit(limit).stream():
+            docs.append(d.to_dict())
+        docs.sort(key=lambda d: (d.get("next_due") or "9999-12-31T00:00:00+00:00"))
+    return docs
+
+
+async def list_due(window_days: int = 7, fetch_limit: int = 2000) -> dict:
+    """Return {due, upcoming} arrays based on window_days.
+    fetch_limit raised to 2000 so heavy users still see all due reminders;
+    list_revisits orders by next_due ASC so even at the cap we cover the
+    most urgent ones first."""
+    all_active = await list_revisits(status="active", limit=fetch_limit)
+    now = _now_utc()
+    horizon = now + datetime.timedelta(days=max(0, window_days))
+    due, upcoming = [], []
+    for r in all_active:
+        nd = _parse_iso(r.get("next_due", ""))
+        if not nd:
+            continue
+        if nd <= now:
+            r["overdue_hours"] = max(0, int((now - nd).total_seconds() // 3600))
+            due.append(r)
+        elif nd <= horizon:
+            r["due_in_hours"] = int((nd - now).total_seconds() // 3600)
+            upcoming.append(r)
+    return {"due": due, "upcoming": upcoming, "due_count": len(due), "upcoming_count": len(upcoming)}
+
+
+async def get_revisit(revisit_id: str) -> Optional[dict]:
+    db = await get_db()
+    snap = await db.collection("revisits").document(revisit_id).get()
+    if not snap.exists:
+        return None
+    return snap.to_dict()
+
+
+async def mark_visited(revisit_id: str) -> dict:
+    """Bumps last_visited, advances next_due based on frequency, auto-completes 'once'."""
+    db = await get_db()
+    ref = db.collection("revisits").document(revisit_id)
+    snap = await ref.get()
+    if not snap.exists:
+        return {"error": "revisit not found"}
+    doc = snap.to_dict()
+    now = _now_utc()
+    freq = doc.get("frequency", "once")
+
+    update = {
+        "last_visited": _iso(now),
+        "visit_count": int(doc.get("visit_count", 0)) + 1,
+        "updated_at": _iso(now),
+    }
+    if freq in ("once", "specific_date"):
+        update["status"] = "completed"
+        update["next_due"] = ""
+    else:
+        nd = _compute_next_due(
+            freq,
+            doc.get("interval_days", 0),
+            doc.get("specific_date", ""),
+            starting_from=now,
+        )
+        update["next_due"] = _iso(nd) if nd else ""
+    await ref.update(update)
+    doc.update(update)
+    return doc
+
+
+async def snooze_revisit(revisit_id: str, days: float = 1) -> dict:
+    """Push next_due forward by N days (float, e.g. 0.5 = 12h)."""
+    db = await get_db()
+    ref = db.collection("revisits").document(revisit_id)
+    snap = await ref.get()
+    if not snap.exists:
+        return {"error": "revisit not found"}
+    doc = snap.to_dict()
+    now = _now_utc()
+    base = _parse_iso(doc.get("next_due", "")) or now
+    if base < now:
+        base = now
+    new_due = base + datetime.timedelta(days=float(days))
+    update = {"next_due": _iso(new_due), "status": "active", "updated_at": _iso(now)}
+    await ref.update(update)
+    doc.update(update)
+    return doc
+
+
+async def update_revisit(revisit_id: str, **fields) -> dict:
+    """Patch arbitrary fields. Recomputes next_due if frequency/interval/specific_date changed."""
+    db = await get_db()
+    ref = db.collection("revisits").document(revisit_id)
+    snap = await ref.get()
+    if not snap.exists:
+        return {"error": "revisit not found"}
+    doc = snap.to_dict()
+    now = _now_utc()
+
+    allowed = {"title", "notes", "url", "action_label", "frequency", "interval_days", "specific_date", "status"}
+    update = {k: v for k, v in fields.items() if k in allowed and v is not None}
+
+    if any(k in update for k in ("frequency", "interval_days", "specific_date")):
+        freq = update.get("frequency", doc.get("frequency", "once"))
+        ivl = update.get("interval_days", doc.get("interval_days", 0))
+        sd = update.get("specific_date", doc.get("specific_date", ""))
+        if freq not in FREQUENCIES:
+            return {"error": f"invalid frequency '{freq}'"}
+        # Validate specific_date here so we don't silently break next_due
+        if sd and not _parse_iso(sd):
+            return {"error": "specific_date must be ISO 8601 (YYYY-MM-DD or full datetime)"}
+        if freq == "custom_days" and (not ivl or int(ivl) < 1):
+            return {"error": "interval_days >= 1 required for custom_days frequency"}
+        nd = _compute_next_due(freq, ivl, sd, starting_from=now)
+        update["next_due"] = _iso(nd) if nd else ""
+
+    update["updated_at"] = _iso(now)
+    await ref.update(update)
+    doc.update(update)
+    return doc
+
+
+async def delete_revisit(revisit_id: str) -> dict:
+    db = await get_db()
+    ref = db.collection("revisits").document(revisit_id)
+    snap = await ref.get()
+    if not snap.exists:
+        return {"error": "revisit not found"}
+    await ref.delete()
+    return {"id": revisit_id, "deleted": True}
+
+
+async def pause_revisit(revisit_id: str) -> dict:
+    return await update_revisit(revisit_id, status="paused")
+
+
+async def resume_revisit(revisit_id: str) -> dict:
+    return await update_revisit(revisit_id, status="active")
+
+
+def suggest_frequency_from_text(text: str) -> dict:
+    """Heuristic-only: scan title/notes/url for keywords and suggest a sensible default."""
+    t = (text or "").lower()
+    hits = lambda kws: any(k in t for k in kws)
+
+    if hits(["daily", "every day", "everyday"]):
+        return {"frequency": "daily", "reason": "Mentions daily cadence"}
+    if hits(["weekly", "every week", "each week"]):
+        return {"frequency": "weekly", "reason": "Mentions weekly cadence"}
+    if hits(["monthly", "every month", "each month"]):
+        return {"frequency": "monthly", "reason": "Mentions monthly cadence"}
+    if hits(["hackathon", "registration", "deadline", "apply by", "last date", "submit by"]):
+        return {"frequency": "once", "reason": "Looks like a one-time deadline — use a specific date"}
+    if hits(["routine", "habit", "exercise", "workout", "meditation"]):
+        return {"frequency": "daily", "reason": "Habit-style — daily reminder"}
+    if hits(["interview", "meeting", "call with", "demo"]):
+        return {"frequency": "once", "reason": "One-off event"}
+    if hits(["course", "lesson", "tutorial", "study", "review notes"]):
+        return {"frequency": "twice_weekly", "reason": "Study material — review twice a week"}
+    return {"frequency": "weekly", "reason": "No strong signal — defaulting to weekly check-in"}

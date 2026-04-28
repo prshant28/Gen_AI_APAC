@@ -7,7 +7,7 @@ import {
   Database, Bot, Network, GitBranch, BarChart2, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  Plug, Bookmark, Flame, GraduationCap, Compass
+  Plug, Bookmark, Flame, GraduationCap, Compass, Bell
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -43,6 +43,7 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import NotesPage from './pages/NotesPage';
 import BookmarksPage from './pages/BookmarksPage';
 import HabitsPage from './pages/HabitsPage';
+import RevisitsPage from './pages/RevisitsPage';
 import SharePage from './pages/SharePage';
 import StudyPlanPage from './pages/StudyPlanPage';
 import DiscoverPage from './pages/DiscoverPage';
@@ -73,6 +74,7 @@ const NAV_GROUPS = [
       { id: 'tasks',      label: 'Tasks',        path: '/tasks',      icon: CheckSquare,    color: '#10b981' },
       { id: 'calendar',   label: 'Calendar',     path: '/calendar',   icon: CalendarIcon,   color: '#818cf8' },
       { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },
+      { id: 'revisits',   label: 'Revisits',     path: '/revisits',   icon: Bell,           color: '#f59e0b' },
       { id: 'flashcards', label: 'Flashcards',   path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
       { id: 'plan',       label: 'Study Plan',   path: '/plan',       icon: GraduationCap,  color: '#7c3aed' },
     ]
@@ -499,6 +501,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/notes" element={<NotesPage />} />
                   <Route path="/bookmarks" element={<BookmarksPage />} />
                   <Route path="/habits" element={<HabitsPage />} />
+                  <Route path="/revisits" element={<RevisitsPage />} />
                   <Route path="/plan" element={<StudyPlanPage />} />
                   <Route path="/discover" element={<DiscoverPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

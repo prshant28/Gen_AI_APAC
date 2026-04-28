@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
+import { RevisitScheduler } from '../components/RevisitScheduler';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 const SRC = {
@@ -72,6 +73,7 @@ export default function MemoryDetailPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showRevisit, setShowRevisit]       = useState(false);
   const [autoTagging, setAutoTagging] = useState(false);
   const [taskTitle, setTaskTitle]     = useState('');
   const [eventTitle, setEventTitle]   = useState('');
@@ -258,6 +260,11 @@ export default function MemoryDetailPage() {
               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
               {actionLoading === 'share' ? <Loader2 size={12} className="spin" /> : <Share2 size={12} />} Share
             </button>
+            <button onClick={() => setShowRevisit(s => !s)}
+              title="Schedule a revisit reminder for this memory"
+              style={{ padding:'7px 13px', background: showRevisit ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.08)', border:'1px solid rgba(245,158,11,0.4)', borderRadius:9, color: showRevisit ? '#fbbf24' : 'rgba(255,255,255,0.85)', fontSize:11, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit', transition:'all 0.15s' }}>
+              <Bell size={12} /> Set Revisit
+            </button>
             <button onClick={() => { navigator.clipboard.writeText(`${memory.title}\n\n${memory.summary}`); showToast('Copied!'); }}
               title="Copy summary"
               style={{ padding:'7px 11px', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:9, color:'rgba(255,255,255,0.7)', fontSize:11, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'inherit' }}>
@@ -266,6 +273,22 @@ export default function MemoryDetailPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* ── Inline Revisit Scheduler ───────────────────────────────── */}
+      <AnimatePresence>
+        {showRevisit && memory && (
+          <div style={{ padding:'12px 16px', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', background:'var(--surface-2)' }}>
+            <RevisitScheduler
+              defaultTitle={memory.title}
+              defaultUrl={memory.source_url || ''}
+              memoryId={memory.id}
+              hintText={`${memory.title} ${(memory.tags || []).join(' ')}`}
+              onCreated={() => { setShowRevisit(false); showToast('Revisit reminder set'); }}
+              onCancel={() => setShowRevisit(false)}
+            />
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── Body: Two Columns ─────────────────────────────────────── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:0, alignItems:'start', border:'1px solid var(--border)', borderTop:'none', borderRadius:'0 0 18px 18px', overflow:'hidden' }}>

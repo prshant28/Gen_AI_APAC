@@ -20,6 +20,12 @@ from app.capture_agent import capture, save_memory, generate_flashcards, generat
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events, delete_event, get_event, import_ics_events
+from app.revisit_agent import (
+    create_revisit, list_revisits, list_due, get_revisit,
+    mark_visited, snooze_revisit, update_revisit, delete_revisit,
+    pause_revisit, resume_revisit, suggest_frequency_from_text,
+    FREQUENCIES,
+)
 from app.discover_agent import discover_resources
 from app.plan_agent import generate_plan, GOAL_TYPES
 from app.workspace_agent import (
@@ -150,6 +156,33 @@ class CalendarImportRequest(BaseModel):
 class StudyPlanRequest(BaseModel):
     topic: Optional[str] = ""
     days: Optional[int] = 7
+
+class RevisitCreateRequest(BaseModel):
+    title: str
+    frequency: str = "once"
+    memory_id: Optional[str] = ""
+    url: Optional[str] = ""
+    notes: Optional[str] = ""
+    interval_days: Optional[int] = 0
+    specific_date: Optional[str] = ""
+    action_label: Optional[str] = "Open"
+    starts_at: Optional[str] = ""
+
+class RevisitUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    url: Optional[str] = None
+    action_label: Optional[str] = None
+    frequency: Optional[str] = None
+    interval_days: Optional[int] = None
+    specific_date: Optional[str] = None
+    status: Optional[str] = None
+
+class RevisitSnoozeRequest(BaseModel):
+    days: float = 1
+
+class RevisitSuggestRequest(BaseModel):
+    text: str
 
 
 # --- Startup ---
@@ -687,6 +720,104 @@ async def calendar_google_wizard():
             "Use Import (.ics) to pull events from another calendar into Recall.",
         ],
     }
+
+
+# --- Revisit Reminders ---
+
+@app.get("/revisits/frequencies")
+def revisits_frequencies():
+    """Static reference for clients — list of supported frequency keys."""
+    return {
+        "frequencies": [
+            {"key": "once", "label": "Once", "hint": "One-time check-in"},
+            {"key": "daily", "label": "Daily", "hint": "Every day"},
+            {"key": "twice_weekly", "label": "Twice a week", "hint": "Every 3-4 days"},
+            {"key": "weekly", "label": "Weekly", "hint": "Every 7 days"},
+            {"key": "biweekly", "label": "Twice a month", "hint": "Every 14 days"},
+            {"key": "monthly", "label": "Monthly", "hint": "Every 30 days"},
+            {"key": "custom_days", "label": "Every N days", "hint": "Pick your own interval"},
+            {"key": "specific_date", "label": "Specific date", "hint": "Fire on a chosen date"},
+        ]
+    }
+
+@app.get("/revisits")
+async def list_revisits_endpoint(status: str = "active", limit: int = 100):
+    return await list_revisits(status=status, limit=limit)
+
+@app.get("/revisits/due")
+async def list_due_revisits_endpoint(window_days: int = 7):
+    return await list_due(window_days=window_days)
+
+@app.post("/revisits")
+async def create_revisit_endpoint(request: RevisitCreateRequest):
+    result = await create_revisit(
+        title=request.title,
+        frequency=request.frequency,
+        memory_id=request.memory_id or "",
+        url=request.url or "",
+        notes=request.notes or "",
+        interval_days=int(request.interval_days or 0),
+        specific_date=request.specific_date or "",
+        action_label=request.action_label or "Open",
+        starts_at=request.starts_at or "",
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@app.get("/revisits/{revisit_id}")
+async def get_revisit_endpoint(revisit_id: str):
+    doc = await get_revisit(revisit_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Revisit not found")
+    return doc
+
+@app.patch("/revisits/{revisit_id}")
+async def update_revisit_endpoint(revisit_id: str, request: RevisitUpdateRequest):
+    fields = request.model_dump(exclude_unset=True)
+    result = await update_revisit(revisit_id, **fields)
+    if "error" in result:
+        raise HTTPException(status_code=404 if result["error"] == "revisit not found" else 400, detail=result["error"])
+    return result
+
+@app.delete("/revisits/{revisit_id}")
+async def delete_revisit_endpoint(revisit_id: str):
+    result = await delete_revisit(revisit_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@app.post("/revisits/{revisit_id}/visit")
+async def visit_revisit_endpoint(revisit_id: str):
+    result = await mark_visited(revisit_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@app.post("/revisits/{revisit_id}/snooze")
+async def snooze_revisit_endpoint(revisit_id: str, request: RevisitSnoozeRequest):
+    result = await snooze_revisit(revisit_id, days=float(request.days or 1))
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@app.post("/revisits/{revisit_id}/pause")
+async def pause_revisit_endpoint(revisit_id: str):
+    result = await pause_revisit(revisit_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@app.post("/revisits/{revisit_id}/resume")
+async def resume_revisit_endpoint(revisit_id: str):
+    result = await resume_revisit(revisit_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@app.post("/revisits/suggest")
+def suggest_revisit_endpoint(request: RevisitSuggestRequest):
+    return suggest_frequency_from_text(request.text)
 
 
 # --- Study Plan & Briefing ---
@@ -1325,14 +1456,26 @@ _BRIEFING_CACHE: Dict[str, Any] = {"data": None, "expires_at": 0.0}
 
 @app.get("/briefing")
 async def briefing_endpoint(force: bool = False):
-    """Daily AI briefing — cached for 5 minutes to avoid hammering AI provider."""
+    """Daily AI briefing — cached for 5 minutes to avoid hammering AI provider.
+    Always merges fresh revisits_due (not cached) so reminders feel live."""
     now_ts = time.time()
     cached = _BRIEFING_CACHE.get("data")
     if not force and cached and now_ts < _BRIEFING_CACHE.get("expires_at", 0):
-        return cached
-    result = await generate_daily_briefing()
-    _BRIEFING_CACHE["data"] = result
-    _BRIEFING_CACHE["expires_at"] = now_ts + 300  # 5 minutes
+        result = dict(cached)
+    else:
+        result = await generate_daily_briefing()
+        _BRIEFING_CACHE["data"] = result
+        _BRIEFING_CACHE["expires_at"] = now_ts + 300  # 5 minutes
+    # Live revisit overlay — never cache reminders, they change as user marks visits
+    try:
+        rv = await list_due(window_days=7)
+        result["revisits_due"] = rv.get("due", [])
+        result["revisits_upcoming"] = rv.get("upcoming", [])
+        result["revisits_due_count"] = rv.get("due_count", 0)
+    except Exception:
+        result["revisits_due"] = []
+        result["revisits_upcoming"] = []
+        result["revisits_due_count"] = 0
     return result
 
 

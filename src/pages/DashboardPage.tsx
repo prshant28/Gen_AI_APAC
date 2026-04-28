@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass, Bell, ExternalLink, RotateCw, PauseCircle } from 'lucide-react';
+import { showToast } from '../App';
 import { motion } from 'motion/react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import type { Memory } from '../lib/types';
@@ -16,6 +17,8 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [logs, setLogs] = useState<any[]>([]);
   const [briefing, setBriefing] = useState('');
   const [briefingLoading, setBriefingLoading] = useState(true);
+  const [revisits, setRevisits] = useState<any[]>([]);
+  const [revisitsUpcoming, setRevisitsUpcoming] = useState<any[]>([]);
   const [habits, setHabits] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -30,10 +33,55 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
       fetch('/logs?limit=5').then(r => r.ok ? r.json() : []),
     ]).then(([s, m, l]) => { if (s) setStats(s); setRecent(m); setLogs(l); }).catch(console.error);
     fetch('/briefing').then(r => r.ok ? r.json() : { briefing: 'Ready for another great day of learning!' })
-      .then(d => setBriefing(d.briefing)).catch(() => setBriefing('Ready for another great day of learning!')).finally(() => setBriefingLoading(false));
+      .then(d => {
+        setBriefing(d.briefing);
+        setRevisits(Array.isArray(d?.revisits_due) ? d.revisits_due : []);
+        setRevisitsUpcoming(Array.isArray(d?.revisits_upcoming) ? d.revisits_upcoming : []);
+      })
+      .catch(() => setBriefing('Ready for another great day of learning!'))
+      .finally(() => setBriefingLoading(false));
     fetch('/habits').then(r => r.ok ? r.json() : []).then(setHabits).catch(() => setHabits([]));
     fetch('/notes?limit=4').then(r => r.ok ? r.json() : []).then(setNotes).catch(() => setNotes([]));
   }, []);
+
+  const refreshRevisits = async () => {
+    try {
+      const r = await fetch('/revisits/due');
+      if (r.ok) {
+        const d = await r.json();
+        setRevisits(Array.isArray(d?.due) ? d.due : []);
+        setRevisitsUpcoming(Array.isArray(d?.upcoming) ? d.upcoming : []);
+      }
+    } catch {}
+  };
+
+  const handleRevisitGo = async (rv: any) => {
+    if (rv.url) window.open(rv.url, '_blank', 'noopener,noreferrer');
+    else if (rv.memory_id) navigate(`/memory/${rv.memory_id}`);
+    try { await fetch(`/revisits/${rv.id}/visit`, { method: 'POST' }); } catch {}
+    refreshRevisits();
+  };
+
+  const handleRevisitDone = async (rv: any) => {
+    try { await fetch(`/revisits/${rv.id}/visit`, { method: 'POST' }); showToast('Marked done — next due updated'); } catch {}
+    refreshRevisits();
+  };
+
+  const handleRevisitSnooze = async (rv: any, days: number) => {
+    try {
+      await fetch(`/revisits/${rv.id}/snooze`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days }),
+      });
+      showToast(`Snoozed ${days >= 1 ? days + 'd' : Math.round(days * 24) + 'h'}`);
+    } catch {}
+    refreshRevisits();
+  };
+
+  const handleRevisitPause = async (rv: any) => {
+    try { await fetch(`/revisits/${rv.id}/pause`, { method: 'POST' }); showToast('Paused'); } catch {}
+    refreshRevisits();
+  };
 
   const toggleHabit = async (h: any) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -66,6 +114,12 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
     { label: 'Focus Sessions', value: stats?.focus_sessions ?? 0, icon: Timer, color: '#06b6d4', trend: 'This week', sub: 'Deep work', route: '/tasks' },
     { label: 'Captured Today', value: stats?.captured_today ?? 0, icon: TrendingUp, color: '#8b5cf6', trend: 'Today', sub: 'New memories', route: '/capture' },
   ];
+
+  const dashIconBtn: React.CSSProperties = {
+    width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)',
+    background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  };
 
   const S = {
     card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.88)', transition: 'all 0.2s' } as React.CSSProperties,
@@ -103,6 +157,68 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
           </motion.div>
         </div>
       </motion.div>
+
+      {/* ── Revisit Reminders ───────────────────────────────────── */}
+      {(revisits.length > 0 || revisitsUpcoming.length > 0) && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(244,114,182,0.06) 100%)',
+            border: '1px solid rgba(245,158,11,0.28)',
+            borderRadius: 16, padding: '16px 18px', marginBottom: 18,
+            boxShadow: '0 4px 18px -8px rgba(245,158,11,0.25)',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Bell size={14} color="#f59e0b" />
+            <span style={{ fontSize: 10.5, letterSpacing: '0.18em', color: '#f59e0b', fontWeight: 700 }}>REVISIT REMINDERS</span>
+            {revisits.length > 0 && (
+              <span style={{ background: '#ef4444', color: '#fff', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
+                {revisits.length} due now
+              </span>
+            )}
+            <button onClick={() => navigate('/revisits')} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Manage all <ArrowUpRight size={11} />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...revisits, ...revisitsUpcoming].slice(0, 5).map(rv => {
+              const overdue = (rv.overdue_hours ?? 0) > 0;
+              const dueIn = rv.due_in_hours;
+              const meta = overdue
+                ? `Overdue by ${rv.overdue_hours < 24 ? rv.overdue_hours + 'h' : Math.round(rv.overdue_hours / 24) + 'd'}`
+                : dueIn != null
+                  ? (dueIn < 24 ? `Due in ${Math.max(1, dueIn)}h` : `Due in ${Math.round(dueIn / 24)}d`)
+                  : '';
+              return (
+                <div key={rv.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                  background: 'var(--surface)', border: `1px solid ${overdue ? 'rgba(239,68,68,0.35)' : 'var(--border)'}`,
+                  borderRadius: 10, minWidth: 0,
+                }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: overdue ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Bell size={13} color={overdue ? '#ef4444' : '#f59e0b'} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rv.title}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                      <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', fontWeight: 600 }}>{meta}</span>
+                      <span>·</span>
+                      <span style={{ textTransform: 'capitalize' }}>{String(rv.frequency || '').replace('_', ' ')}</span>
+                      {rv.url && (<><span>·</span><span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{rv.url.replace(/^https?:\/\//, '').slice(0, 40)}</span></>)}
+                    </div>
+                  </div>
+                  <button onClick={() => handleRevisitGo(rv)} title="Go to" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
+                    {rv.url ? <ExternalLink size={11} /> : <ChevronRight size={11} />} Go to
+                  </button>
+                  <button onClick={() => handleRevisitDone(rv)} title="Mark done" style={dashIconBtn}><Check size={12} /></button>
+                  <button onClick={() => handleRevisitSnooze(rv, 1)} title="Snooze 1 day" style={dashIconBtn}><RotateCw size={12} /></button>
+                  <button onClick={() => handleRevisitPause(rv)} title="Pause" style={dashIconBtn}><PauseCircle size={12} /></button>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {stats && totalMem === 0 && (
         <motion.div
