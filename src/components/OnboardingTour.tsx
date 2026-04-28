@@ -93,7 +93,6 @@ export default function OnboardingTour({
 
   const handleFinish = () => {
     handleClose();
-    navigate('/capture');
   };
 
   if (!open) return null;
@@ -125,13 +124,14 @@ export default function OnboardingTour({
           style={{
             position: 'relative',
             width: '100%', maxWidth: 540,
+            maxHeight: '92vh',
+            overflowY: 'auto',
             background: 'linear-gradient(180deg, rgba(13,21,38,0.96) 0%, rgba(8,14,28,0.98) 100%)',
             border: '1px solid rgba(59,130,246,0.22)',
             borderRadius: 22,
             padding: '28px 28px 22px',
             boxShadow: '0 30px 80px -20px rgba(0,0,0,0.7), 0 0 60px -10px rgba(59,130,246,0.18), inset 0 1px 0 rgba(255,255,255,0.05)',
             color: '#f4f6fb',
-            overflow: 'hidden',
           }}
         >
           {/* Glowing accent corner */}
@@ -216,32 +216,77 @@ export default function OnboardingTour({
                 {s.description}
               </p>
 
-              {/* Feature chips */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 22 }}>
-                {s.chips.map((c, i) => {
-                  const ChipIcon = c.icon;
-                  return (
-                    <motion.div
-                      key={c.label}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.05 + i * 0.06 }}
-                      style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        gap: 6, padding: '10px 6px',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: 10,
-                      }}
-                    >
-                      <ChipIcon size={16} color={s.accent} strokeWidth={2.1} />
-                      <span style={{ fontSize: 10.5, color: '#c2c9dd', fontWeight: 500, letterSpacing: '0.02em' }}>
-                        {c.label}
-                      </span>
-                    </motion.div>
-                  );
-                })}
-              </div>
+              {/* Feature chips (or actionable cards on the last step) */}
+              {!isLast ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 22 }}>
+                  {s.chips.map((c, i) => {
+                    const ChipIcon = c.icon;
+                    return (
+                      <motion.div
+                        key={c.label}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 + i * 0.06 }}
+                        style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center',
+                          gap: 6, padding: '10px 6px',
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          borderRadius: 10,
+                        }}
+                      >
+                        <ChipIcon size={16} color={s.accent} strokeWidth={2.1} />
+                        <span style={{ fontSize: 10.5, color: '#c2c9dd', fontWeight: 500, letterSpacing: '0.02em' }}>
+                          {c.label}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                  <div style={{ fontSize: 10, letterSpacing: '0.18em', color: '#6b7388', fontWeight: 700, marginBottom: 2 }}>
+                    PICK ONE TO START
+                  </div>
+                  {[
+                    { icon: Plus,    label: 'Capture your first item',  desc: 'Paste a link, video or note',         color: '#22d3ee', path: '/capture' },
+                    { icon: Bot,     label: 'Try Recall AI',            desc: 'Ask a question in plain English',     color: '#3b82f6', path: '/recall' },
+                    { icon: Sparkles, label: 'Explore the Dashboard',   desc: 'See your knowledge at a glance',      color: '#818cf8', path: '/dashboard' },
+                  ].map((q, i) => {
+                    const QIcon = q.icon;
+                    return (
+                      <motion.button
+                        key={q.label}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 + i * 0.06 }}
+                        onClick={() => { try { localStorage.setItem('recall-x247-onboarded', '1'); } catch {} onClose(); navigate(q.path); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '11px 14px',
+                          background: 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${q.color}33`,
+                          borderRadius: 11,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          textAlign: 'left', width: '100%',
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${q.color}10`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${q.color}66`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(2px)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLButtonElement).style.borderColor = `${q.color}33`; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
+                      >
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: `${q.color}1a`, border: `1px solid ${q.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <QIcon size={15} color={q.color} strokeWidth={2.2} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#f4f6fb', lineHeight: 1.2 }}>{q.label}</div>
+                          <div style={{ fontSize: 11, color: '#8a93a8', marginTop: 2 }}>{q.desc}</div>
+                        </div>
+                        <ArrowRight size={14} color={q.color} style={{ flexShrink: 0 }} />
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
 
@@ -305,7 +350,7 @@ export default function OnboardingTour({
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 6px 22px ${s.accent}77, inset 0 1px 0 rgba(255,255,255,0.2)`; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${s.accent}55, inset 0 1px 0 rgba(255,255,255,0.2)`; }}
               >
-                {isLast ? <>Start capturing <Sparkles size={13} /></> : <>Next <ArrowRight size={13} /></>}
+                {isLast ? <>I'll explore on my own <Sparkles size={13} /></> : <>Next <ArrowRight size={13} /></>}
               </button>
             </div>
           </div>

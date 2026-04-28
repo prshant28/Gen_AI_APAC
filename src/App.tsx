@@ -5,9 +5,9 @@ import {
 import {
   Brain, Search, CheckSquare, Calendar as CalendarIcon, LayoutDashboard, Plus,
   Database, Bot, Network, GitBranch, BarChart2, FlipHorizontal,
-  Settings, ChevronLeft, ChevronDown, LogOut, Menu, Moon, Sun, Cpu, Presentation,
+  Settings, ChevronLeft, ChevronDown, ChevronRight, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban
+  Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -49,54 +49,70 @@ import StudyPlanPage from './pages/StudyPlanPage';
 import DiscoverPage from './pages/DiscoverPage';
 import './pages/pages.css';
 
+// ── Pinned essentials — the 4 daily-driver pages, always visible at the top ──
+const PINNED_NAV = [
+  { id: 'dashboard', label: 'Dashboard', desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
+  { id: 'capture',   label: 'Capture',   desc: 'Save anything',                path: '/capture',   icon: Plus,            color: '#06b6d4' },
+  { id: 'vault',     label: 'Vault',     desc: 'Browse your knowledge',        path: '/vault',     icon: Database,        color: '#818cf8' },
+  { id: 'recall',    label: 'Recall AI', desc: 'Ask & get answers',            path: '/recall',    icon: Bot,             color: '#00d4ff' },
+];
+
+// ── Collapsible groups — secondary features, organized by intent ───────────
 const NAV_GROUPS = [
   {
-    label: 'AI Brain',
+    id: 'workspace',
+    label: 'Workspace',
+    icon: Kanban,
     items: [
-      { id: 'dashboard',  label: 'Dashboard',     path: '/dashboard', icon: LayoutDashboard, color: '#00d4ff' },
-      { id: 'agent',      label: 'Agent Hub',     path: '/agent',     icon: Cpu,             color: '#3b82f6' },
-      { id: 'recall',     label: 'Neural Recall', path: '/recall',    icon: Bot,             color: '#00d4ff' },
-      { id: 'discover',   label: 'Discover',      path: '/discover',  icon: Compass,         color: '#06b6d4' },
-    ]
-  },
-  {
-    label: 'Knowledge',
-    items: [
-      { id: 'capture',    label: 'Capture',      path: '/capture',   icon: Plus,            color: '#06b6d4' },
-      { id: 'vault',      label: 'Vault',        path: '/vault',     icon: Database,        color: '#818cf8' },
-      { id: 'notes',      label: 'Notes',        path: '/notes',     icon: StickyNote,      color: '#f59e0b' },
-      { id: 'bookmarks',  label: 'Bookmarks',    path: '/bookmarks', icon: Bookmark,        color: '#ec4899' },
-    ]
-  },
-  {
-    label: 'Productivity',
-    items: [
-      { id: 'workspace',  label: 'Workspace',    path: '/workspace',  icon: Kanban,         color: '#f59e0b' },
+      { id: 'workspace',  label: 'Projects',     path: '/workspace',  icon: Kanban,         color: '#f59e0b' },
       { id: 'tasks',      label: 'Tasks',        path: '/tasks',      icon: CheckSquare,    color: '#10b981' },
       { id: 'calendar',   label: 'Calendar',     path: '/calendar',   icon: CalendarIcon,   color: '#818cf8' },
-      { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },
-      { id: 'revisits',   label: 'Revisits',     path: '/revisits',   icon: Bell,           color: '#f59e0b' },
-      { id: 'flashcards', label: 'Flashcards',   path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
-      { id: 'plan',       label: 'Study Plan',   path: '/plan',       icon: GraduationCap,  color: '#7c3aed' },
+      { id: 'notes',      label: 'Notes',        path: '/notes',      icon: StickyNote,     color: '#f59e0b' },
+      { id: 'bookmarks',  label: 'Bookmarks',    path: '/bookmarks',  icon: Bookmark,       color: '#ec4899' },
     ]
   },
   {
-    label: 'Insight',
+    id: 'learn',
+    label: 'Learn & grow',
+    icon: GraduationCap,
     items: [
+      { id: 'flashcards', label: 'Flashcards',   path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
+      { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },
+      { id: 'revisits',   label: 'Revisits',     path: '/revisits',   icon: Bell,           color: '#f59e0b' },
+      { id: 'plan',       label: 'Study Plan',   path: '/plan',       icon: GraduationCap,  color: '#7c3aed' },
+      { id: 'discover',   label: 'Discover',     path: '/discover',   icon: Compass,        color: '#06b6d4' },
+    ]
+  },
+  {
+    id: 'insights',
+    label: 'Insights',
+    icon: BarChart2,
+    items: [
+      { id: 'agent',      label: 'Agent Hub',    path: '/agent',     icon: Cpu,        color: '#3b82f6' },
       { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#818cf8' },
       { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#06b6d4' },
       { id: 'analytics',  label: 'Analytics',    path: '/analytics', icon: BarChart2,  color: '#10b981' },
     ]
   },
-  {
-    label: 'System',
-    items: [
-      { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,         color: '#22d3ee' },
-      { id: 'deck',         label: 'Pitch Deck',   path: '/deck',         icon: Presentation, color: '#22d3ee' },
-      { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings,     color: '#6b7280' },
-    ]
-  },
 ];
+
+// ── Footer — system/admin pages, demoted to small icons at the bottom ──────
+const FOOTER_NAV = [
+  { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,         color: '#22d3ee' },
+  { id: 'deck',         label: 'Pitch Deck',   path: '/deck',         icon: Presentation, color: '#22d3ee' },
+  { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings,     color: '#6b7280' },
+];
+
+const NAV_OPEN_KEY = 'recall-x247-nav-open-v1';
+
+const loadOpenGroups = (): Record<string, boolean> => {
+  try {
+    const raw = localStorage.getItem(NAV_OPEN_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  // First-time defaults: only "Workspace" is open. Keeps initial nav clean.
+  return { workspace: true, learn: false, insights: false };
+};
 
 const Sidebar = ({
   isCollapsed, setIsCollapsed, user, onSignOut,
@@ -108,6 +124,15 @@ const Sidebar = ({
   const navigate = useNavigate();
   const navRef = useRef<HTMLElement>(null);
   const [canScrollDown, setCanScrollDown] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(loadOpenGroups);
+
+  const toggleGroup = (id: string) => {
+    setOpenGroups(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const checkScroll = useCallback(() => {
     const el = navRef.current;
@@ -122,10 +147,23 @@ const Sidebar = ({
     el.addEventListener('scroll', checkScroll);
     window.addEventListener('resize', checkScroll);
     return () => { el.removeEventListener('scroll', checkScroll); window.removeEventListener('resize', checkScroll); };
-  }, [checkScroll, isCollapsed]);
+  }, [checkScroll, isCollapsed, openGroups]);
+
+  // If a group contains the active route, auto-expand it (so the user sees where they are)
+  useEffect(() => {
+    const groupForActive = NAV_GROUPS.find(g => g.items.some(i => i.path === location.pathname));
+    if (groupForActive && !openGroups[groupForActive.id]) {
+      setOpenGroups(prev => ({ ...prev, [groupForActive.id]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const isActive = (path: string) =>
+    location.pathname === path || (path === '/dashboard' && location.pathname === '/');
 
   return (
     <div style={{ width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Logo + collapse toggle */}
       <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', flexShrink: 0, minHeight: 56 }}>
         {isCollapsed ? (
           <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
@@ -147,8 +185,9 @@ const Sidebar = ({
         )}
       </div>
 
+      {/* Status pill */}
       {!isCollapsed && (
-        <div style={{ margin: '10px 12px 2px', padding: '5px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        <div style={{ margin: '10px 12px 4px', padding: '5px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0, boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
           <span style={{ color: '#10b981', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.2px' }}>System Ready</span>
         </div>
@@ -158,40 +197,167 @@ const Sidebar = ({
       )}
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <nav ref={navRef} style={{ flex: 1, padding: '6px 8px', overflowY: 'auto', overflowX: 'hidden' }} className="sidebar-nav">
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} style={{ marginBottom: 4 }}>
-              {!isCollapsed && (
-                <div style={{ padding: '10px 8px 4px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>{group.label}</div>
-              )}
-              {isCollapsed && <div style={{ height: 6 }} />}
-              {group.items.map(({ id, label, path, icon: Icon, color }) => {
-                const active = location.pathname === path || (path === '/dashboard' && location.pathname === '/');
+        <nav ref={navRef} style={{ flex: 1, padding: '8px', overflowY: 'auto', overflowX: 'hidden' }} className="sidebar-nav">
+
+          {/* ── PINNED ESSENTIALS — always visible, prominent ───────────────── */}
+          {!isCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 6px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>
+              <Pin size={9} /> Essentials
+            </div>
+          )}
+          {isCollapsed && <div style={{ height: 4 }} />}
+          {PINNED_NAV.map(({ id, label, desc, path, icon: Icon, color }) => {
+            const active = isActive(path);
+            return (
+              <button key={id} onClick={() => navigate(path)} title={isCollapsed ? `${label} — ${desc}` : desc}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: isCollapsed ? '10px 0' : '8px 10px',
+                  borderRadius: 10, border: 'none',
+                  background: active ? `${color}15` : 'transparent',
+                  cursor: 'pointer', transition: 'all 0.15s ease',
+                  position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  flexShrink: 0, width: '100%', marginBottom: 2,
+                }}
+                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; } }}
+                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; } }}>
+                {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
+                <div style={{
+                  width: isCollapsed ? 26 : 28, height: isCollapsed ? 26 : 28, borderRadius: 8,
+                  background: active ? color : `${color}18`,
+                  border: active ? 'none' : `1px solid ${color}30`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  transition: 'all 0.15s',
+                }}>
+                  <Icon size={14} color={active ? '#fff' : color} strokeWidth={2.2} />
+                </div>
+                {!isCollapsed && (
+                  <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+                    <div style={{ color: active ? 'var(--text-1)' : 'var(--text-1)', fontSize: 13, fontWeight: active ? 700 : 600, lineHeight: 1.15, letterSpacing: '-0.1px' }}>{label}</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+
+          {/* ── COLLAPSIBLE GROUPS — secondary features ──────────────────────── */}
+          {NAV_GROUPS.map(group => {
+            const GroupIcon = group.icon;
+            const open = !!openGroups[group.id];
+            const containsActive = group.items.some(i => isActive(i.path));
+            return (
+              <div key={group.id} style={{ marginTop: 10 }}>
+                {!isCollapsed ? (
+                  <button onClick={() => toggleGroup(group.id)}
+                    aria-expanded={open}
+                    aria-controls={`nav-group-${group.id}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '6px 8px', borderRadius: 7, border: 'none',
+                      background: 'transparent', cursor: 'pointer',
+                      color: 'var(--text-3)', fontSize: 9.5, letterSpacing: '1.5px',
+                      textTransform: 'uppercase', fontWeight: 700, fontFamily: 'inherit',
+                      transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                    <GroupIcon size={11} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
+                    <span style={{ flex: 1, textAlign: 'left', color: containsActive ? 'var(--text-2)' : 'var(--text-3)' }}>{group.label}</span>
+                    {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  </button>
+                ) : (
+                  <div style={{ height: 8, borderTop: '1px solid var(--border)', margin: '6px 8px 4px' }} />
+                )}
+                <AnimatePresence initial={false}>
+                  {(open || isCollapsed) && (
+                    <motion.div
+                      id={`nav-group-${group.id}`}
+                      initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      style={{ overflow: 'hidden' }}>
+                      {group.items.map(({ id, label, path, icon: Icon, color }) => {
+                        const active = isActive(path);
+                        return (
+                          <button key={id} onClick={() => navigate(path)} title={isCollapsed ? label : undefined}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 9,
+                              padding: isCollapsed ? '8px 0' : '6.5px 10px 6.5px 14px',
+                              borderRadius: 8, border: 'none',
+                              background: active ? 'var(--primary-bg)' : 'transparent',
+                              cursor: 'pointer', transition: 'all 0.15s ease',
+                              position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
+                              flexShrink: 0, width: '100%', marginBottom: 1,
+                            }}
+                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
+                            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                            {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
+                            <Icon size={13} color={active ? 'var(--primary)' : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
+                            {!isCollapsed && <span style={{ color: active ? 'var(--primary)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+
+          {/* ── FOOTER ICONS — system pages, demoted ─────────────────────────── */}
+          {!isCollapsed && (
+            <div style={{ marginTop: 14, padding: '8px 8px 4px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', gap: 4 }}>
+              {FOOTER_NAV.map(({ id, label, path, icon: Icon }) => {
+                const active = isActive(path);
                 return (
-                  <button key={id} onClick={() => navigate(path)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isCollapsed ? '9px 0' : '7.5px 10px', borderRadius: 9, border: 'none', background: active ? 'var(--primary-bg)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s ease', position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0, width: '100%', marginBottom: 1 }}
-                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                    {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
-                    <Icon size={14} color={active ? 'var(--primary)' : 'var(--text-3)'} style={{ transition: 'color 0.15s', flexShrink: 0 }} />
-                    {!isCollapsed && <span style={{ color: active ? 'var(--primary)' : 'var(--text-2)', fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
+                  <button key={id} onClick={() => navigate(path)} title={label}
+                    style={{
+                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                      padding: '7px 4px', background: active ? 'var(--primary-bg)' : 'transparent',
+                      border: 'none', borderRadius: 8, cursor: 'pointer',
+                      transition: 'all 0.15s', color: active ? 'var(--primary)' : 'var(--text-3)',
+                      fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
+                    onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
+                    <Icon size={13} />
+                    <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.2px' }}>{label.split(' ')[0]}</span>
                   </button>
                 );
               })}
             </div>
-          ))}
+          )}
+          {isCollapsed && (
+            <div style={{ marginTop: 10, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+              {FOOTER_NAV.map(({ id, label, path, icon: Icon }) => {
+                const active = isActive(path);
+                return (
+                  <button key={id} onClick={() => navigate(path)} title={label}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '8px 0', background: active ? 'var(--primary-bg)' : 'transparent',
+                      border: 'none', borderRadius: 8, cursor: 'pointer',
+                      transition: 'all 0.15s', color: active ? 'var(--primary)' : 'var(--text-3)', marginBottom: 2,
+                    }}
+                    onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
+                    onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
+                    <Icon size={13} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </nav>
         {!isCollapsed && canScrollDown && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 4, pointerEvents: 'none' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, opacity: 0.45 }}>
-              <ChevronDown size={11} color="var(--text-3)" style={{ marginBottom: -4 }} />
-              <ChevronDown size={11} color="var(--text-3)" style={{ marginBottom: -4 }} />
-              <ChevronDown size={11} color="var(--text-3)" />
-            </div>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 2, pointerEvents: 'none' }}>
+            <ChevronDown size={11} color="var(--text-3)" style={{ opacity: 0.45 }} />
           </div>
         )}
       </div>
 
+      {/* Profile footer */}
       <div style={{ padding: isCollapsed ? '8px 6px 10px' : '8px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <div onClick={() => navigate('/profile')} title="Open profile" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start', cursor: 'pointer', transition: 'all 0.15s' }}
           onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary-border)'; }}
@@ -230,7 +396,11 @@ const Sidebar = ({
   );
 };
 
-const ALL_NAV = NAV_GROUPS.flatMap(g => g.items);
+const ALL_NAV = [
+  ...PINNED_NAV.map(p => ({ ...p, color: p.color })),
+  ...NAV_GROUPS.flatMap(g => g.items),
+  ...FOOTER_NAV,
+];
 
 /* ─────────────────────────────────────────────
    GLOBAL TOAST SYSTEM
@@ -414,7 +584,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
     if (!user) return;
     try {
       if (!localStorage.getItem('recall-x247-onboarded')) {
-        const t = setTimeout(() => setShowTour(true), 600);
+        const t = setTimeout(() => setShowTour(true), 350);
         return () => clearTimeout(t);
       }
     } catch {}

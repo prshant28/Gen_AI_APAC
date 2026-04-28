@@ -78,6 +78,8 @@ const RecallView = () => {
     const msg = (text || input).trim();
     if (!msg || isLoading) return;
 
+    try { localStorage.setItem('recall-x247-tried-recall', '1'); } catch {}
+
     const userId = `u-${Date.now()}`;
     const aiId = `a-${Date.now()}`;
     setMessages(prev => [...prev,

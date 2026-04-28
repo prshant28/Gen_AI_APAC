@@ -59,6 +59,9 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [habits, setHabits] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [adv, setAdv] = useState<DashAdvanced | null>(null);
+  const [checklistDismissed, setChecklistDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem('recall-x247-checklist-dismissed') === '1'; } catch { return false; }
+  });
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const rawName = (user?.displayName ?? '').trim();
@@ -407,6 +410,106 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
           </div>
         </motion.div>
       )}
+
+      {/* ── 4b. GET FAMILIAR CHECKLIST — first-time orientation ────────────── */}
+      {stats && totalMem > 0 && !checklistDismissed && (() => {
+        const recallTried = (() => { try { return localStorage.getItem('recall-x247-tried-recall') === '1'; } catch { return false; } })();
+        const checklist = [
+          { id: 'capture', done: totalMem > 0,           label: 'Capture your first item',  desc: 'Done — keep going',                  icon: Plus,            color: '#22d3ee', path: '/capture' },
+          { id: 'note',    done: notes.length > 0,       label: 'Save a quick note',        desc: 'Type a thought or idea',             icon: StickyNote,      color: '#f59e0b', path: '/notes' },
+          { id: 'recall',  done: recallTried,            label: 'Ask Recall AI',            desc: 'Get answers from your knowledge',    icon: Bot,             color: '#3b82f6', path: '/recall', track: 'recall-x247-tried-recall' },
+          { id: 'habit',   done: habits.length > 0,      label: 'Build a learning habit',   desc: 'Stay consistent every day',          icon: Flame,           color: '#10b981', path: '/habits' },
+        ];
+        const completed = checklist.filter(c => c.done).length;
+        const pct = Math.round((completed / checklist.length) * 100);
+        const allDone = completed === checklist.length;
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            style={{
+              position: 'relative',
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(34,211,238,0.05) 100%)',
+              border: '1px solid rgba(99,102,241,0.22)',
+              borderRadius: 16, padding: '18px 20px', marginBottom: 18,
+              overflow: 'hidden',
+            }}>
+            <button
+              onClick={() => { try { localStorage.setItem('recall-x247-checklist-dismissed', '1'); } catch {} setChecklistDismissed(true); }}
+              title="Hide this"
+              aria-label="Dismiss checklist"
+              style={{
+                position: 'absolute', top: 10, right: 10,
+                width: 24, height: 24, borderRadius: 6,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-3)', transition: 'all 0.15s', fontFamily: 'inherit',
+                fontSize: 16, lineHeight: 1, zIndex: 2,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
+              ×
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, paddingRight: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={14} color="#818cf8" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 9.5, letterSpacing: '0.18em', color: '#818cf8', fontWeight: 700 }}>{allDone ? 'ALL SET' : 'GET FAMILIAR'}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', marginTop: 1 }}>{allDone ? "You've explored the basics" : 'Finish setting up your second brain'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 110, height: 6, background: 'var(--surface-2)', borderRadius: 999, overflow: 'hidden' }}>
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }}
+                    style={{ height: '100%', background: 'linear-gradient(90deg,#818cf8,#22d3ee)', borderRadius: 999 }} />
+                </div>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)' }}>{completed}/{checklist.length}</span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+              {checklist.map(c => {
+                const Icon = c.icon;
+                return (
+                  <button key={c.id}
+                    onClick={() => {
+                      if ((c as any).track) { try { localStorage.setItem((c as any).track, '1'); } catch {} }
+                      navigate(c.path);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                      background: c.done ? `${c.color}10` : 'var(--surface)',
+                      border: `1px solid ${c.done ? `${c.color}40` : 'var(--border)'}`,
+                      borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                      transition: 'all 0.15s', textAlign: 'left',
+                      opacity: c.done ? 0.85 : 1,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${c.color}66`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = c.done ? `${c.color}40` : 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                      background: c.done ? c.color : `${c.color}15`,
+                      border: c.done ? 'none' : `1px solid ${c.color}40`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {c.done ? <Check size={13} color="#fff" strokeWidth={3} /> : <Icon size={13} color={c.color} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: c.done ? 'var(--text-3)' : 'var(--text-1)', lineHeight: 1.2, textDecoration: c.done ? 'line-through' : 'none' }}>
+                        {c.label}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 2 }}>{c.desc}</div>
+                    </div>
+                    {!c.done && <ArrowUpRight size={12} color="var(--text-3)" style={{ flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        );
+      })()}
 
       {/* ── 5. REVISIT REMINDERS ───────────────────────────────────────────── */}
       {(revisits.length > 0 || revisitsUpcoming.length > 0) && (

@@ -12,7 +12,16 @@ Ask before making major changes.
 The application employs a multi-agent AI architecture with a central orchestrator.
 
 ### UI/UX Decisions
-The design system features dark glassmorphism with a neural theme, utilizing CSS custom properties for extensive theming. It supports responsive layouts, a light/dark theme toggle, and premium styling elements. Navigation groups features into AI Brain, Knowledge, Productivity, Insight, and System categories.
+The design system features dark glassmorphism with a neural theme, utilizing CSS custom properties for extensive theming. It supports responsive layouts, a light/dark theme toggle, and premium styling elements.
+
+**Sidebar (redesigned 2026-04-28 for first-time clarity):**
+- A pinned "ESSENTIALS" block at the top with 4 prominent items (Dashboard, Capture, Vault, Recall AI), each rendered with a colored icon disc and a one-line description so newcomers immediately see the four core actions.
+- Three collapsible groups beneath: WORKSPACE (open by default — Projects, Tasks, Calendar, Notes, Bookmarks), LEARN & GROW (collapsed — Flashcards, Habits, Revisits, Study Plan, Discover), INSIGHTS (collapsed — Mind Graph, Project Insights, Folders, Logs, Health, Status). Open/closed state is persisted in localStorage (`recall-x247-nav-open-v1`); the group containing the active route auto-expands.
+- A small footer row above the user profile with three icon+label buttons (Integrations, Pitch Deck, Settings) keeping infrequent destinations one click away without cluttering the main nav.
+
+**First-time onboarding:**
+- The Onboarding Tour's final step (4/4) shows three actionable "PICK ONE TO START" cards (Capture / Try Recall AI / Explore Dashboard) that close the tour and navigate, replacing the previous generic chips. Tour open delay was shortened to 350ms for a snappier feel.
+- A dismissible "GET FAMILIAR" checklist on the dashboard guides newcomers through 4 setup steps (Capture, Save a quick note, Ask Recall AI, Build a learning habit). Each item auto-checks based on live data; clicking a card navigates to the relevant page. The panel can be hidden via × button (persisted in `recall-x247-checklist-dismissed`) and self-removes once all items are complete.
 
 ### Technical Implementations
 - **Frontend:** Built with React, TypeScript, and Vite.
