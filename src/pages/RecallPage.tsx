@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Brain, Send, Search, Sparkles, Clock, Database,
   Youtube, Globe, FileText, StickyNote, Loader2,
-  ArrowRight, Zap, BookOpen, ChevronRight, Mic, MicOff, X
+  ArrowRight, Zap, BookOpen, ChevronRight, Mic, MicOff, X,
+  Hash, Lightbulb, Layers, Compass, Flame, History, Command,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MarkdownMessage from '../components/MarkdownMessage';
@@ -26,9 +27,33 @@ const SUGGESTIONS = [
   { icon: Brain, label: 'What have I learned recently?', q: 'What are the most important things I have captured and learned recently?' },
   { icon: Youtube, label: 'Key points from YouTube captures', q: 'What are the key points and insights from my YouTube video captures?' },
   { icon: BookOpen, label: 'Summarize my knowledge base', q: 'Give me a comprehensive summary of everything in my knowledge base.' },
-  { icon: Sparkles, label: 'AI & ML insights', q: 'What have I saved about AI, machine learning, or technology?' },
-  { icon: Zap, label: 'Productivity notes summary', q: 'Summarize my saved notes about productivity and personal development.' },
-  { icon: Clock, label: 'Recent captures', q: 'What memories have I added most recently? Give me a quick recap.' },
+];
+
+const SUGGESTION_GROUPS: { id: string; title: string; icon: any; color: string; items: { icon: any; label: string; q: string }[] }[] = [
+  {
+    id: 'recap', title: 'Quick recap', icon: Compass, color: '#22d3ee',
+    items: [
+      { icon: Brain,    label: 'What have I learned recently?', q: 'What are the most important things I have captured and learned recently?' },
+      { icon: Sparkles, label: 'Show me my top insights',       q: 'Give me the top 5 insights from across everything I have saved so far.' },
+      { icon: Clock,    label: 'Recap the last 7 days',         q: 'What did I capture or work on in the last 7 days? Group by theme.' },
+    ],
+  },
+  {
+    id: 'deep', title: 'Deep dive', icon: Layers, color: '#8b5cf6',
+    items: [
+      { icon: BookOpen, label: 'Summarize my knowledge base',   q: 'Give me a comprehensive summary of everything in my knowledge base, grouped by topic.' },
+      { icon: Lightbulb,label: 'Connect ideas across topics',   q: 'Find non-obvious connections between the topics I have been studying.' },
+      { icon: Zap,      label: 'Patterns in my notes',          q: 'What patterns or recurring themes emerge from my notes? Cite specific examples.' },
+    ],
+  },
+  {
+    id: 'find', title: 'Find specific', icon: Search, color: '#f59e0b',
+    items: [
+      { icon: Youtube,    label: 'Key points from YouTube',     q: 'What are the key points and insights from my YouTube video captures?' },
+      { icon: Globe,      label: 'Important quotes from articles', q: 'Pull out the most important quotes from the web articles I have saved.' },
+      { icon: StickyNote, label: 'Action items from my notes',  q: 'List the action items, todos, or next steps mentioned across my notes.' },
+    ],
+  },
 ];
 
 const FeatureBadge = ({ icon: Icon, label, color }: { icon: any; label: string; color: string }) => (
@@ -47,12 +72,34 @@ const RecallView = () => {
   const [memCount, setMemCount] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([]);
+  const [streak, setStreak] = useState<number>(0);
+  const [recentMems, setRecentMems] = useState<any[]>([]);
+  const [sourceMix, setSourceMix] = useState<{ youtube: number; web: number; pdf: number; note: number }>({ youtube: 0, web: 0, pdf: 0, note: 0 });
+  const [history, setHistory] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('recall-x247-history') || '[]');
+      return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string').slice(0, 6) : [];
+    } catch { return []; }
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     fetch('/stats').then(r => r.ok ? r.json() : null).then(s => { if (s) setMemCount(s.total_memories); }).catch(() => {});
+    fetch('/dashboard/advanced').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      setTopTags(Array.isArray(d.top_tags) ? d.top_tags : []);
+      setStreak(d.streak?.current || 0);
+    }).catch(() => {});
+    fetch('/memories?limit=100').then(r => r.ok ? r.json() : []).then((arr: any[]) => {
+      const list = Array.isArray(arr) ? arr : [];
+      setRecentMems(list.slice(0, 4));
+      const mix = { youtube: 0, web: 0, pdf: 0, note: 0 };
+      list.forEach(m => { const t = m?.source_type; if (t && t in mix) (mix as any)[t]++; });
+      setSourceMix(mix);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -79,6 +126,12 @@ const RecallView = () => {
     if (!msg || isLoading) return;
 
     try { localStorage.setItem('recall-x247-tried-recall', '1'); } catch {}
+
+    setHistory(prev => {
+      const next = [msg, ...prev.filter(h => h !== msg)].slice(0, 6);
+      try { localStorage.setItem('recall-x247-history', JSON.stringify(next)); } catch {}
+      return next;
+    });
 
     const userId = `u-${Date.now()}`;
     const aiId = `a-${Date.now()}`;
@@ -174,38 +227,210 @@ const RecallView = () => {
         {/* Messages */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom recall-messages">
 
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div className="recall-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '8px 0 4px', gap: 14 }}>
-              <motion.div className="recall-hero" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.15 }}
-                style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(147,51,234,0.1))', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(99,102,241,0.18)', flexShrink: 0 }}>
-                <Search size={24} color="#818cf8" />
-              </motion.div>
-              <div className="recall-empty-text" style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--text-1)', fontSize: 15.5, fontWeight: 700, marginBottom: 4 }}>Ask your Second Brain</div>
-                <div style={{ color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.5, maxWidth: 360 }}>
-                  Search across YouTube captures, web articles, PDFs, and notes — get instant intelligent answers.
-                </div>
-              </div>
+          {/* Empty state — expanded */}
+          {messages.length === 0 && (() => {
+            const totalSrc = sourceMix.youtube + sourceMix.web + sourceMix.pdf + sourceMix.note;
+            const srcEntries = ([
+              { key: 'youtube' as const, label: 'YouTube', count: sourceMix.youtube },
+              { key: 'web' as const,     label: 'Web',     count: sourceMix.web },
+              { key: 'pdf' as const,     label: 'PDF',     count: sourceMix.pdf },
+              { key: 'note' as const,    label: 'Notes',   count: sourceMix.note },
+            ]).filter(s => s.count > 0);
 
-              {/* Suggestion grid */}
-              <div className="recall-suggest-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, width: '100%', maxWidth: 560 }}>
-                {SUGGESTIONS.map((s, i) => (
-                  <motion.button key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}
-                    onClick={() => handleSend(s.q)}
-                    title={s.label}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.18s', minWidth: 0 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.35)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.07)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <s.icon size={12} color="#818cf8" />
+            return (
+              <div className="recall-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 4px', gap: 12 }}>
+                {/* Compact hero */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0 2px' }}>
+                  <motion.div className="recall-hero" initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', delay: 0.1 }}
+                    style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.22), rgba(147,51,234,0.12))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 22px rgba(99,102,241,0.2)', flexShrink: 0 }}>
+                    <Search size={20} color="#818cf8" />
+                  </motion.div>
+                  <div className="recall-empty-text">
+                    <div style={{ color: 'var(--text-1)', fontSize: 16, fontWeight: 700, lineHeight: 1.15 }}>Ask your Second Brain</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.45, marginTop: 2 }}>
+                      Get instant intelligent answers from everything you've saved.
                     </div>
-                    <span style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 11.5, lineHeight: 1.35, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
-                  </motion.button>
-                ))}
+                  </div>
+                </div>
+
+                {/* MAIN 2-COL GRID */}
+                <div className="recall-empty-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)', gap: 14, width: '100%', maxWidth: 940, alignItems: 'start' }}>
+
+                  {/* LEFT — Categorized suggestions + history */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 11, minWidth: 0 }}>
+                    {SUGGESTION_GROUPS.map((group, gi) => {
+                      const GIcon = group.icon;
+                      return (
+                        <motion.div key={group.id}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + gi * 0.06 }}
+                          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 2px' }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 5, background: `${group.color}1c`, border: `1px solid ${group.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <GIcon size={10} color={group.color} />
+                            </div>
+                            <span style={{ color: group.color, fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>{group.title}</span>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 4 }} />
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 5 }}>
+                            {group.items.map(s => {
+                              const SIcon = s.icon;
+                              return (
+                                <button key={s.label} onClick={() => handleSend(s.q)} title={s.q}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.16s', minWidth: 0 }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${group.color}55`; (e.currentTarget as HTMLButtonElement).style.background = `${group.color}10`; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
+                                  <div style={{ width: 22, height: 22, borderRadius: 6, background: `${group.color}15`, border: `1px solid ${group.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <SIcon size={11} color={group.color} />
+                                  </div>
+                                  <span style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 11.5, lineHeight: 1.3, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+
+                    {/* Recent questions history */}
+                    {history.length > 0 && (
+                      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 2px' }}>
+                          <div style={{ width: 18, height: 18, borderRadius: 5, background: 'rgba(148,163,184,0.12)', border: '1px solid rgba(148,163,184,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <History size={10} color="var(--text-3)" />
+                          </div>
+                          <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Recent questions</span>
+                          <div style={{ flex: 1, height: 1, background: 'var(--border)', marginLeft: 4 }} />
+                          <button onClick={() => { setHistory([]); try { localStorage.removeItem('recall-x247-history'); } catch {} }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: 'inherit' }}
+                            title="Clear history">Clear</button>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {history.slice(0, 6).map((q, i) => (
+                            <button key={`${q}-${i}`} onClick={() => handleSend(q)} title={q}
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', maxWidth: 280 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.08)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
+                              <Clock size={9} color="var(--text-3)" />
+                              <span style={{ color: 'var(--text-2)', fontSize: 10.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* RIGHT — Knowledge panel */}
+                  <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, background: 'linear-gradient(160deg, rgba(99,102,241,0.06) 0%, rgba(147,51,234,0.03) 100%)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Database size={11} color="#818cf8" />
+                      <span style={{ color: '#818cf8', fontSize: 10.5, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Your knowledge</span>
+                    </div>
+
+                    {/* Stats row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <div style={{ padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9 }}>
+                        <div style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, letterSpacing: '-0.4px', lineHeight: 1 }}>{memCount ?? '—'}</div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, marginTop: 3, letterSpacing: '0.4px' }}>Memories</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                          <div style={{ color: 'var(--text-1)', fontSize: 17, fontWeight: 800, letterSpacing: '-0.4px', lineHeight: 1 }}>{streak}</div>
+                          <Flame size={11} color={streak > 0 ? '#f59e0b' : 'var(--text-3)'} />
+                        </div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, marginTop: 3, letterSpacing: '0.4px' }}>Day streak</div>
+                      </div>
+                    </div>
+
+                    {/* Source mix */}
+                    {totalSrc > 0 && (
+                      <div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Source mix</div>
+                        <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-2)' }}>
+                          {srcEntries.map(s => (
+                            <div key={s.key} title={`${s.count} ${s.label}`} style={{ flex: s.count, background: SRC_CLR[s.key], transition: 'flex 0.3s' }} />
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                          {srcEntries.map(s => (
+                            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: SRC_CLR[s.key] }} />
+                              <span style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 600 }}>{s.count} {s.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top topics */}
+                    {topTags.length > 0 && (
+                      <div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Top topics · click to ask</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {topTags.slice(0, 8).map(t => (
+                            <button key={t.tag} onClick={() => handleSend(`What do I know about ${t.tag}? Give me a structured summary with sources.`)}
+                              title={`Ask about ${t.tag}`}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.22)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.18)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.1)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.22)'; }}>
+                              <Hash size={8.5} color="#818cf8" />
+                              <span style={{ color: 'var(--text-2)', fontSize: 10, fontWeight: 600 }}>{t.tag}</span>
+                              <span style={{ color: 'var(--text-3)', fontSize: 9, fontWeight: 700 }}>{t.count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent captures */}
+                    {recentMems.length > 0 && (
+                      <div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 5 }}>Recent captures · click to ask</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {recentMems.slice(0, 3).map(m => {
+                            const RIcon = SRC_ICON[m.source_type] ?? Brain;
+                            const rclr = SRC_CLR[m.source_type] ?? '#6366f1';
+                            const safeTitle = (m.title && String(m.title).trim()) || 'Untitled';
+                            const title = safeTitle.slice(0, 60);
+                            return (
+                              <button key={m.id} onClick={() => handleSend(`Tell me more about "${safeTitle}". What are the key points and how does it connect to the rest of my knowledge?`)}
+                                title={safeTitle}
+                                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${rclr}55`; (e.currentTarget as HTMLButtonElement).style.background = `${rclr}10`; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
+                                <div style={{ width: 20, height: 20, borderRadius: 5, background: `${rclr}15`, border: `1px solid ${rclr}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <RIcon size={10} color={rclr} />
+                                </div>
+                                <span style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontSize: 10.5, lineHeight: 1.3, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                                <ChevronRight size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Pro tips strip */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '7px 12px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 10, width: '100%', maxWidth: 940, marginTop: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
+                    <Lightbulb size={11} color="#f59e0b" />
+                    <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>Pro tips:</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
+                    <Command size={10} /> <kbd style={{ padding: '1px 5px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10, fontFamily: 'inherit' }}>Enter</kbd> to send
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-3)', fontSize: 10 }}>
+                    <Mic size={10} /> Tap mic for voice input
+                  </div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 10 }}>Ask in plain English — citations included</div>
+                </motion.div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Message history */}
           {messages.map((msg) => (
