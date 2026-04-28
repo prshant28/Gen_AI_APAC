@@ -935,56 +935,6 @@ const CaptureView = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* ── Live Agent Pipeline (visible in BOTH form and preview states) ─ */}
-      <AnimatePresence>
-        {(isProcessing || Object.keys(agentState).length > 0) && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="view-card" style={{ padding: '18px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <Layers size={14} color="var(--primary)" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', letterSpacing: '0.3px' }}>
-                Live Agent Pipeline
-              </span>
-              {activeAgentDesc && (
-                <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 4 }}>— {activeAgentDesc}</span>
-              )}
-              {!isProcessing && Object.keys(agentState).length > 0 && (
-                <span style={{ fontSize: 10.5, color: 'var(--success, #16a34a)', marginLeft: 'auto', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <CheckCircle2 size={11} /> COMPLETE
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}>
-              {AGENTS.map((ag, i) => {
-                const st = agentState[ag.id] || 'idle';
-                return (
-                  <React.Fragment key={ag.id}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 64, flexShrink: 0 }}>
-                      <motion.div
-                        animate={st === 'active' ? { scale: [1, 1.15, 1], boxShadow: [`0 0 0 0 ${ag.color}44`, `0 0 0 8px ${ag.color}22`, `0 0 0 0 ${ag.color}00`] } : {}}
-                        transition={{ repeat: Infinity, duration: 1.2 }}
-                        style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${st === 'idle' ? 'var(--border)' : ag.color}`, background: st === 'idle' ? 'var(--surface-2)' : st === 'done' ? `color-mix(in srgb,${ag.color} 18%,transparent)` : `color-mix(in srgb,${ag.color} 14%,transparent)`, transition: 'all 0.3s' }}>
-                        {st === 'done'
-                          ? <CheckCircle2 size={16} color={ag.color} />
-                          : st === 'error'
-                          ? <AlertCircle size={16} color="#ef4444" />
-                          : <ag.icon size={15} color={st === 'active' ? ag.color : 'var(--text-3)'} />}
-                      </motion.div>
-                      <span style={{ fontSize: 9.5, fontWeight: st === 'active' ? 700 : 500, color: st === 'idle' ? 'var(--text-3)' : st === 'done' ? ag.color : ag.color, textAlign: 'center', lineHeight: 1.2 }}>
-                        {ag.label}
-                      </span>
-                    </div>
-                    {i < AGENTS.length - 1 && (
-                      <div style={{ flex: 1, height: 2, background: agentState[AGENTS[i + 1].id] && agentState[AGENTS[i + 1].id] !== 'idle' ? AGENTS[i].color : 'var(--border)', transition: 'background 0.4s', minWidth: 8 }} />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Duplicate-memory warning banner (preview state) ─────────── */}
       {preview?.duplicate_of && (
         <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
@@ -1202,13 +1152,68 @@ const CaptureView = () => {
                 </div>
               )}
 
-              {/* Capture button */}
-              <button onClick={handleCapture} disabled={isProcessing || !canSubmit}
-                className="btn-premium" style={{ width: '100%', fontSize: 14.5, gap: 10 }}>
-                {isProcessing
-                  ? <><Loader2 size={17} style={{ animation: 'spin 1s linear infinite' }} /> Agents processing…</>
-                  : <><Zap size={17} /> Run 7-Agent Capture Pipeline</>}
-              </button>
+              {/* Capture button — morphs into the live agent pipeline while running */}
+              {(isProcessing || Object.keys(agentState).length > 0) ? (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    width: '100%', borderRadius: 14, padding: '14px 16px 12px',
+                    background: 'linear-gradient(135deg, color-mix(in srgb,var(--primary) 12%, var(--surface)) 0%, color-mix(in srgb,var(--primary) 4%, var(--surface)) 100%)',
+                    border: '1.5px solid color-mix(in srgb,var(--primary) 30%, transparent)',
+                    boxShadow: '0 4px 18px color-mix(in srgb,var(--primary) 12%, transparent)',
+                  }}>
+                  {/* Header row: title + live status / COMPLETE badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {isProcessing
+                      ? <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+                      : <Layers size={14} color="var(--primary)" />}
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', letterSpacing: '0.3px' }}>
+                      {isProcessing ? '7-Agent Capture Pipeline running' : '7-Agent Capture Pipeline'}
+                    </span>
+                    {activeAgentDesc && (
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>— {activeAgentDesc}</span>
+                    )}
+                    {!isProcessing && Object.keys(agentState).length > 0 && (
+                      <span style={{ fontSize: 10.5, color: 'var(--success, #16a34a)', marginLeft: 'auto', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <CheckCircle2 size={11} /> COMPLETE
+                      </span>
+                    )}
+                  </div>
+                  {/* Agents row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}
+                    className="scroll-custom">
+                    {AGENTS.map((ag, i) => {
+                      const st = agentState[ag.id] || 'idle';
+                      return (
+                        <React.Fragment key={ag.id}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 64, flexShrink: 0 }}>
+                            <motion.div
+                              animate={st === 'active' ? { scale: [1, 1.15, 1], boxShadow: [`0 0 0 0 ${ag.color}44`, `0 0 0 8px ${ag.color}22`, `0 0 0 0 ${ag.color}00`] } : {}}
+                              transition={{ repeat: Infinity, duration: 1.2 }}
+                              style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${st === 'idle' ? 'var(--border)' : ag.color}`, background: st === 'idle' ? 'var(--surface-2)' : st === 'done' ? `color-mix(in srgb,${ag.color} 18%,transparent)` : `color-mix(in srgb,${ag.color} 14%,transparent)`, transition: 'all 0.3s' }}>
+                              {st === 'done'
+                                ? <CheckCircle2 size={16} color={ag.color} />
+                                : st === 'error'
+                                ? <AlertCircle size={16} color="#ef4444" />
+                                : <ag.icon size={15} color={st === 'active' ? ag.color : 'var(--text-3)'} />}
+                            </motion.div>
+                            <span style={{ fontSize: 9.5, fontWeight: st === 'active' ? 700 : 500, color: st === 'idle' ? 'var(--text-3)' : ag.color, textAlign: 'center', lineHeight: 1.2 }}>
+                              {ag.label}
+                            </span>
+                          </div>
+                          {i < AGENTS.length - 1 && (
+                            <div style={{ flex: 1, height: 2, background: agentState[AGENTS[i + 1].id] && agentState[AGENTS[i + 1].id] !== 'idle' ? AGENTS[i].color : 'var(--border)', transition: 'background 0.4s', minWidth: 8 }} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              ) : (
+                <button onClick={handleCapture} disabled={!canSubmit}
+                  className="btn-premium" style={{ width: '100%', fontSize: 14.5, gap: 10 }}>
+                  <Zap size={17} /> Run 7-Agent Capture Pipeline
+                </button>
+              )}
             </div>
           </motion.div>
         </>
