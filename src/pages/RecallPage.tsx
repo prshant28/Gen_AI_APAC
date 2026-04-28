@@ -105,7 +105,7 @@ const RecallView = () => {
   useEffect(() => {
     // Don't auto-scroll while the empty state is showing — that hides the hero/suggestions
     if (messages.length === 0) return;
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
   const toggleVoice = useCallback(() => {
@@ -169,7 +169,7 @@ const RecallView = () => {
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 5rem)', minHeight: 0, gap: 0, padding: '10px 0 0' }}>
+    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 5rem)', gap: 0, padding: '10px 0 28px' }}>
 
       {/* Header — compact, no duplicate subtitle (hero below has it) */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 10, flexShrink: 0, padding: '0 2px' }}>
@@ -210,12 +210,14 @@ const RecallView = () => {
         </div>
       </motion.div>
 
-      {/* Chat Area */}
+      {/* Chat Area — grows with content; the page scrolls, not this card.
+          Input flows naturally below the messages instead of being pinned
+          to the viewport bottom, so the whole page reads in one go. */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...card, overflow: 'hidden', border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.2)' }}>
+        style={{ display: 'flex', flexDirection: 'column', ...card, border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 0 0 1px rgba(99,102,241,0.05), 0 8px 32px rgba(0,0,0,0.2)' }}>
 
-        {/* Messages */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }} className="scroll-custom recall-messages">
+        {/* Messages — grows naturally, no inner scrollbox */}
+        <div style={{ padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }} className="recall-messages">
 
           {/* Empty state — expanded */}
           {messages.length === 0 && (() => {
