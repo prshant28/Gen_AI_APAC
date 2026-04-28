@@ -103,7 +103,10 @@ export default function MemoryDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+  useEffect(() => {
+    if (!msgs || msgs.length === 0) return;
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [msgs]);
 
   /* ── Research Chat ─────────────────────────────────────────────── */
   const sendChat = useCallback(async (msg?: string) => {

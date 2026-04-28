@@ -20,6 +20,12 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Smooth scrolling globally + iOS momentum scrolling for any inner scrollers.
+   Respect users who prefer reduced motion. */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.scroll-custom, .agent-messages { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
 @layer base {
   body { background: var(--bg, #f7f8fc); color: var(--text-1, #111827); }
 }

@@ -129,6 +129,12 @@ const AgentHubView = () => {
   const [pipelineMode, setPipelineMode] = useState<'compact' | 'expanded'>('expanded');
   const [statsCollapsed, setStatsCollapsed] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Templates card: open on desktop, collapsed on mobile so the chat is the
+  // first thing the user sees when they open the page on a phone.
+  const [templatesOpen, setTemplatesOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= SIDEBAR_COLLAPSE_BREAKPOINT;
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const thinkingIdRef = useRef<string>('');
@@ -150,7 +156,14 @@ const AgentHubView = () => {
     rec.start(); setIsListening(true);
   }, [isListening]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    // Don't auto-scroll on first paint when only the welcome message is showing —
+    // that would push the page to the bottom (past templates + hero) on mobile,
+    // making the page appear to "open from the bottom". Only scroll once a real
+    // conversation has started (>=1 user/assistant exchange beyond welcome).
+    if (messages.length <= 1 && messages[0]?.id === 'welcome') return;
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [messages]);
   useEffect(() => { fetchWorkflows(); }, []);
 
   // Persist current chat to localStorage on every change so the conversation
@@ -582,16 +595,23 @@ const AgentHubView = () => {
         {/* ═══ MAIN: Templates + Chat + Input (left column on wide, top on narrow) ═══ */}
         <div className="agent-main" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'relative', zIndex: 1 }}>
 
-          {/* QUICK TEMPLATES (cards, not pills) */}
+          {/* QUICK TEMPLATES (cards, not pills) — collapsible (closed by default on mobile) */}
           {messages.length <= 1 && !isStreaming && (
-            <div className="view-card" style={{ padding: '14px 16px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div className="view-card" style={{ padding: templatesOpen ? '14px 16px 12px' : '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}>
+              <button onClick={() => setTemplatesOpen(o => !o)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: templatesOpen ? 10 : 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                aria-expanded={templatesOpen}
+                title={templatesOpen ? 'Hide templates' : 'Show templates'}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Wand2 size={14} color="var(--primary)" />
                   <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase' }}>Workflow Templates</span>
                 </div>
-                <span style={{ color: 'var(--text-3)', fontSize: 10.5 }}>{QUICK_TEMPLATES.length} ready</span>
-              </div>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 10.5 }}>
+                  {QUICK_TEMPLATES.length} ready
+                  {templatesOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </span>
+              </button>
+              {templatesOpen && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                 {QUICK_TEMPLATES.map(t => (
                   <button key={t.title} onClick={() => handleSend(t.msg)}
@@ -614,6 +634,7 @@ const AgentHubView = () => {
                   </button>
                 ))}
               </div>
+              )}
             </div>
           )}
 

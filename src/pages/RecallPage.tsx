@@ -114,7 +114,7 @@ const RecallView = () => {
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
 
   return (
-    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 5rem)', minHeight: 0, gap: 0, padding: '10px 0 0' }}>
+    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 5rem)', minHeight: 0, gap: 0, padding: '10px 0 0' }}>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 10, flexShrink: 0, padding: '0 2px' }}>
