@@ -70,6 +70,9 @@ export default defineConfig(({mode}) => {
         '/workflows': 'http://127.0.0.1:8000',
         '/export': 'http://127.0.0.1:8000',
         '/briefing': 'http://127.0.0.1:8000',
+        // /dashboard is BOTH an SPA page (GET nav) and an API root (/dashboard/advanced).
+        // Bypass to SPA only on real page navigation (Accept: text/html on the bare path).
+        '/dashboard': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/dashboard' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/study-plan': 'http://127.0.0.1:8000',
         '/plan': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/workspace': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },

@@ -163,14 +163,14 @@ async def seed_demo_data(db) -> bool:
         for memory in DEMO_MEMORIES:
             data = dict(memory)
             data["id"] = str(uuid.uuid4())
-            await db.collection("memories").add(data)
+            await db.collection("memories").document(data["id"]).set(data)
 
         # Seed tasks
         for task in DEMO_TASKS:
             data = dict(task)
             data["id"] = str(uuid.uuid4())
             data["created_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            await db.collection("tasks").add(data)
+            await db.collection("tasks").document(data["id"]).set(data)
 
         print(f"Demo data seeded: {len(DEMO_MEMORIES)} memories, {len(DEMO_TASKS)} tasks")
         return True

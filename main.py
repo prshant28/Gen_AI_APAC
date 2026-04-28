@@ -27,6 +27,7 @@ from app.revisit_agent import (
     FREQUENCIES,
 )
 from app.discover_agent import discover_resources
+from app.dashboard_agent import get_advanced_dashboard
 from app.plan_agent import generate_plan, GOAL_TYPES
 from app.workspace_agent import (
     list_projects as ws_list_projects,
@@ -1658,6 +1659,29 @@ async def export_vault():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+@app.get("/dashboard/advanced")
+async def dashboard_advanced_endpoint():
+    """One-shot aggregator powering the advanced DashboardPage sections.
+    Returns greeting, pulse deltas, 84-day heatmap, top tags, today focus,
+    7-day forecast, pick-up-where-left-off, and capture streaks."""
+    try:
+        return await get_advanced_dashboard()
+    except Exception as e:
+        logger.error(f"dashboard/advanced error: {e}")
+        return {
+            "greeting": {"period": "morning", "label": "Welcome", "hour_ist": 0, "iso": ""},
+            "pulse": {},
+            "activity_heatmap": {"days": 84, "cells": [], "max": 0},
+            "streak": {"current": 0, "longest": 0},
+            "top_tags": [],
+            "today_focus": [],
+            "forecast_7d": [],
+            "pick_up": None,
+            "totals": {},
+            "error": str(e),
+        }
 
 
 @app.get("/stats")
