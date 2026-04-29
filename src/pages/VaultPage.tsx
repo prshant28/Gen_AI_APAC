@@ -319,10 +319,24 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   };
 
   // Smart collections
+  // Tags ride inside the search string as `#tag` tokens. Persist them as
+  // `filters.tags` so collections capture the explicit tag filter dimension
+  // independent of free-text search.
+  const parseTagsFromSearch = (s: string): { plain: string; tags: string[] } => {
+    const tokens = (s || '').split(/\s+/).filter(Boolean);
+    const tags: string[] = [];
+    const rest: string[] = [];
+    tokens.forEach(t => { if (t.startsWith('#') && t.length > 1) tags.push(t.slice(1).toLowerCase()); else rest.push(t); });
+    return { plain: rest.join(' ').trim(), tags };
+  };
+
   const applyCollection = (c: SmartCollection) => {
     setActiveCollectionId(c.id);
     const f = c.filters || {};
-    setFilter(f.search || '');
+    const plain = (f.search || '').trim();
+    const tagPart = (f.tags || []).map(t => `#${t}`).join(' ');
+    const combined = [plain, tagPart].filter(Boolean).join(' ').trim();
+    setFilter(combined);
     setDomainFilter(f.domain || '');
     setSourceTypeFilter(f.source || '');
     setPinnedOnly(!!f.pinned_only);
@@ -340,8 +354,10 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
 
   const saveCollection = async () => {
     if (!collName.trim()) return;
+    const { plain, tags } = parseTagsFromSearch(filter);
     const filters = {
-      search: filter || undefined,
+      search: plain || undefined,
+      tags: tags.length ? tags : undefined,
       domain: domainFilter || undefined,
       source: sourceTypeFilter || undefined,
       pinned_only: pinnedOnly || undefined,
