@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send, Mic, MicOff, Loader2, Plus, Radio, MessageSquare, Trash2,
-  X, Clock, Cpu,
+  X, Clock, Cpu, Check, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg } from '../lib/types';
@@ -69,6 +69,106 @@ const AGENT_LABEL: Record<string, string> = {
   AnalyticsAgent: 'Insights',
 };
 const friendlyAgent = (a: string) => AGENT_LABEL[a] || a.replace('Agent', '');
+
+// Format a duration in ms as a short human-readable string ("420ms" / "2.4s" / "1m 12s").
+// Uses integer-second math at the minute boundary to avoid "1m 60s" rollover artifacts.
+const formatDuration = (ms: number): string => {
+  if (!ms || ms < 0) return '0ms';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) {
+    const seconds = ms / 1000;
+    return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
+  }
+  const totalSec = Math.round(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
+};
+
+// End-of-stream summary chip: shows status + friendly agent path + total duration
+// for completed assistant messages. Read-only — drill-down lives in the toolbar export.
+// Only friendly agent labels from AGENT_LABEL are shown — unknown identifiers are dropped
+// so we never leak raw "FooAgent" or model strings into the UI.
+const CompletionSummary: React.FC<{ steps: any[] }> = ({ steps }) => {
+  if (!steps || steps.length === 0) return null;
+  const completed = steps.filter(s => s.status === 'completed').length;
+  const failed = steps.filter(s => s.status === 'failed').length;
+  const totalMs = steps.reduce((a, s) => a + (s.duration_ms || 0), 0);
+
+  // Dedupe agents in execution order. Drop anything not in our friendly map so
+  // unfamiliar identifiers / model names cannot leak through.
+  const seen = new Set<string>();
+  const agentList: string[] = [];
+  for (const s of steps) {
+    const label = AGENT_LABEL[s.agent];
+    if (label && !seen.has(label)) { seen.add(label); agentList.push(label); }
+  }
+
+  // Status ladder: any failures > 0 demote the chip; otherwise "Done" if at least
+  // one step actually finished, else neutral "Finished" (covers stuck/unknown states).
+  let statusText = 'Done';
+  let statusColor = '#10b981';
+  let StatusIcon: any = Check;
+  if (failed > 0 && completed === 0) {
+    statusText = "Couldn't complete";
+    statusColor = '#ef4444';
+    StatusIcon = AlertTriangle;
+  } else if (failed > 0) {
+    statusText = 'Finished with issues';
+    statusColor = '#f59e0b';
+    StatusIcon = AlertTriangle;
+  } else if (completed === 0) {
+    statusText = 'Finished';
+    statusColor = '#a78bfa';
+    StatusIcon = Check;
+  }
+
+  const durationStr = totalMs > 0 ? formatDuration(totalMs) : null;
+  const agentsTitle = agentList.length > 0 ? agentList.join(' → ') : '';
+  const titleParts = [statusText, agentsTitle, durationStr].filter(Boolean);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      title={titleParts.join(' · ')}
+      style={{
+        marginTop: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        padding: '4px 10px 4px 8px',
+        background: `${statusColor}10`,
+        border: `1px solid ${statusColor}33`,
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 600,
+        color: statusColor,
+        maxWidth: '100%',
+        cursor: 'default',
+        userSelect: 'none',
+      }}>
+      <StatusIcon size={11} strokeWidth={2.5} />
+      <span style={{ color: statusColor, fontWeight: 700, letterSpacing: '0.1px' }}>{statusText}</span>
+      {agentList.length > 0 && (
+        <>
+          <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>·</span>
+          <span style={{
+            color: 'var(--text-2)', fontWeight: 500,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: 280, minWidth: 0,
+          }}>{agentList.join(' → ')}</span>
+        </>
+      )}
+      {durationStr && (
+        <>
+          <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>·</span>
+          <span style={{ color: 'var(--text-3)', fontWeight: 600 }}>{durationStr}</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 const AgentHubView = () => {
   // ── persisted state ──
@@ -451,6 +551,11 @@ const AgentHubView = () => {
                         onActionClick={msg.role === 'assistant' ? (text) => handleSend(text) : undefined}
                       />
                     </div>
+
+                    {/* End-of-stream summary chip — quick "Done — Coordinator → Capture · 2.4s" */}
+                    {msg.role === 'assistant' && msg.type === 'text' && msg.steps && msg.steps.length > 0 && (
+                      <CompletionSummary steps={msg.steps as any} />
+                    )}
 
                     {/* Action result cards (memory saved, task created, event scheduled) */}
                     {msg.role === 'assistant' && msg.steps && msg.steps.length > 0 && (
