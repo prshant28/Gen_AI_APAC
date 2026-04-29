@@ -821,7 +821,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   {/* Backwards-compatible redirects to the merged hubs.
                       RedirectWithBanner passes the original path via location.state so
                       the destination hub can show a one-time "now lives in X" banner. */}
-                  <Route path="/capture"    element={<RedirectWithBanner from="/capture"    to="/library?tab=inbox" />} />
+                  <Route path="/capture"    element={<CapturePage />} />
                   <Route path="/vault"      element={<RedirectWithBanner from="/vault"      to="/library?tab=vault" />} />
                   <Route path="/notes"      element={<RedirectWithBanner from="/notes"      to="/library?tab=notes" />} />
                   <Route path="/bookmarks"  element={<RedirectWithBanner from="/bookmarks"  to="/library?tab=bookmarks" />} />
