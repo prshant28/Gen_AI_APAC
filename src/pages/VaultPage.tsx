@@ -480,9 +480,9 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
           </div>
         )}
 
-        {/* Smart collections strip */}
-        {(collections.length > 0 || true) && (
-          <div className="vault-coll-strip">
+        {/* Smart collections strip — always shown so users can save the
+            current filter combo even before they have any collections. */}
+        <div className="vault-coll-strip">
             <Sparkles size={12} color="#a78bfa" />
             <span className="vault-coll-label">Collections:</span>
             {collections.length === 0 && (
@@ -524,8 +524,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             {activeCollectionId && (
               <button onClick={clearCollection} className="vault-coll-clear">Clear</button>
             )}
-          </div>
-        )}
+        </div>
 
         {/* Save collection inline */}
         {saveCollOpen && (
@@ -955,8 +954,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                     </div>
                   </section>
 
-                  {(selectedMemory.source_url || true) && (
-                    <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                       {selectedMemory.source_url && (
                         <a href={selectedMemory.source_url} target="_blank" rel="noopener noreferrer"
                           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#6366f1', textDecoration: 'none' }}>
@@ -967,8 +965,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                         style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
                         <FlipHorizontal size={13} /> Generate Flashcards
                       </button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </motion.div>
