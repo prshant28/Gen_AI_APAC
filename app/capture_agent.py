@@ -446,14 +446,20 @@ async def _find_duplicate_by_url(user_id: str, source_url: str) -> Optional[dict
     return None
 
 
-async def _atomic_create_memory(memory_doc: dict, user_id: str, source_url: str) -> dict:
+async def _atomic_create_memory(memory_doc: dict, user_id: str, source_url: str, force_new: bool = False) -> dict:
     """Insert a memory doc atomically. For URL-bearing memories we use a deterministic
     document ID (sha1 of userId|normalized_url) so two concurrent saves of the same URL
     end up overwriting the SAME doc instead of creating two records. For URL-less
-    memories (notes, voice, PDF without URL) we fall back to auto-generated IDs."""
+    memories (notes, voice, PDF without URL) we fall back to auto-generated IDs.
+
+    When `force_new=True` (the frontend's "Save anyway" override), we skip the
+    deterministic-ID path entirely so a duplicate URL still produces a fresh
+    document with a new auto-generated ID — otherwise the URL collision would
+    silently overwrite/return the existing doc and "Save anyway" would be a
+    no-op for URL captures."""
     try:
         db = await get_db()
-        det_id = _memory_doc_id(user_id, source_url)
+        det_id = None if force_new else _memory_doc_id(user_id, source_url)
         if det_id:
             doc_ref = db.collection("memories").document(det_id)
             existing = await doc_ref.get()
@@ -548,7 +554,7 @@ async def save_memory(memory_data: dict, user_id: str = "") -> dict:
         # Free-form note from the user
         if memory_data.get("notes"):
             memory_doc["notes"] = memory_data.get("notes")
-        memory_doc = await _atomic_create_memory(memory_doc, user_id, source_url)
+        memory_doc = await _atomic_create_memory(memory_doc, user_id, source_url, force_new=force_new)
 
         if hasattr(memory_doc.get("created_at"), "isoformat"):
             memory_doc["created_at"] = memory_doc["created_at"].isoformat()
