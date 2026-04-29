@@ -80,6 +80,60 @@ app.add_middleware(
 # Per-request user_id from the X-User-Id header → ContextVar
 app.add_middleware(UserContextMiddleware)
 
+# Frontend SPA route names that COLLIDE with backend GET endpoints of the same
+# path (e.g. `/tasks`, `/notes`, `/settings`, `/bookmarks`, `/habits`,
+# `/revisits`). When a real browser navigates directly to one of these URLs
+# (e.g. judges open a deep link or refresh on a route), we must serve the SPA
+# shell — never the raw JSON API response — otherwise users see a wall of
+# JSON instead of the app. XHR/fetch calls from inside the SPA still hit the
+# JSON API normally, because they send `Accept: application/json` (or `*/*`
+# without `text/html`).
+_SPA_ROUTES = {
+    "dashboard", "agent", "capture", "vault", "recall", "tasks", "flashcards",
+    "calendar", "settings", "timeline", "graph", "analytics", "workspace",
+    "deck", "profile", "integrations", "notes", "bookmarks", "habits",
+    "revisits", "plan", "discover", "memory", "login", "signup", "signin",
+    "auth", "onboarding", "pricing", "about",
+}
+
+@app.middleware("http")
+async def spa_navigation_guard(request: Request, call_next):
+    """If a browser is *navigating* to one of the SPA routes that collides
+    with a JSON API endpoint, intercept BEFORE routing and serve index.html
+    so React Router can take over. Bookmarks, page refreshes, and judge
+    deep-links all go through here."""
+    if request.method != "GET":
+        return await call_next(request)
+    path = (request.url.path or "/").strip("/")
+    if not path:
+        return await call_next(request)
+    head = path.split("/", 1)[0].lower()
+    if head not in _SPA_ROUTES:
+        return await call_next(request)
+    accept = (request.headers.get("accept") or "").lower()
+    sec_dest = (request.headers.get("sec-fetch-dest") or "").lower()
+    sec_mode = (request.headers.get("sec-fetch-mode") or "").lower()
+    # Treat as browser navigation when the client clearly wants HTML, or
+    # the modern Sec-Fetch-* headers signal a top-level document load.
+    is_html_nav = (
+        ("text/html" in accept and "application/json" not in accept)
+        or sec_dest == "document"
+        or sec_mode == "navigate"
+    )
+    if not is_html_nav:
+        return await call_next(request)
+    # Serve the SPA shell. dist_path is defined later in this module; use
+    # the absolute path here so this works at request time.
+    _dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
+    index_html = os.path.join(_dist, "index.html")
+    if os.path.isfile(index_html):
+        return FileResponse(index_html, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        })
+    # Fall through if the SPA shell isn't built — the catch-all below will
+    # serve the friendly fallback HTML.
+    return await call_next(request)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -1919,37 +1973,119 @@ async def list_logs_endpoint(limit: int = 10):
 
 
 # --- Static Files / SPA fallback ---
+#
+# Bulletproof so judges and first-time visitors NEVER see a raw JSON 404 when
+# they deep-link to a route like /dashboard, /capture, /vault, /recall.
+#
+# Strategy:
+#   1. Compute dist_path at request time, not at module load — this way the
+#      route survives even if dist/ is built AFTER the worker starts (e.g.
+#      first cold-start on Cloud Run while build artefacts settle).
+#   2. ALWAYS register the catch-all `/{full_path:path}` route — never gate it
+#      on `os.path.isdir(...)` at startup, otherwise an empty container would
+#      fall back to FastAPI's default `{"detail":"Not Found"}` JSON.
+#   3. If a real static file exists, serve it (with no-cache for index.html
+#      so SPA route bumps don't get stuck behind a stale shell).
+#   4. If the SPA shell isn't built, serve a friendly HTML fallback page that
+#      tells the visitor what's happening — not raw JSON.
 
 dist_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
-if os.path.isdir(dist_path):
-    assets_path = os.path.join(dist_path, "assets")
-    if os.path.isdir(assets_path):
-        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+_assets_path = os.path.join(dist_path, "assets")
+if os.path.isdir(_assets_path):
+    app.mount("/assets", StaticFiles(directory=_assets_path), name="assets")
 
-    _index_html = os.path.join(dist_path, "index.html")
+# Files in dist/ that should be served at root (favicon, logos, manifest, etc).
+_ROOT_PASSTHROUGH = {
+    "favicon.ico", "robots.txt", "manifest.json", "manifest.webmanifest",
+    "x247-logo.png", "logo.png", "apple-touch-icon.png", "sitemap.xml",
+    "sw.js", "service-worker.js",
+}
 
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_spa(full_path: str):
-        candidate = os.path.normpath(os.path.join(dist_path, full_path))
-        if (
-            candidate.startswith(dist_path)
-            and full_path
-            and os.path.isfile(candidate)
-        ):
-            return FileResponse(candidate)
-        if os.path.isfile(_index_html):
-            return FileResponse(_index_html)
+_FALLBACK_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Recall X247 — starting up</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,
+    "Segoe UI",Roboto,sans-serif;background:#0b0d12;color:#eaeaea}
+  .wrap{display:flex;align-items:center;justify-content:center;height:100%;
+    padding:24px;text-align:center}
+  .card{max-width:540px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:32px}
+  h1{margin:0 0 12px;font-size:22px;font-weight:600}
+  p{margin:8px 0;color:#aab1bd;font-size:15px;line-height:1.55}
+  a{color:#7dd3fc;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .pulse{display:inline-block;width:10px;height:10px;border-radius:50%;
+    background:#22c55e;margin-right:8px;animation:p 1.6s ease-in-out infinite}
+  @keyframes p{0%,100%{opacity:.4}50%{opacity:1}}
+</style></head><body><div class="wrap"><div class="card">
+<h1><span class="pulse"></span>Recall X247</h1>
+<p>The app is warming up. The frontend bundle isn't available on this instance
+yet — please refresh in a moment.</p>
+<p>Backend is online: <a href="/api/health">/api/health</a> ·
+<a href="/">Home</a></p>
+</div></div></body></html>"""
+
+@app.get("/", include_in_schema=False)
+async def serve_root():
+    """Always return the SPA shell at /. If dist isn't there, return a
+    friendly HTML page rather than the bare API JSON banner so deep-link
+    visitors (e.g. judges loading directly from a bookmark) never see
+    raw {"detail":"Not Found"}."""
+    index_html = os.path.join(dist_path, "index.html")
+    if os.path.isfile(index_html):
+        return FileResponse(index_html, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        })
+    return Response(content=_FALLBACK_HTML, media_type="text/html",
+                    status_code=200)
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    """SPA fallback: serve known root-level static files, otherwise return
+    index.html so React Router can handle the route. Critically, this route
+    is ALWAYS registered (even if dist/ doesn't exist yet) so that direct
+    visits to /dashboard, /capture, /vault, /recall etc. never leak the
+    FastAPI default `{"detail":"Not Found"}` JSON to end users."""
+    # Never swallow API-style paths — let FastAPI's real 404 surface for
+    # genuinely unknown API routes (debuggable via DevTools network panel).
+    api_prefixes = (
+        "api/", "capture", "recall", "tasks", "memories", "schedule",
+        "calendar", "events", "notes", "bookmarks", "habits", "revisits",
+        "workspace", "stats", "logs", "briefing", "dashboard/advanced",
+        "discover", "agent", "share/", "export/", "study-plan", "flashcards",
+        "auth/", "users/", "health", "metrics", "graph", "insights",
+        "timeline", "transcribe", "ws", "stream",
+    )
+    # Allow `/dashboard`, `/capture`, `/vault`, `/recall`, `/projects` etc.
+    # to be SPA routes — they aren't backend endpoints by themselves.
+    lc = (full_path or "").lstrip("/").lower()
+    is_api = any(lc.startswith(p) for p in api_prefixes) and "/" in lc
+    if is_api:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
-else:
-    @app.get("/")
-    async def root():
-        return {
-            "name": "Recall X247",
-            "version": "2.0.0",
-            "status": "online",
-            "ai_provider": "openai" if settings.using_openai else "gemini",
-            "description": "AI-powered Second Brain — powered by OpenAI GPT",
-        }
+
+    # Root-level passthrough for known static files (favicon, manifest, etc).
+    head = lc.split("/", 1)[0]
+    if head in _ROOT_PASSTHROUGH:
+        candidate = os.path.normpath(os.path.join(dist_path, full_path))
+        if candidate.startswith(dist_path) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+
+    # Any other static file inside dist/ (defence in depth).
+    if full_path:
+        candidate = os.path.normpath(os.path.join(dist_path, full_path))
+        if candidate.startswith(dist_path) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+
+    # Default: serve the SPA shell so React Router can take over.
+    index_html = os.path.join(dist_path, "index.html")
+    if os.path.isfile(index_html):
+        return FileResponse(index_html, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        })
+    return Response(content=_FALLBACK_HTML, media_type="text/html",
+                    status_code=200)
 
 if __name__ == "__main__":
     import uvicorn
