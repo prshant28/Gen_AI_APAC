@@ -573,13 +573,17 @@ async def list_memories_endpoint(
     include_archived: bool = False,
     include_trashed: bool = False,
 ):
-    return await list_memories(
-        domain=domain,
-        limit=limit,
-        unreviewed=unreviewed,
-        include_archived=include_archived,
-        include_trashed=include_trashed,
-    )
+    try:
+        return await list_memories(
+            domain=domain,
+            limit=limit,
+            unreviewed=unreviewed,
+            include_archived=include_archived,
+            include_trashed=include_trashed,
+        )
+    except Exception as e:
+        print(f"list_memories_endpoint error: {e}")
+        return []
 
 @app.get("/memories/{memory_id}")
 async def get_memory_endpoint(memory_id: str):
@@ -655,7 +659,11 @@ class TrashOpRequest(BaseModel):
 
 @app.get("/trash")
 async def trash_list_endpoint():
-    return await library_agent.list_trash()
+    try:
+        return await library_agent.list_trash()
+    except Exception as e:
+        print(f"trash_list_endpoint error: {e}")
+        return {"memories": [], "notes": [], "bookmarks": []}
 
 
 @app.post("/trash/restore")
@@ -763,7 +771,11 @@ class SmartCollectionUpdateRequest(BaseModel):
 
 @app.get("/smart-collections")
 async def smart_collections_list_endpoint():
-    return await library_agent.list_smart_collections()
+    try:
+        return await library_agent.list_smart_collections()
+    except Exception as e:
+        print(f"smart_collections_list_endpoint error: {e}")
+        return []
 
 
 @app.post("/smart-collections")
@@ -1246,7 +1258,11 @@ def revisits_frequencies():
 
 @app.get("/revisits")
 async def list_revisits_endpoint(status: str = "active", limit: int = 100):
-    return await list_revisits(status=status, limit=limit)
+    try:
+        return await list_revisits(status=status, limit=limit)
+    except Exception as e:
+        print(f"list_revisits_endpoint error: {e}")
+        return []
 
 @app.get("/revisits/due")
 async def list_due_revisits_endpoint(window_days: int = 7):
@@ -2221,7 +2237,11 @@ class NoteUpdateRequest(BaseModel):
 
 @app.get("/notes")
 async def list_notes_endpoint(tag: str = "", limit: int = 50, include_archived: bool = False):
-    return await list_notes(tag=tag, limit=limit, include_archived=include_archived)
+    try:
+        return await list_notes(tag=tag, limit=limit, include_archived=include_archived)
+    except Exception as e:
+        print(f"list_notes_endpoint error: {e}")
+        return []
 
 @app.post("/notes")
 async def create_note_endpoint(req: NoteCreateRequest):
@@ -2258,7 +2278,11 @@ class BookmarkUpdateRequest(BaseModel):
 
 @app.get("/bookmarks")
 async def list_bookmarks_endpoint(status: str = "", limit: int = 100, include_archived: bool = False):
-    return await list_bookmarks(status=status, limit=limit, include_archived=include_archived)
+    try:
+        return await list_bookmarks(status=status, limit=limit, include_archived=include_archived)
+    except Exception as e:
+        print(f"list_bookmarks_endpoint error: {e}")
+        return []
 
 @app.post("/bookmarks")
 async def create_bookmark_endpoint(req: BookmarkCreateRequest):
@@ -2289,7 +2313,11 @@ class HabitCreateRequest(BaseModel):
 
 @app.get("/habits")
 async def list_habits_endpoint():
-    return await list_habits()
+    try:
+        return await list_habits()
+    except Exception as e:
+        print(f"list_habits_endpoint error: {e}")
+        return []
 
 @app.post("/habits")
 async def create_habit_endpoint(req: HabitCreateRequest):

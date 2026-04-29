@@ -1,4 +1,53 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Component } from 'react';
+
+// ── Global Error Boundary ────────────────────────────────────────────────────
+// Catches React render errors that would otherwise blank the entire page.
+// Shows an inline recovery card so the user can reload without losing context.
+interface EBState { hasError: boolean; message: string }
+class ErrorBoundary extends Component<React.PropsWithChildren, EBState> {
+  constructor(props: React.PropsWithChildren) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+  static getDerivedStateFromError(err: unknown): EBState {
+    const message = err instanceof Error ? err.message : String(err);
+    return { hasError: true, message };
+  }
+  componentDidCatch(err: unknown, info: React.ErrorInfo) {
+    console.error('[ErrorBoundary]', err, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', minHeight: '60vh', gap: 16, padding: 32,
+          fontFamily: 'inherit', color: 'var(--text-1)',
+        }}>
+          <div style={{ fontSize: 36 }}>⚠️</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Something went wrong loading this page</div>
+          <div style={{
+            fontSize: 13, color: 'var(--text-3)', maxWidth: 420, textAlign: 'center',
+            background: 'var(--surface-2)', padding: '10px 16px', borderRadius: 8,
+            border: '1px solid var(--border)', wordBreak: 'break-word',
+          }}>
+            {this.state.message || 'An unexpected error occurred.'}
+          </div>
+          <button
+            onClick={() => this.setState({ hasError: false, message: '' })}
+            style={{
+              padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: 'var(--primary)', color: '#fff', fontWeight: 600, fontSize: 14,
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import {
   BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate
 } from 'react-router-dom';
@@ -688,6 +737,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
           <div style={{ maxWidth: 1280, margin: '0 auto', minWidth: 0 }}>
             <AnimatePresence mode="wait">
               <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
+                <ErrorBoundary>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} />} />
@@ -728,6 +778,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
 
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
+                </ErrorBoundary>
               </motion.div>
             </AnimatePresence>
           </div>

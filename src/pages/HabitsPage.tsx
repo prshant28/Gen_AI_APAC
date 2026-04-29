@@ -36,10 +36,12 @@ const HabitsPage: React.FC<HabitsPageProps> = ({ embedded = false }) => {
   const [newColor, setNewColor] = useState('#10b981');
 
   const load = () => {
-    fetch('/habits').then(r => r.json()).then((data: Habit[]) => {
-      setHabits(data || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch('/habits')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: unknown) => {
+        setHabits(Array.isArray(data) ? (data as Habit[]) : []);
+        setLoading(false);
+      }).catch(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 

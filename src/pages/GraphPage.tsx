@@ -23,7 +23,7 @@ const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ embedded = fals
     Promise.all([
       fetch('/memories?limit=40').then(r => r.ok ? r.json() : []),
       fetch('/stats').then(r => r.ok ? r.json() : null),
-    ]).then(([m, s]) => { setMemories(m); setStats(s); });
+    ]).then(([m, s]) => { setMemories(Array.isArray(m) ? m : []); setStats(s); });
   }, []);
 
   const buildGraph = useCallback(() => {

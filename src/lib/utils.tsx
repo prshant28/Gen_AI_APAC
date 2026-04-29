@@ -2,6 +2,36 @@ import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/** Fetch a URL and always resolve to a T[]. Never throws, never returns
+ *  non-array data. Safe to use directly as a state setter argument. */
+export async function safeList<T>(url: string, options?: RequestInit): Promise<T[]> {
+  try {
+    const r = await fetch(url, options);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return Array.isArray(d) ? d : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Fetch a URL and resolve to T | null. Never throws. */
+export async function safeJson<T>(url: string, options?: RequestInit): Promise<T | null> {
+  try {
+    const r = await fetch(url, options);
+    if (!r.ok) return null;
+    return await r.json() as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Ensure a value is an array — used when a runtime response might deviate
+ *  from the declared type (e.g. 500 error object instead of T[]). */
+export function toArray<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

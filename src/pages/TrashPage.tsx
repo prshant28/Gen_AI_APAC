@@ -38,10 +38,13 @@ const TrashPage: React.FC = () => {
 
   const load = () => {
     setLoading(true);
-    fetch('/trash').then(r => r.json()).then((d: TrashResponse) => {
-      setData(d || { memories: [], notes: [], bookmarks: [] });
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch('/trash')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: unknown) => {
+        const safe = d && typeof d === 'object' && !Array.isArray(d) ? d as TrashResponse : null;
+        setData(safe || { memories: [], notes: [], bookmarks: [] });
+        setLoading(false);
+      }).catch(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);

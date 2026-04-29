@@ -196,8 +196,8 @@ const FlashcardsView: React.FC<FlashcardsViewProps> = ({ embedded = false }) => 
   const [stats, setStats] = useState({ total: 0, studied: 0, avgScore: 0 });
 
   useEffect(() => {
-    fetch('/memories?limit=50').then(r => r.ok ? r.json() : []).then(data => {
-      setMemories(data);
+    fetch('/memories?limit=50').then(r => r.ok ? r.json() : []).then((data: unknown) => {
+      setMemories(Array.isArray(data) ? data : []);
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
     const savedScores = JSON.parse(localStorage.getItem('flashcard-scores') || '{}');

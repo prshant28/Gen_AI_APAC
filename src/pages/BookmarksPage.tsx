@@ -50,10 +50,12 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   const [showArchived, setShowArchived] = useState(false);
 
   const load = () => {
-    fetch(`/bookmarks${showArchived ? '?include_archived=true' : ''}`).then(r => r.json()).then((data: BM[]) => {
-      setItems(data || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch(`/bookmarks${showArchived ? '?include_archived=true' : ''}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: unknown) => {
+        setItems(Array.isArray(data) ? (data as BM[]) : []);
+        setLoading(false);
+      }).catch(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [showArchived]);

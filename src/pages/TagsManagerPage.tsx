@@ -16,10 +16,12 @@ const TagsManagerPage: React.FC = () => {
 
   const load = () => {
     setLoading(true);
-    fetch('/tags-index').then(r => r.json()).then((d: TagIndexEntry[]) => {
-      setTags(Array.isArray(d) ? d : []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch('/tags-index')
+      .then(r => r.ok ? r.json() : [])
+      .then((d: unknown) => {
+        setTags(Array.isArray(d) ? (d as TagIndexEntry[]) : []);
+        setLoading(false);
+      }).catch(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);

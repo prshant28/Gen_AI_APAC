@@ -25,7 +25,12 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ embedded = false }) => {
       fetch('/memories?limit=50').then(r => r.ok ? r.json() : []),
       fetch('/logs?limit=20').then(r => r.ok ? r.json() : []),
       fetch('/tasks?limit=50').then(r => r.ok ? r.json() : []),
-    ]).then(([s, m, l, t]) => { if (s) setStats(s); setMemories(m); setLogs(l); setTasks(t); });
+    ]).then(([s, m, l, t]) => {
+      if (s) setStats(s);
+      setMemories(Array.isArray(m) ? m : []);
+      setLogs(Array.isArray(l) ? l : []);
+      setTasks(Array.isArray(t) ? t : []);
+    });
   }, []);
 
   const domains = stats?.knowledge_domains ?? [];

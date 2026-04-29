@@ -44,10 +44,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onSignOut }) => {
 
   useEffect(() => {
     Promise.all([
-      fetch('/stats').then(r => r.json()).catch(() => ({})),
-      fetch('/memories?limit=200').then(r => r.json()).catch(() => []),
-      fetch('/tasks?limit=200').then(r => r.json()).catch(() => []),
-      fetch('/workflows?limit=50').then(r => r.json()).catch(() => []),
+      fetch('/stats').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/memories?limit=200').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/tasks?limit=200').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/workflows?limit=50').then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([_s, m, t, w]) => {
       setStats({
         memories: Array.isArray(m) ? m.length : 0,

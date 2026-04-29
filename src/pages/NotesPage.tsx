@@ -58,11 +58,14 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   const [showArchived, setShowArchived] = useState(false);
 
   const loadNotes = useCallback(() => {
-    fetch(`/notes${showArchived ? '?include_archived=true' : ''}`).then(r => r.json()).then((data: Note[]) => {
-      setNotes(data);
-      if (data.length && !selectedId) setSelectedId(data[0].id);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch(`/notes${showArchived ? '?include_archived=true' : ''}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: unknown) => {
+        const arr = Array.isArray(data) ? (data as Note[]) : [];
+        setNotes(arr);
+        if (arr.length && !selectedId) setSelectedId(arr[0].id);
+        setLoading(false);
+      }).catch(() => setLoading(false));
   }, [selectedId, showArchived]);
 
   useEffect(() => { loadNotes(); }, [showArchived]);
