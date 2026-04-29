@@ -31,6 +31,24 @@ def get_fallback_client():
     return client, model
 
 
+def get_backup_gemini_client():
+    """Return (AsyncOpenAI, model_name) for the BACKUP Gemini key, or (None, None).
+
+    Used as the final tier when both the primary Gemini key and the
+    OpenAI/OpenRouter fallback are exhausted (rate-limited or out of credits).
+    Hits the same Gemini OpenAI-compatible endpoint with an independent key
+    backed by a separate Google Cloud billing account."""
+    key = settings.BACKUP_GEMINI_API_KEY
+    if not key:
+        return None, None
+    client = AsyncOpenAI(
+        api_key=key,
+        base_url=settings.BACKUP_GEMINI_BASE_URL,
+        default_headers={},
+    )
+    return client, settings.BACKUP_GEMINI_MODEL
+
+
 def is_rate_limit(err: Exception) -> bool:
     raw = str(err)
     msg = raw.lower()
@@ -82,28 +100,39 @@ async def chat_with_fallback(
         if not is_rate_limit(e):
             raise
 
-    # ── Fallback ──────────────────────────────────────────────────────────
+    # ── Fallback (OpenAI / OpenRouter) ────────────────────────────────────
     fb_client, fb_model = get_fallback_client()
-    if not fb_client:
-        raise RuntimeError(
-            "Primary AI quota exceeded (HTTP 429). "
-            "Set OPENAI_API_KEY in Secrets to enable automatic fallback."
-        )
-
-    kwargs["model"] = fb_model
-    try:
-        resp = await fb_client.chat.completions.create(**kwargs)
-        return resp.choices[0].message.content, "fallback"
-    except Exception as e2:
-        # Some endpoints don't support response_format — retry without it
-        if response_format and (
-            "response_format" in str(e2).lower()
-            or "unsupported" in str(e2).lower()
-        ):
-            kwargs.pop("response_format", None)
+    if fb_client:
+        kwargs["model"] = fb_model
+        try:
             resp = await fb_client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content, "fallback"
-        raise
+        except Exception as e2:
+            # Some endpoints don't support response_format — retry without it
+            if response_format and (
+                "response_format" in str(e2).lower()
+                or "unsupported" in str(e2).lower()
+            ):
+                kwargs.pop("response_format", None)
+                try:
+                    resp = await fb_client.chat.completions.create(**kwargs)
+                    return resp.choices[0].message.content, "fallback"
+                except Exception as e2b:
+                    if not is_rate_limit(e2b):
+                        raise
+            elif not is_rate_limit(e2):
+                raise
+
+    # ── Backup Gemini (final tier) ────────────────────────────────────────
+    bg_client, bg_model = get_backup_gemini_client()
+    if not bg_client:
+        raise RuntimeError(
+            "Primary AI quota exceeded and no fallback available. "
+            "Set BACKUP_GEMINI_API_KEY in Secrets to enable a final-tier fallback."
+        )
+    kwargs["model"] = bg_model
+    resp = await bg_client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content, "backup_gemini"
 
 
 async def chat_json(

@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     FALLBACK_AI_BASE_URL: str = OPENAI_BASE_URL
     FALLBACK_AI_MODEL: str = "gpt-4o-mini"
 
+    # Backup Gemini key — final tier, used when BOTH primary Gemini and the
+    # OpenAI/OpenRouter fallback are exhausted (rate-limited or out of credits).
+    # Same Gemini OpenAI-compatible endpoint, separate Google Cloud project /
+    # billing account so it has its own independent quota.
+    BACKUP_GEMINI_API_KEY: Optional[str] = None
+    BACKUP_GEMINI_BASE_URL: str = GEMINI_COMPAT_URL
+    BACKUP_GEMINI_MODEL: str = "gemini-2.0-flash"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -118,6 +126,12 @@ class Settings(BaseSettings):
         elif not self.USE_GEMINI:
             self.FALLBACK_AI_KEY = None
 
+        # --- Build BACKUP Gemini config (third tier) ---
+        # Loaded from env so the user can rotate without code changes.
+        backup_key = os.getenv("BACKUP_GEMINI_API_KEY") or self.BACKUP_GEMINI_API_KEY
+        if backup_key:
+            self.BACKUP_GEMINI_API_KEY = backup_key
+
     @property
     def openai_base_url(self) -> str:
         return self.PRIMARY_AI_BASE_URL or (GEMINI_COMPAT_URL if self.USE_GEMINI else OPENAI_BASE_URL)
@@ -146,10 +160,19 @@ class Settings(BaseSettings):
         return bool(self.FALLBACK_AI_KEY)
 
     @property
+    def has_backup_gemini(self) -> bool:
+        return bool(self.BACKUP_GEMINI_API_KEY)
+
+    @property
     def ai_provider_name(self) -> str:
         if self.USE_GEMINI:
-            fallback_info = " + OpenAI fallback" if self.has_fallback else ""
-            return f"Google Gemini ({self.GEMINI_MODEL}){fallback_info}"
+            tiers = []
+            if self.has_fallback:
+                tiers.append("OpenAI fallback")
+            if self.has_backup_gemini:
+                tiers.append("backup Gemini")
+            extra = f" + {' + '.join(tiers)}" if tiers else ""
+            return f"Google Gemini ({self.GEMINI_MODEL}){extra}"
         if self.USE_OPENROUTER:
             return f"OpenRouter ({self.OPENAI_MODEL})"
         return f"OpenAI ({self.OPENAI_MODEL})"

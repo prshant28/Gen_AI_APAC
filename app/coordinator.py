@@ -30,14 +30,29 @@ def _friendly_ai_error(raw: str) -> str:
     return "Something went wrong with the AI. Please try again."
 
 
-def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
-    """Create an OpenAI-compatible client. Falls back to OpenAI on Gemini rate limits."""
-    if use_fallback and settings.FALLBACK_AI_KEY:
+def _make_client(tier: str = "primary") -> AsyncOpenAI:
+    """Create an OpenAI-compatible client for a given tier.
+
+    Tiers (in order of preference):
+      * "primary"       — main Gemini key (or main OpenAI/OpenRouter)
+      * "fallback"      — OpenAI / OpenRouter fallback used on primary 429
+      * "backup_gemini" — separate Gemini key on a different Google Cloud
+                          billing account, used as the final tier when both
+                          primary and fallback are exhausted.
+    """
+    if tier == "fallback" and settings.FALLBACK_AI_KEY:
         from app.config import _is_openrouter_key
         fb_key = settings.FALLBACK_AI_KEY
         base = settings.FALLBACK_AI_BASE_URL
         extra = {"HTTP-Referer": "https://recall-x247.replit.app", "X-Title": "Recall X247"} if _is_openrouter_key(fb_key) else {}
         return AsyncOpenAI(api_key=fb_key, base_url=base, default_headers=extra, timeout=_OPENAI_TIMEOUT)
+    if tier == "backup_gemini" and settings.BACKUP_GEMINI_API_KEY:
+        return AsyncOpenAI(
+            api_key=settings.BACKUP_GEMINI_API_KEY,
+            base_url=settings.BACKUP_GEMINI_BASE_URL,
+            default_headers={},
+            timeout=_OPENAI_TIMEOUT,
+        )
     return AsyncOpenAI(
         api_key=settings.PRIMARY_AI_KEY or settings.OPENAI_API_KEY,
         base_url=settings.openai_base_url,
@@ -48,6 +63,27 @@ def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
 
 def _fallback_model() -> str:
     return settings.FALLBACK_AI_MODEL
+
+
+def _backup_gemini_model() -> str:
+    return settings.BACKUP_GEMINI_MODEL
+
+
+def _is_quota_error(err: Exception) -> bool:
+    """True for both 429 (rate limit) and 402 (out of credits / billing)."""
+    if isinstance(err, RateLimitError):
+        return True
+    raw = str(err)
+    low = raw.lower()
+    return (
+        "402" in raw
+        or "credits" in low
+        or "billing" in low
+        or "afford" in low
+        or "insufficient" in low
+        or "quota" in low
+        or "resource_exhausted" in low
+    )
 
 
 from app.capture_agent import capture, generate_daily_briefing, generate_flashcards, generate_study_plan
@@ -385,37 +421,46 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     reply = ""
     try:
         for _ in range(6):
-            try:
-                response = await asyncio.wait_for(
-                    client.chat.completions.create(
-                        model=current_model,
+            async def _planning_call(use_client, use_model):
+                return await asyncio.wait_for(
+                    use_client.chat.completions.create(
+                        model=use_model,
                         messages=messages,
                         tools=TOOLS,
                         tool_choice="auto",
                         temperature=0.3,
                         max_tokens=4096,
                     ),
-                    timeout=55.0
+                    timeout=55.0,
                 )
-            except RateLimitError:
-                if current_model != _fallback_model():
-                    import logging
-                    logging.getLogger("recall-x247").warning("Gemini rate limit hit — falling back to OpenRouter.")
-                    client = _make_client(use_fallback=True)
-                    current_model = _fallback_model()
-                    response = await asyncio.wait_for(
-                        client.chat.completions.create(
-                            model=current_model,
-                            messages=messages,
-                            tools=TOOLS,
-                            tool_choice="auto",
-                            temperature=0.3,
-                            max_tokens=4096,
-                        ),
-                        timeout=55.0
-                    )
-                else:
+
+            try:
+                response = await _planning_call(client, current_model)
+            except Exception as e1:
+                if not _is_quota_error(e1):
                     raise
+                # Tier 2: OpenAI / OpenRouter fallback
+                tier2_ok = False
+                if settings.FALLBACK_AI_KEY and current_model != _fallback_model():
+                    import logging
+                    logging.getLogger("recall-x247").warning("Primary quota hit — falling back to OpenRouter.")
+                    client = _make_client(tier="fallback")
+                    current_model = _fallback_model()
+                    try:
+                        response = await _planning_call(client, current_model)
+                        tier2_ok = True
+                    except Exception as e2:
+                        if not _is_quota_error(e2):
+                            raise
+                # Tier 3: Backup Gemini key
+                if not tier2_ok:
+                    if not settings.BACKUP_GEMINI_API_KEY:
+                        raise
+                    import logging
+                    logging.getLogger("recall-x247").warning("Fallback exhausted — using BACKUP Gemini key.")
+                    client = _make_client(tier="backup_gemini")
+                    current_model = _backup_gemini_model()
+                    response = await _planning_call(client, current_model)
 
             msg = response.choices[0].message
             messages.append(msg)
@@ -528,45 +573,50 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
             yield sse("thinking", {"iteration": iteration})
 
             # ── Planning call (non-streaming, needs to inspect tool_calls) ──────
-            try:
-                response = await asyncio.wait_for(
-                    client.chat.completions.create(
-                        model=current_model,
+            async def _stream_planning_call(use_client, use_model):
+                return await asyncio.wait_for(
+                    use_client.chat.completions.create(
+                        model=use_model,
                         messages=messages,
                         tools=TOOLS,
                         tool_choice="auto",
                         temperature=0.3,
                         max_tokens=4096,
                     ),
-                    timeout=55.0
+                    timeout=55.0,
                 )
-            except RateLimitError:
-                if current_model != _fallback_model():
-                    import logging
-                    logging.getLogger("recall-x247").warning("Gemini rate limit — falling back to OpenRouter.")
-                    client = _make_client(use_fallback=True)
-                    current_model = _fallback_model()
-                    try:
-                        response = await asyncio.wait_for(
-                            client.chat.completions.create(
-                                model=current_model,
-                                messages=messages,
-                                tools=TOOLS,
-                                tool_choice="auto",
-                                temperature=0.3,
-                                max_tokens=4096,
-                            ),
-                            timeout=55.0
-                        )
-                    except Exception as fb_err:
-                        user_msg = _friendly_ai_error(str(fb_err))
-                        yield sse("error", {"message": user_msg, "workflow_id": workflow.id})
-                        workflow.fail(str(fb_err))
-                        return
-                else:
-                    yield sse("error", {"message": "AI quota exceeded. Please try again later.", "workflow_id": workflow.id})
-                    workflow.fail("Rate limit")
-                    return
+
+            try:
+                try:
+                    response = await _stream_planning_call(client, current_model)
+                except Exception as e1:
+                    if not _is_quota_error(e1):
+                        raise
+                    # Tier 2: OpenAI / OpenRouter fallback
+                    tier2_ok = False
+                    if settings.FALLBACK_AI_KEY and current_model != _fallback_model():
+                        import logging
+                        logging.getLogger("recall-x247").warning("Primary quota — falling back to OpenRouter.")
+                        client = _make_client(tier="fallback")
+                        current_model = _fallback_model()
+                        try:
+                            response = await _stream_planning_call(client, current_model)
+                            tier2_ok = True
+                        except Exception as e2:
+                            if not _is_quota_error(e2):
+                                raise
+                    # Tier 3: Backup Gemini key
+                    if not tier2_ok:
+                        if not settings.BACKUP_GEMINI_API_KEY:
+                            user_msg = _friendly_ai_error(str(e1))
+                            yield sse("error", {"message": user_msg, "workflow_id": workflow.id})
+                            workflow.fail(str(e1))
+                            return
+                        import logging
+                        logging.getLogger("recall-x247").warning("Fallback exhausted — using BACKUP Gemini key.")
+                        client = _make_client(tier="backup_gemini")
+                        current_model = _backup_gemini_model()
+                        response = await _stream_planning_call(client, current_model)
             except (asyncio.TimeoutError, APITimeoutError):
                 yield sse("error", {
                     "message": "The AI took too long to respond. Please try again.",
