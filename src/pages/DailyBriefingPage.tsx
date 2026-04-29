@@ -234,6 +234,23 @@ export default function DailyBriefingPage() {
     };
   }, [loadBriefing, loadAuxiliary]);
 
+  // When the tab/window regains focus, re-pull the action list so checkboxes
+  // ticked from another device or browser tab show up here too. Uses the
+  // existing aux loader (which fetches /briefing/actions) — keeps cost low.
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        loadAuxiliary();
+      }
+    };
+    window.addEventListener('focus', handler);
+    document.addEventListener('visibilitychange', handler);
+    return () => {
+      window.removeEventListener('focus', handler);
+      document.removeEventListener('visibilitychange', handler);
+    };
+  }, [loadAuxiliary]);
+
   useEffect(() => {
     // Only push a URL update when the tab param actually differs from `tab`,
     // otherwise React Router can churn on every render.

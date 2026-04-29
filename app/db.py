@@ -21,6 +21,79 @@ class MockDocSnapshot:
         return dict(self._data) if self._data else {}
 
 
+# ── Atomic array sentinels ────────────────────────────────────────────────
+# Mirror of google.cloud.firestore.ArrayUnion / ArrayRemove so the
+# in-memory mock can recognise them and apply atomic semantics. The public
+# `ArrayUnion` / `ArrayRemove` factories below return the *real* sentinel
+# when google-cloud-firestore is importable, and one of these mock markers
+# otherwise. Either flavour is safely consumed by `MockDocRef.set/update`.
+
+class _MockArrayUnion:
+    __slots__ = ("values",)
+    def __init__(self, values): self.values = list(values)
+
+
+class _MockArrayRemove:
+    __slots__ = ("values",)
+    def __init__(self, values): self.values = list(values)
+
+
+def ArrayUnion(values):
+    """Atomically add the given items to an array field. Use inside
+    `doc.set({field: ArrayUnion([...])}, merge=True)` to make concurrent
+    toggles safe across multiple devices/tabs."""
+    try:
+        from google.cloud.firestore import ArrayUnion as _RealArrayUnion
+        return _RealArrayUnion(list(values))
+    except Exception:
+        return _MockArrayUnion(values)
+
+
+def ArrayRemove(values):
+    """Atomically remove the given items from an array field."""
+    try:
+        from google.cloud.firestore import ArrayRemove as _RealArrayRemove
+        return _RealArrayRemove(list(values))
+    except Exception:
+        return _MockArrayRemove(values)
+
+
+# Resolve real Firestore sentinel classes once so the mock can recognise
+# them too — the public `ArrayUnion` / `ArrayRemove` factories above return
+# the real classes whenever google-cloud-firestore is importable, so the
+# mock client must accept them as well as its local `_MockArray*` markers.
+try:
+    from google.cloud.firestore_v1.transforms import (
+        ArrayUnion as _RealArrayUnionCls,
+        ArrayRemove as _RealArrayRemoveCls,
+    )
+    _UNION_CLASSES: tuple = (_MockArrayUnion, _RealArrayUnionCls)
+    _REMOVE_CLASSES: tuple = (_MockArrayRemove, _RealArrayRemoveCls)
+except Exception:
+    _UNION_CLASSES = (_MockArrayUnion,)
+    _REMOVE_CLASSES = (_MockArrayRemove,)
+
+
+def _apply_array_sentinels(base: dict, patch: dict) -> dict:
+    """Apply a partial-update dict to `base`, honouring ArrayUnion /
+    ArrayRemove markers. Used by the mock to mimic Firestore atomic-array
+    semantics (the real client applies them server-side)."""
+    out = dict(base) if base else {}
+    for k, v in (patch or {}).items():
+        if isinstance(v, _UNION_CLASSES):
+            cur = list(out.get(k) or [])
+            for item in v.values:
+                if item not in cur:
+                    cur.append(item)
+            out[k] = cur
+        elif isinstance(v, _REMOVE_CLASSES):
+            cur = list(out.get(k) or [])
+            out[k] = [x for x in cur if x not in v.values]
+        else:
+            out[k] = v
+    return out
+
+
 class MockDocRef:
     def __init__(self, collection, doc_id: str):
         self._collection = collection
@@ -32,13 +105,26 @@ class MockDocRef:
         data = self._collection._store.get(self.id)
         return MockDocSnapshot(self.id, data)
 
-    async def set(self, data: dict) -> None:
-        if self._collection is not None:
-            self._collection._store[self.id] = dict(data)
+    async def set(self, data: dict, merge: bool = False) -> None:
+        # `merge=True` mirrors Firestore semantics and also applies
+        # ArrayUnion / ArrayRemove atomically against the current doc.
+        if self._collection is None:
+            return
+        if merge:
+            existing = self._collection._store.get(self.id, {})
+            self._collection._store[self.id] = _apply_array_sentinels(existing, data)
+        else:
+            # Even without merge, sentinels must apply against an empty doc
+            # so a brand-new document seeded with ArrayUnion works.
+            self._collection._store[self.id] = _apply_array_sentinels({}, data)
 
     async def update(self, data: dict) -> None:
-        if self._collection is not None and self.id in self._collection._store:
-            self._collection._store[self.id].update(data)
+        if self._collection is None:
+            return
+        if self.id not in self._collection._store:
+            return
+        existing = self._collection._store[self.id]
+        self._collection._store[self.id] = _apply_array_sentinels(existing, data)
 
     async def delete(self) -> None:
         if self._collection is not None:

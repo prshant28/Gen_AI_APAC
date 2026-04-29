@@ -198,8 +198,12 @@ async def _load_completed(uid: str) -> set:
 
 
 async def toggle_action_item(action_id: str, done: bool) -> Dict[str, Any]:
-    """Mark an action item complete/incomplete. State is keyed by the stable
-    action_id so the checkbox survives briefing regeneration."""
+    """Mark an action item complete/incomplete.
+
+    Concurrency-safe: uses Firestore's atomic `ArrayUnion` / `ArrayRemove`
+    sentinels via `set(merge=True)` so two devices (or two tabs) toggling at
+    the same time never clobber each other. The in-memory mock client honours
+    the same sentinels so behaviour is consistent in local dev too."""
     # Hardening: refuse silly-long ids so a malicious caller can't grow the
     # `completed` array unboundedly. Real ids are short hashes (~24 chars).
     aid = (action_id or "").strip()[:128]
@@ -207,17 +211,17 @@ async def toggle_action_item(action_id: str, done: bool) -> Dict[str, Any]:
         return {"id": action_id, "completed": done, "ignored": True}
     uid = get_uid()
     db = await get_db()
-    completed = await _load_completed(uid)
-    if done:
-        completed.add(aid)
-    else:
-        completed.discard(aid)
+    from app.db import ArrayUnion, ArrayRemove
+    sentinel = ArrayUnion([aid]) if done else ArrayRemove([aid])
     try:
-        await db.collection("briefing_action_state").document(uid).set({
-            "user_id": uid,
-            "completed": sorted(completed),
-            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        })
+        await db.collection("briefing_action_state").document(uid).set(
+            {
+                "user_id": uid,
+                "completed": sentinel,
+                "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            },
+            merge=True,
+        )
     except Exception as e:
         print(f"toggle_action_item error: {e}")
     return {"id": action_id, "completed": done}
