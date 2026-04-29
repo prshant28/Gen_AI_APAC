@@ -13,6 +13,7 @@ const InsightsPage: React.FC = () => {
       iconBg="rgba(16,185,129,0.15)"
       title="Insights"
       subtitle="Timeline, mind graph, and analytics — see your knowledge from every angle"
+      hub="insights"
       paramKey="view"
       defaultTab="timeline"
       tabs={[

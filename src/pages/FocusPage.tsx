@@ -3,10 +3,12 @@ import { Target, CheckSquare, Flame } from 'lucide-react';
 import { motion } from 'motion/react';
 import TasksPage from './TasksPage';
 import HabitsPage from './HabitsPage';
+import LegacyRedirectBanner from '../components/LegacyRedirectBanner';
 
 const FocusPage: React.FC = () => {
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
+      <LegacyRedirectBanner hub="focus" />
       {/* Hub header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
+import LegacyRedirectBanner from './LegacyRedirectBanner';
 
 export interface TabDef {
   id: string;
@@ -19,11 +20,13 @@ interface Props {
   paramKey?: string;
   defaultTab?: string;
   rightSlot?: React.ReactNode;
+  /** Which hub this TabbedPage represents — drives the legacy redirect banner */
+  hub?: 'library' | 'focus' | 'learn' | 'insights';
 }
 
 const TabbedPage: React.FC<Props> = ({
   icon: Icon, iconColor, iconBg, title, subtitle, tabs,
-  paramKey = 'tab', defaultTab, rightSlot,
+  paramKey = 'tab', defaultTab, rightSlot, hub,
 }) => {
   const [params, setParams] = useSearchParams();
   const initial = params.get(paramKey) || defaultTab || tabs[0]?.id;
@@ -39,6 +42,7 @@ const TabbedPage: React.FC<Props> = ({
 
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
+      {hub && <LegacyRedirectBanner hub={hub} />}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}

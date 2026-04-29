@@ -414,6 +414,16 @@ const ALL_NAV = [
   ...FOOTER_NAV,
 ];
 
+/* ─────────────────────────────────────────────
+   LEGACY REDIRECT HELPER
+   Passes the original path via React Router location.state so the
+   destination hub can show a one-time "X now lives in Y" banner via
+   LegacyRedirectBanner. Direct visits (no state) show no banner.
+────────────────────────────────────────────── */
+const RedirectWithBanner: React.FC<{ from: string; to: string }> = ({ from, to }) => (
+  <Navigate to={to} replace state={{ redirectedFrom: from }} />
+);
+
 // Deep links into merged hub tabs/views — surfaced in the command palette
 // so users can jump straight to a sub-page (Library → Notes, Insights → Graph, etc.)
 const HUB_DEEP_LINKS = [
@@ -703,19 +713,21 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/learn"    element={<LearnPage />} />
                   <Route path="/insights" element={<InsightsPage />} />
 
-                  {/* Backwards-compatible redirects to the merged hubs */}
-                  <Route path="/capture"    element={<Navigate to="/library?tab=inbox"     replace />} />
-                  <Route path="/vault"      element={<Navigate to="/library?tab=vault"      replace />} />
-                  <Route path="/notes"      element={<Navigate to="/library?tab=notes"      replace />} />
-                  <Route path="/bookmarks"  element={<Navigate to="/library?tab=bookmarks"  replace />} />
-                  <Route path="/tasks"      element={<Navigate to="/focus"                  replace />} />
-                  <Route path="/habits"     element={<Navigate to="/focus"                  replace />} />
-                  <Route path="/plan"       element={<Navigate to="/learn?tab=plan"         replace />} />
-                  <Route path="/flashcards" element={<Navigate to="/learn?tab=flashcards"   replace />} />
-                  <Route path="/revisits"   element={<Navigate to="/learn?tab=revisits"     replace />} />
-                  <Route path="/timeline"   element={<Navigate to="/insights?view=timeline" replace />} />
-                  <Route path="/graph"      element={<Navigate to="/insights?view=graph"    replace />} />
-                  <Route path="/analytics"  element={<Navigate to="/insights?view=analytics" replace />} />
+                  {/* Backwards-compatible redirects to the merged hubs.
+                      RedirectWithBanner passes the original path via location.state so
+                      the destination hub can show a one-time "now lives in X" banner. */}
+                  <Route path="/capture"    element={<RedirectWithBanner from="/capture"    to="/library?tab=inbox" />} />
+                  <Route path="/vault"      element={<RedirectWithBanner from="/vault"      to="/library?tab=vault" />} />
+                  <Route path="/notes"      element={<RedirectWithBanner from="/notes"      to="/library?tab=notes" />} />
+                  <Route path="/bookmarks"  element={<RedirectWithBanner from="/bookmarks"  to="/library?tab=bookmarks" />} />
+                  <Route path="/tasks"      element={<RedirectWithBanner from="/tasks"      to="/focus" />} />
+                  <Route path="/habits"     element={<RedirectWithBanner from="/habits"     to="/focus" />} />
+                  <Route path="/plan"       element={<RedirectWithBanner from="/plan"       to="/learn?tab=plan" />} />
+                  <Route path="/flashcards" element={<RedirectWithBanner from="/flashcards" to="/learn?tab=flashcards" />} />
+                  <Route path="/revisits"   element={<RedirectWithBanner from="/revisits"   to="/learn?tab=revisits" />} />
+                  <Route path="/timeline"   element={<RedirectWithBanner from="/timeline"   to="/insights?view=timeline" />} />
+                  <Route path="/graph"      element={<RedirectWithBanner from="/graph"      to="/insights?view=graph" />} />
+                  <Route path="/analytics"  element={<RedirectWithBanner from="/analytics"  to="/insights?view=analytics" />} />
 
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>

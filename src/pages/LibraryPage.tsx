@@ -18,6 +18,7 @@ const LibraryPage: React.FC = () => {
       iconBg="rgba(244,114,182,0.15)"
       title="Library"
       subtitle="Vault, notes, bookmarks, files, inbox, tasks, habits, flashcards & revisits — your full second brain in one place"
+      hub="library"
       paramKey="tab"
       defaultTab="vault"
       tabs={[

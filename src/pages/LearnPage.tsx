@@ -13,6 +13,7 @@ const LearnPage: React.FC = () => {
       iconBg="rgba(124,58,237,0.15)"
       title="Learn"
       subtitle="Plans, flashcards, and revisits — everything that helps you remember"
+      hub="learn"
       paramKey="tab"
       defaultTab="plan"
       tabs={[
