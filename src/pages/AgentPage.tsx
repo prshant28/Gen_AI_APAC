@@ -188,13 +188,15 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
   }
 
   const durationStr = totalMs > 0 ? formatDuration(totalMs) : null;
-  const titleParts = [statusText, middleText, durationStr].filter(Boolean);
+  // Title mirrors the rendered chip: "Done — checked 3 memories · 2.4s".
+  const titleStatusAndMid = middleText ? `${statusText} — ${middleText}` : statusText;
+  const title = durationStr ? `${titleStatusAndMid} · ${durationStr}` : titleStatusAndMid;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      title={titleParts.join(' · ')}
+      title={title}
       style={{
         marginTop: 8,
         display: 'inline-flex',
@@ -215,7 +217,8 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
       <span style={{ color: statusColor, fontWeight: 700, letterSpacing: '0.1px' }}>{statusText}</span>
       {middleText && (
         <>
-          <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>·</span>
+          {/* Em dash between status and detail per spec ("Done — checked 3 memories…") */}
+          <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>—</span>
           <span
             data-testid="completion-summary-detail"
             style={{
