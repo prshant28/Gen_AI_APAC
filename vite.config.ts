@@ -43,8 +43,10 @@ export default defineConfig(({mode}) => {
           changeOrigin: true,
           selfHandleResponse: false,
           bypass: (req) => {
-            // /agent (exact) is the SPA page — let it through on GET
-            if (req.method === 'GET' && req.url === '/agent') return req.url;
+            // /agent (exact path, with or without query string) is the SPA
+            // page — let it through on GET so React Router can handle it.
+            const path = (req.url || '').split('?')[0];
+            if (req.method === 'GET' && path === '/agent') return req.url;
             return null;
           },
           configure: (proxy) => {
@@ -64,7 +66,7 @@ export default defineConfig(({mode}) => {
         '/settings': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/flashcards': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         // SPA + API conflict pages — bypass to SPA only on real page nav
-        '/revisits': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/revisits' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/revisits': { target: 'http://127.0.0.1:8000', bypass: (req) => { const path = (req.url || '').split('?')[0]; return (req.method === 'GET' && path === '/revisits' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null; } },
         '/notes': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/bookmarks': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/habits': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
@@ -82,10 +84,10 @@ export default defineConfig(({mode}) => {
         // Accept) and an API root with /briefing/list, /briefing/timeline,
         // /briefing/recap etc. Bypass to the SPA only on real page navigation
         // so deep-link / refresh on /briefing renders the React app.
-        '/briefing': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/briefing' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/briefing': { target: 'http://127.0.0.1:8000', bypass: (req) => { const path = (req.url || '').split('?')[0]; return (req.method === 'GET' && path === '/briefing' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null; } },
         // /dashboard is BOTH an SPA page (GET nav) and an API root (/dashboard/advanced).
         // Bypass to SPA only on real page navigation (Accept: text/html on the bare path).
-        '/dashboard': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/dashboard' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
+        '/dashboard': { target: 'http://127.0.0.1:8000', bypass: (req) => { const path = (req.url || '').split('?')[0]; return (req.method === 'GET' && path === '/dashboard' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null; } },
         '/study-plan': 'http://127.0.0.1:8000',
         '/plan': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         '/workspace': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
