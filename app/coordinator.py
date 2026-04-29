@@ -16,6 +16,20 @@ from app.config import settings, OPENROUTER_BASE_URL, OPENAI_BASE_URL
 _OPENAI_TIMEOUT = httpx.Timeout(connect=8.0, read=50.0, write=10.0, pool=5.0)
 
 
+def _friendly_ai_error(raw: str) -> str:
+    """Convert raw API error strings into short, user-friendly messages."""
+    low = raw.lower()
+    if "402" in raw or "credits" in low or "afford" in low or "billing" in low:
+        return "The AI service is temporarily out of credits. Please try again later or contact support."
+    if "429" in raw or "rate" in low or "quota" in low or "resource_exhausted" in low:
+        return "Too many requests right now. Please wait a moment and try again."
+    if "timeout" in low:
+        return "The AI took too long to respond. Please try again."
+    if "connection" in low or "network" in low:
+        return "Could not reach the AI service. Check your connection and try again."
+    return "Something went wrong with the AI. Please try again."
+
+
 def _make_client(use_fallback: bool = False) -> AsyncOpenAI:
     """Create an OpenAI-compatible client. Falls back to OpenAI on Gemini rate limits."""
     if use_fallback and settings.FALLBACK_AI_KEY:
@@ -378,7 +392,8 @@ async def run_coordinator(message: str, session_id: str) -> dict:
                         messages=messages,
                         tools=TOOLS,
                         tool_choice="auto",
-                        temperature=0.3
+                        temperature=0.3,
+                        max_tokens=4096,
                     ),
                     timeout=55.0
                 )
@@ -394,7 +409,8 @@ async def run_coordinator(message: str, session_id: str) -> dict:
                             messages=messages,
                             tools=TOOLS,
                             tool_choice="auto",
-                            temperature=0.3
+                            temperature=0.3,
+                            max_tokens=4096,
                         ),
                         timeout=55.0
                     )
@@ -450,7 +466,7 @@ async def run_coordinator(message: str, session_id: str) -> dict:
 
     except Exception as e:
         print(f"Coordinator Error: {e}")
-        reply = f"I encountered an error: {str(e)}"
+        reply = _friendly_ai_error(str(e))
         workflow.fail(str(e))
         turn_messages.append({"role": "assistant", "content": reply})
 
@@ -519,7 +535,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         messages=messages,
                         tools=TOOLS,
                         tool_choice="auto",
-                        temperature=0.3
+                        temperature=0.3,
+                        max_tokens=4096,
                     ),
                     timeout=55.0
                 )
@@ -536,12 +553,14 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                                 messages=messages,
                                 tools=TOOLS,
                                 tool_choice="auto",
-                                temperature=0.3
+                                temperature=0.3,
+                                max_tokens=4096,
                             ),
                             timeout=55.0
                         )
                     except Exception as fb_err:
-                        yield sse("error", {"message": f"AI unavailable: {str(fb_err)}", "workflow_id": workflow.id})
+                        user_msg = _friendly_ai_error(str(fb_err))
+                        yield sse("error", {"message": user_msg, "workflow_id": workflow.id})
                         workflow.fail(str(fb_err))
                         return
                 else:
@@ -592,7 +611,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                                 model=settings.OPENAI_MODEL,
                                 messages=messages,
                                 stream=True,
-                                temperature=0.3
+                                temperature=0.3,
+                                max_tokens=4096,
                             ),
                             timeout=55.0
                         )
@@ -700,7 +720,7 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
     except Exception as e:
         print(f"Coordinator Stream Error: {e}")
         workflow.fail(str(e))
-        yield sse("error", {"message": str(e), "workflow_id": workflow.id})
+        yield sse("error", {"message": _friendly_ai_error(str(e)), "workflow_id": workflow.id})
 
 
 def _summarize_output(result: Any) -> str:

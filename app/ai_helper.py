@@ -32,13 +32,17 @@ def get_fallback_client():
 
 
 def is_rate_limit(err: Exception) -> bool:
-    msg = str(err).lower()
+    raw = str(err)
+    msg = raw.lower()
     return (
-        "429" in str(err)
+        "429" in raw
+        or "402" in raw
         or "quota" in msg
         or "rate" in msg
         or "resource_exhausted" in msg
         or "too many requests" in msg
+        or "credits" in msg
+        or "billing" in msg
     )
 
 

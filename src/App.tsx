@@ -131,6 +131,98 @@ const SYSTEM_NAV = [
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,     color: '#22d3ee' },
 ];
 
+// ── SidebarNavItem — defined at module level so React never sees a new
+// component type on re-render, which would reset the nav scroll position.
+interface SidebarNavItemProps {
+  id: string; label: string; path: string; icon: React.ElementType;
+  color: string; shortcut?: string; desc?: string;
+  isCollapsed: boolean; active: boolean;
+  navigate: (to: string) => void;
+}
+const SidebarNavItem = React.memo(({
+  id, label, path, icon: Icon, color, shortcut, desc, isCollapsed, active, navigate,
+}: SidebarNavItemProps) => {
+  const [hovered, setHovered] = useState(false);
+  const bg = active ? `${color}18` : hovered ? 'var(--surface-2)' : 'transparent';
+  const shadow = active ? `inset 0 0 0 1px ${color}28` : 'none';
+  return (
+    <button
+      onClick={() => navigate(path)}
+      title={isCollapsed ? (desc ? `${label} — ${desc}` : label) : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: isCollapsed ? '9px 0' : '7px 10px',
+        borderRadius: 9, border: 'none',
+        background: bg, boxShadow: shadow,
+        cursor: 'pointer',
+        transition: 'background 0.14s ease, box-shadow 0.14s ease',
+        position: 'relative',
+        justifyContent: isCollapsed ? 'center' : 'flex-start',
+        width: '100%', marginBottom: 1, fontFamily: 'inherit',
+      }}>
+      {active && (
+        <div style={{
+          position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3,
+          background: `linear-gradient(to bottom, ${color}, ${color}88)`,
+          borderRadius: '0 3px 3px 0',
+        }} />
+      )}
+      <div style={{
+        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? `${color}22` : 'transparent',
+        transition: 'background 0.14s ease',
+      }}>
+        <Icon size={15} color={active ? color : hovered ? 'var(--text-2)' : 'var(--text-3)'} strokeWidth={active ? 2 : 1.75} />
+      </div>
+      {!isCollapsed && (
+        <>
+          <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+            <div style={{
+              color: active ? 'var(--text-1)' : 'var(--text-2)',
+              fontSize: 13, fontWeight: active ? 700 : 500,
+              lineHeight: 1.2, letterSpacing: active ? '-0.2px' : '-0.1px',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{label}</div>
+            {desc && (
+              <div style={{
+                color: 'var(--text-3)', fontSize: 10.5, marginTop: 1,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                opacity: active ? 0.9 : 0.7,
+              }}>{desc}</div>
+            )}
+          </div>
+          {shortcut && (
+            <span style={{
+              fontSize: 9.5, fontWeight: 600, color: active ? color : 'var(--text-3)',
+              opacity: active ? 0.8 : 0.55,
+              background: active ? `${color}14` : 'var(--surface-3)',
+              border: `1px solid ${active ? color + '28' : 'var(--border)'}`,
+              borderRadius: 5, padding: '1px 5px', flexShrink: 0, letterSpacing: '0.3px',
+            }}>⌘{shortcut}</span>
+          )}
+        </>
+      )}
+    </button>
+  );
+});
+SidebarNavItem.displayName = 'SidebarNavItem';
+
+// Divider with optional label — also at module level for the same reason.
+const SidebarSectionLabel = React.memo(({ label, isCollapsed }: { label: string; isCollapsed: boolean }) => (
+  !isCollapsed ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px 4px', marginTop: 2 }}>
+      <span style={{ color: 'var(--text-3)', fontSize: 9, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)', opacity: 0.6 }} />
+    </div>
+  ) : (
+    <div style={{ height: 1, background: 'var(--border)', margin: '8px 10px', opacity: 0.5 }} />
+  )
+));
+SidebarSectionLabel.displayName = 'SidebarSectionLabel';
+
 const Sidebar = ({
   isCollapsed, setIsCollapsed, user, onSignOut,
 }: {
@@ -160,103 +252,6 @@ const Sidebar = ({
 
   const isActive = (path: string) =>
     location.pathname === path || (path === '/dashboard' && location.pathname === '/');
-
-  const NavItem = ({
-    id, label, path, icon: Icon, color, shortcut, desc,
-  }: {
-    id: string; label: string; path: string; icon: React.ElementType;
-    color: string; shortcut?: string; desc?: string;
-  }) => {
-    const active = isActive(path);
-    const [hovered, setHovered] = useState(false);
-    const bg = active ? `${color}18` : hovered ? 'var(--surface-2)' : 'transparent';
-    const shadow = active ? `inset 0 0 0 1px ${color}28` : 'none';
-    return (
-      <button
-        key={id}
-        onClick={() => navigate(path)}
-        title={isCollapsed ? (desc ? `${label} — ${desc}` : label) : undefined}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: isCollapsed ? '9px 0' : '7px 10px',
-          borderRadius: 9, border: 'none',
-          background: bg,
-          boxShadow: shadow,
-          cursor: 'pointer',
-          transition: 'background 0.14s ease, box-shadow 0.14s ease',
-          position: 'relative',
-          justifyContent: isCollapsed ? 'center' : 'flex-start',
-          width: '100%', marginBottom: 1,
-          fontFamily: 'inherit',
-        }}>
-        {/* Left accent bar for active state */}
-        {active && (
-          <div style={{
-            position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3,
-            background: `linear-gradient(to bottom, ${color}, ${color}88)`,
-            borderRadius: '0 3px 3px 0',
-          }} />
-        )}
-        {/* Icon with colored container when active */}
-        <div style={{
-          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: active ? `${color}22` : 'transparent',
-          transition: 'background 0.14s ease',
-        }}>
-          <Icon size={15} color={active ? color : hovered ? 'var(--text-2)' : 'var(--text-3)'} strokeWidth={active ? 2 : 1.75} />
-        </div>
-        {!isCollapsed && (
-          <>
-            <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-              <div style={{
-                color: active ? 'var(--text-1)' : 'var(--text-2)',
-                fontSize: 13, fontWeight: active ? 700 : 500,
-                lineHeight: 1.2, letterSpacing: active ? '-0.2px' : '-0.1px',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>{label}</div>
-              {desc && (
-                <div style={{
-                  color: 'var(--text-3)', fontSize: 10.5, marginTop: 1,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  opacity: active ? 0.9 : 0.7,
-                }}>{desc}</div>
-              )}
-            </div>
-            {shortcut && (
-              <span style={{
-                fontSize: 9.5, fontWeight: 600, color: active ? color : 'var(--text-3)',
-                opacity: active ? 0.8 : 0.55,
-                background: active ? `${color}14` : 'var(--surface-3)',
-                border: `1px solid ${active ? color + '28' : 'var(--border)'}`,
-                borderRadius: 5, padding: '1px 5px', flexShrink: 0,
-                letterSpacing: '0.3px',
-              }}>⌘{shortcut}</span>
-            )}
-          </>
-        )}
-      </button>
-    );
-  };
-
-  const SectionLabel = ({ label }: { label: string }) => (
-    !isCollapsed ? (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 10px 4px', marginTop: 2,
-      }}>
-        <span style={{
-          color: 'var(--text-3)', fontSize: 9, fontWeight: 700,
-          letterSpacing: '1.5px', textTransform: 'uppercase', flexShrink: 0,
-        }}>{label}</span>
-        <div style={{ flex: 1, height: 1, background: 'var(--border)', opacity: 0.6 }} />
-      </div>
-    ) : (
-      <div style={{ height: 1, background: 'var(--border)', margin: '8px 10px', opacity: 0.5 }} />
-    )
-  );
 
   return (
     <div style={{ width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -318,15 +313,21 @@ const Sidebar = ({
 
           {/* Core destinations */}
           <div style={{ height: 4 }} />
-          {CORE_NAV.map(item => <NavItem key={item.id} {...item} />)}
+          {CORE_NAV.map(item => (
+            <SidebarNavItem key={item.id} {...item} isCollapsed={isCollapsed} navigate={navigate} active={isActive(item.path)} />
+          ))}
 
           {/* Tools section */}
-          <SectionLabel label="Tools" />
-          {TOOLS_NAV.map(item => <NavItem key={item.id} {...item} />)}
+          <SidebarSectionLabel label="Tools" isCollapsed={isCollapsed} />
+          {TOOLS_NAV.map(item => (
+            <SidebarNavItem key={item.id} {...item} isCollapsed={isCollapsed} navigate={navigate} active={isActive(item.path)} />
+          ))}
 
           {/* System section */}
-          <SectionLabel label="System" />
-          {SYSTEM_NAV.map(item => <NavItem key={item.id} {...item} />)}
+          <SidebarSectionLabel label="System" isCollapsed={isCollapsed} />
+          {SYSTEM_NAV.map(item => (
+            <SidebarNavItem key={item.id} {...item} isCollapsed={isCollapsed} navigate={navigate} active={isActive(item.path)} />
+          ))}
 
         </nav>
 
