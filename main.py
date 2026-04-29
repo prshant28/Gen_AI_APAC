@@ -594,6 +594,9 @@ async def list_memories_endpoint(
     unreviewed: bool = False,
     include_archived: bool = False,
     include_trashed: bool = False,
+    source_type: str = "",
+    offset: int = 0,
+    q: str = "",
 ):
     try:
         return await list_memories(
@@ -602,6 +605,9 @@ async def list_memories_endpoint(
             unreviewed=unreviewed,
             include_archived=include_archived,
             include_trashed=include_trashed,
+            source_type=source_type,
+            offset=offset,
+            q=q,
         )
     except Exception as e:
         print(f"list_memories_endpoint error: {e}")

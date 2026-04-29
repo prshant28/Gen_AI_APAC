@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Loader2, Inbox, Plus, CheckCircle2, Tag as TagIcon, Archive,
   Youtube, Globe, FileText, StickyNote, ExternalLink, X, Clock,
+  Search, Filter,
 } from 'lucide-react';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
@@ -14,6 +16,38 @@ const SOURCE_META: Record<string, { icon: React.ComponentType<{ size?: number; c
   pdf:     { icon: FileText,   color: '#f59e0b', label: 'PDF'     },
   note:    { icon: StickyNote, color: '#22d3ee', label: 'Note'    },
 };
+
+// Page size for the Inbox list. Matches the legacy hard-coded 50 so the
+// "first 50" wording in the design intent still holds — switching to
+// pagination here just means we ASK for one page at a time and let the
+// user pull more with "Load more".
+const PAGE_SIZE = 50;
+
+// Source filter chips. `id` is the value we send to the backend
+// (`source_type=...`); `''` is the "All" sentinel that simply omits the
+// filter from the request.
+const SOURCE_FILTERS: Array<{ id: '' | 'web' | 'youtube' | 'pdf' | 'note'; label: string; color: string; icon?: React.ComponentType<{ size?: number; color?: string }> }> = [
+  { id: '',        label: 'All',     color: '#06b6d4' },
+  { id: 'web',     label: 'Web',     color: '#3b82f6', icon: Globe      },
+  { id: 'youtube', label: 'YouTube', color: '#ef4444', icon: Youtube    },
+  { id: 'pdf',     label: 'PDF',     color: '#f59e0b', icon: FileText   },
+  { id: 'note',    label: 'Note',    color: '#22d3ee', icon: StickyNote },
+];
+
+// Date filter chips (client-side — applied to whatever rows are loaded).
+const DATE_FILTERS: Array<{ id: '' | 'today' | 'week'; label: string }> = [
+  { id: '',      label: 'Any time'   },
+  { id: 'today', label: 'Today'      },
+  { id: 'week',  label: 'This week'  },
+];
+
+// Domain options come from the same canonical list the backend uses to
+// validate the `domain=` query param (kept in sync manually — it changes
+// rarely). Falling back to "any domain" is the empty string.
+const DOMAIN_OPTIONS = [
+  '', 'AI', 'Technology', 'Science', 'Business', 'Health',
+  'History', 'Philosophy', 'Engineering', 'Productivity', 'Other',
+];
 
 const timeAgo = (iso?: string): string => {
   if (!iso) return 'just now';
@@ -175,37 +209,232 @@ const InlineTagEditor: React.FC<InlineTagEditorProps> = ({ initialTags, onSave, 
   );
 };
 
+// --- URL-param helpers ---
+//
+// We persist filter state in the page's query string so it survives both
+// tab switches inside the Library hub and full-page refreshes. We use
+// short keys (`src`, `dom`, `when`, `q`) so the URL stays human-readable.
+// Empty / "all" values are stripped from the URL entirely so the default
+// state has a clean URL.
+type SourceFilter = '' | 'web' | 'youtube' | 'pdf' | 'note';
+type DateFilter = '' | 'today' | 'week';
+const isSourceFilter = (v: string | null): v is SourceFilter =>
+  v === '' || v === 'web' || v === 'youtube' || v === 'pdf' || v === 'note';
+const isDateFilter = (v: string | null): v is DateFilter =>
+  v === '' || v === 'today' || v === 'week';
+
+// Window for "this week" — last 7 days from now (rolling, not calendar).
+const isWithinDateFilter = (iso: string | undefined, when: DateFilter): boolean => {
+  if (!when) return true;
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  const now = Date.now();
+  if (when === 'today') {
+    // Same calendar day in the user's local timezone.
+    const a = new Date(t);
+    const b = new Date(now);
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+  if (when === 'week') {
+    return now - t <= 7 * 24 * 60 * 60 * 1000;
+  }
+  return true;
+};
+
 const LibraryInboxTab: React.FC = () => {
+  const [params, setParams] = useSearchParams();
+
+  // Read filter state from the URL. Unknown / malformed values fall back
+  // to the "all" sentinel so a hand-typed bad URL can't break the inbox.
+  const rawSrc = params.get('src');
+  const rawDom = params.get('dom');
+  const rawWhen = params.get('when');
+  const src: SourceFilter = isSourceFilter(rawSrc) ? rawSrc : '';
+  const dom: string = rawDom && DOMAIN_OPTIONS.includes(rawDom) ? rawDom : '';
+  const when: DateFilter = isDateFilter(rawWhen) ? rawWhen : '';
+  const q: string = params.get('q') || '';
+
+  const updateParam = useCallback((key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  }, [params, setParams]);
+
   const [items, setItems] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCapture, setShowCapture] = useState(false);
+  // Server-side search fallback: when the loaded page is full (50 rows)
+  // AND the user types a query that matches none of those rows, we
+  // automatically run a server-side substring search across the full
+  // candidate window. Results are stored separately so toggling the
+  // query off restores the original loaded set without a re-fetch.
+  const [serverMatches, setServerMatches] = useState<Memory[] | null>(null);
+  const [serverSearching, setServerSearching] = useState(false);
+
+  // Each load() call gets a sequence number so a stale response from a
+  // previous filter combination can't overwrite a newer page.
+  const loadSeqRef = useRef(0);
+  const serverSearchSeqRef = useRef(0);
+
+  const buildQs = useCallback((offset: number) => {
+    const qs = new URLSearchParams();
+    qs.set('unreviewed', 'true');
+    qs.set('limit', String(PAGE_SIZE));
+    if (offset > 0) qs.set('offset', String(offset));
+    if (src) qs.set('source_type', src);
+    if (dom) qs.set('domain', dom);
+    return qs.toString();
+  }, [src, dom]);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
+    // Any in-flight server search becomes irrelevant once the base list
+    // reloads — invalidate it so a stale match set can't show up.
+    serverSearchSeqRef.current++;
+    setServerMatches(null);
+    setServerSearching(false);
     try {
-      const res = await fetch('/memories?unreviewed=true&limit=50');
+      const res = await fetch(`/memories?${buildQs(0)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
+      if (loadSeqRef.current !== seq) return; // a newer load() superseded us
+      const arr = Array.isArray(data) ? data : [];
+      setItems(arr);
+      setHasMore(arr.length >= PAGE_SIZE);
       // Keep the sidebar Inbox badge in sync with what we just rendered.
       window.dispatchEvent(new CustomEvent('inbox-count-refresh'));
     } catch (e) {
+      if (loadSeqRef.current !== seq) return;
       const msg = e instanceof Error ? e.message : 'Failed to load inbox';
       setError(msg);
     } finally {
-      setLoading(false);
+      if (loadSeqRef.current === seq) setLoading(false);
     }
-  }, []);
+  }, [buildQs]);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || !hasMore) return;
+    const seq = loadSeqRef.current; // anchor to current filter snapshot
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/memories?${buildQs(items.length)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (loadSeqRef.current !== seq) return; // filters changed mid-flight
+      const arr = Array.isArray(data) ? data : [];
+      // Dedupe defensively — pinned items can repeat across pages because
+      // the server pre-sorts pinned-first within each candidate window.
+      setItems(prev => {
+        const seen = new Set(prev.map(p => p.id));
+        return [...prev, ...arr.filter(m => !seen.has(m.id))];
+      });
+      setHasMore(arr.length >= PAGE_SIZE);
+    } catch (e) {
+      const msg = e instanceof Error ? `Couldn't load more: ${e.message}` : 'Couldn\u2019t load more';
+      showToast(msg);
+    } finally {
+      if (loadSeqRef.current === seq) setLoadingMore(false);
+    }
+  }, [buildQs, items.length, loadingMore, loading, hasMore]);
+
+  // Re-fetch whenever a server-side filter (source / domain) changes. Date
+  // and search are client-side over the loaded page set, so they don't
+  // trigger a re-fetch on their own.
   useEffect(() => { load(); }, [load]);
 
-  const removeFromList = (id: string) =>
+  // Client-side filtered set over what's actually loaded (the "fast path").
+  const localMatches = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return items.filter(m => {
+      if (!isWithinDateFilter(m.created_at, when)) return false;
+      if (needle) {
+        const hay = `${m.title || ''} ${m.summary || ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [items, q, when]);
+
+  // Track the trigger inputs in a stable signature so the server-search
+  // effect only re-fires when the user actually changes something it
+  // cares about — NOT when serverMatches updates from inside the effect.
+  const localMatchCount = localMatches.length;
+
+  // Server-side search fallback. Spec: "filter by title/summary
+  // client-side first, then fall back to a server query if 50+ items."
+  // We trigger only when the loaded page is full (>=PAGE_SIZE — i.e. there
+  // could be more matches further back on the server) AND the local
+  // filter found nothing. Debounced 300ms so per-keystroke typing doesn't
+  // spam the backend.
+  useEffect(() => {
+    const needle = q.trim();
+    if (!needle || items.length < PAGE_SIZE || localMatchCount > 0) {
+      // Either no query, page isn't full, or we already have matches
+      // locally — no server search needed. Drop any prior server matches
+      // and cancel any in-flight search.
+      serverSearchSeqRef.current++;
+      setServerMatches(null);
+      setServerSearching(false);
+      return;
+    }
+    const seq = ++serverSearchSeqRef.current;
+    setServerSearching(true);
+    const handle = window.setTimeout(async () => {
+      try {
+        const qs = new URLSearchParams();
+        qs.set('unreviewed', 'true');
+        qs.set('limit', String(PAGE_SIZE));
+        if (src) qs.set('source_type', src);
+        if (dom) qs.set('domain', dom);
+        qs.set('q', needle);
+        const res = await fetch(`/memories?${qs.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (serverSearchSeqRef.current !== seq) return; // superseded
+        const arr = Array.isArray(data) ? data : [];
+        setServerMatches(arr);
+      } catch {
+        if (serverSearchSeqRef.current !== seq) return;
+        // Soft-fail: just leave the empty client result visible. Don't
+        // toast on every keystroke.
+        setServerMatches([]);
+      } finally {
+        if (serverSearchSeqRef.current === seq) setServerSearching(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [q, items.length, localMatchCount, src, dom]);
+
+  // What we actually render: server-side fallback if it's active, else
+  // the client-filtered loaded set. Date filter still applies to server
+  // matches (server doesn't know about the `when` filter).
+  const visibleItems = useMemo(() => {
+    const base = serverMatches !== null ? serverMatches : localMatches;
+    if (!when) return base;
+    return base.filter(m => isWithinDateFilter(m.created_at, when));
+  }, [serverMatches, localMatches, when]);
+
+  // Triage mutations have to update BOTH data sources we render from —
+  // the loaded page (`items`) AND, when active, the server-search
+  // fallback set (`serverMatches`). Otherwise a Review/Archive in
+  // fallback mode would leave the just-triaged row visible until the
+  // next reload.
+  const removeFromList = (id: string) => {
     setItems(prev => prev.filter(m => m.id !== id));
+    setServerMatches(prev => (prev === null ? prev : prev.filter(m => m.id !== id)));
+  };
 
   const patchMemory = async (id: string, body: Record<string, unknown>): Promise<boolean> => {
     try {
@@ -226,10 +455,22 @@ const LibraryInboxTab: React.FC = () => {
   // component has been unmounted (user navigated tabs), the local setItems is a
   // no-op but the PATCH still revives the memory on the server, so it will
   // reappear next time the inbox loads.
+  //
+  // When the server-search fallback is active, the row was also stripped
+  // from `serverMatches` — re-insert it there too so undo restores the
+  // visible row even while the user is mid-search.
   const restoreMemory = async (m: Memory, originalIndex: number, body: Record<string, unknown>) => {
     const ok = await patchMemory(m.id, body);
     if (ok) {
       setItems(prev => {
+        if (prev.some(x => x.id === m.id)) return prev;
+        const next = [...prev];
+        const insertAt = Math.max(0, Math.min(originalIndex, next.length));
+        next.splice(insertAt, 0, m);
+        return next;
+      });
+      setServerMatches(prev => {
+        if (prev === null) return prev;
         if (prev.some(x => x.id === m.id)) return prev;
         const next = [...prev];
         const insertAt = Math.max(0, Math.min(originalIndex, next.length));
@@ -280,6 +521,11 @@ const LibraryInboxTab: React.FC = () => {
     const ok = await patchMemory(m.id, { tags });
     if (ok) {
       setItems(prev => prev.map(x => x.id === m.id ? { ...x, tags } : x));
+      // Mirror the tag edit into the active server-search set too so the
+      // updated tags render immediately when fallback mode is on.
+      setServerMatches(prev =>
+        prev === null ? prev : prev.map(x => x.id === m.id ? { ...x, tags } : x)
+      );
       setEditingTagsId(null);
       showToast('Tags updated');
     }
@@ -290,6 +536,18 @@ const LibraryInboxTab: React.FC = () => {
     load();
   };
 
+  const clearFilters = () => {
+    const next = new URLSearchParams(params);
+    next.delete('src');
+    next.delete('dom');
+    next.delete('when');
+    next.delete('q');
+    setParams(next, { replace: true });
+  };
+
+  const hasActiveFilters = !!(src || dom || when || q);
+  const hiddenByFilters = items.length - visibleItems.length;
+
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
@@ -297,9 +555,9 @@ const LibraryInboxTab: React.FC = () => {
           <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Inbox size={18} color="#06b6d4" />
             Inbox
-            {!loading && items.length > 0 && (
+            {!loading && visibleItems.length > 0 && (
               <span data-testid="badge-inbox-count" style={{ marginLeft: 6, padding: '2px 9px', background: 'rgba(6,182,212,0.14)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 999, fontSize: 11, color: '#06b6d4', fontWeight: 700 }}>
-                {items.length}
+                {visibleItems.length}{hasMore ? '+' : ''}
               </span>
             )}
           </h2>
@@ -313,6 +571,123 @@ const LibraryInboxTab: React.FC = () => {
           <Plus size={14} />
           Capture
         </button>
+      </div>
+
+      {/* Filter & search toolbar — survives tab switches via the URL query
+          string (?tab=inbox&src=youtube&dom=AI&when=today&q=...). */}
+      <div
+        data-testid="toolbar-inbox-filters"
+        style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8,
+          padding: 10, marginBottom: 12,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SOURCE_FILTERS.map(f => {
+            const isActive = src === f.id;
+            const ChipIcon = f.icon;
+            return (
+              <button
+                key={f.id || 'all'}
+                onClick={() => updateParam('src', f.id)}
+                data-testid={`chip-src-${f.id || 'all'}`}
+                aria-pressed={isActive}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  background: isActive ? `${f.color}1f` : 'var(--surface-2)',
+                  border: `1px solid ${isActive ? `${f.color}55` : 'var(--border)'}`,
+                  color: isActive ? f.color : 'var(--text-2)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {ChipIcon && <ChipIcon size={11} color={isActive ? f.color : undefined} />}
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 2px' }} />
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {DATE_FILTERS.map(f => {
+            const isActive = when === f.id;
+            return (
+              <button
+                key={f.id || 'any'}
+                onClick={() => updateParam('when', f.id)}
+                data-testid={`chip-when-${f.id || 'any'}`}
+                aria-pressed={isActive}
+                style={{
+                  padding: '5px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  background: isActive ? 'rgba(168,85,247,0.16)' : 'var(--surface-2)',
+                  border: `1px solid ${isActive ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`,
+                  color: isActive ? '#a855f7' : 'var(--text-2)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 2px' }} />
+
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-3)' }}>
+          <Filter size={11} />
+          <select
+            value={dom}
+            onChange={e => updateParam('dom', e.target.value)}
+            data-testid="select-inbox-domain"
+            aria-label="Filter by domain"
+            style={{
+              padding: '5px 8px', fontSize: 11.5, fontWeight: 600,
+              background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+              color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', outline: 'none',
+            }}
+          >
+            {DOMAIN_OPTIONS.map(d => (
+              <option key={d || 'all'} value={d}>{d || 'Any domain'}</option>
+            ))}
+          </select>
+        </label>
+
+        <div style={{ flex: 1, minWidth: 160, position: 'relative' }}>
+          <Search size={12} color="var(--text-3)" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <input
+            type="search"
+            value={q}
+            onChange={e => updateParam('q', e.target.value)}
+            placeholder="Search loaded inbox…"
+            data-testid="input-inbox-search"
+            aria-label="Search inbox"
+            style={{
+              width: '100%', padding: '6px 10px 6px 26px', fontSize: 12,
+              background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+              color: 'var(--text-1)', outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            data-testid="button-clear-filters"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+              background: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <X size={11} /> Clear
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -336,25 +711,85 @@ const LibraryInboxTab: React.FC = () => {
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <CheckCircle2 size={28} color="#10b981" />
           </div>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>All caught up — nothing to review</h3>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>
+            {hasActiveFilters ? 'No matches for these filters' : 'All caught up — nothing to review'}
+          </h3>
           <p style={{ margin: '6px 0 16px', fontSize: 12, color: 'var(--text-3)', maxWidth: 360 }}>
-            New captures land here for quick triage. Add one to get started.
+            {hasActiveFilters
+              ? 'Try clearing a filter or expanding the date range.'
+              : 'New captures land here for quick triage. Add one to get started.'}
           </p>
+          {hasActiveFilters ? (
+            <button
+              onClick={clearFilters}
+              data-testid="button-empty-clear-filters"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <X size={14} /> Clear filters
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCapture(true)}
+              data-testid="button-empty-open-capture"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <Plus size={14} />
+              Capture something
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Items exist on the server but the client-side filters (date /
+          search) have hidden them all AND the server-side fallback also
+          came up empty (or isn't applicable because the loaded page is
+          smaller than PAGE_SIZE). */}
+      {!loading && !error && items.length > 0 && visibleItems.length === 0 && !serverSearching && (
+        <div
+          data-testid="state-inbox-no-matches"
+          style={{ padding: '36px 22px', textAlign: 'center', background: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text-3)', fontSize: 12 }}
+        >
+          <div style={{ marginBottom: 10, fontSize: 13, color: 'var(--text-2)', fontWeight: 700 }}>
+            {serverMatches !== null
+              ? 'No matches anywhere in your inbox.'
+              : `No matches in the ${items.length} loaded item${items.length === 1 ? '' : 's'}.`}
+          </div>
+          {hasMore && serverMatches === null && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              data-testid="button-load-more-no-match"
+              style={{ marginRight: 8, padding: '7px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 11.5, fontWeight: 700, cursor: loadingMore ? 'wait' : 'pointer', fontFamily: 'inherit' }}
+            >
+              {loadingMore ? 'Loading…' : 'Load more to keep searching'}
+            </button>
+          )}
           <button
-            onClick={() => setShowCapture(true)}
-            data-testid="button-empty-open-capture"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={clearFilters}
+            data-testid="button-no-matches-clear"
+            style={{ padding: '7px 14px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            <Plus size={14} />
-            Capture something
+            Clear filters
           </button>
         </div>
       )}
 
-      {!loading && !error && items.length > 0 && (
+      {/* Inline "searching the rest of your inbox" status while the
+          server-side fallback is in flight. */}
+      {!loading && !error && serverSearching && visibleItems.length === 0 && (
+        <div
+          data-testid="state-inbox-server-searching"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', color: 'var(--text-3)', fontSize: 12 }}
+        >
+          <Loader2 size={14} color="#06b6d4" style={{ animation: 'spin 1s linear infinite' }} />
+          Searching the rest of your inbox…
+        </div>
+      )}
+
+      {!loading && !error && visibleItems.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <AnimatePresence initial={false}>
-            {items.map(m => {
+            {visibleItems.map(m => {
               const meta = SOURCE_META[m.source_type] || SOURCE_META.note;
               const Icon = meta.icon;
               const host = m.source_url ? safeHostname(m.source_url) : null;
@@ -470,6 +905,38 @@ const LibraryInboxTab: React.FC = () => {
               );
             })}
           </AnimatePresence>
+
+          {/* Footer: Load more + (optional) hidden-by-filter hint. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '14px 0 4px', flexWrap: 'wrap' }}>
+            {hiddenByFilters > 0 && (
+              <span data-testid="text-hidden-by-filters" style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                {hiddenByFilters} hidden by current filters
+              </span>
+            )}
+            {hasMore ? (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                data-testid="button-load-more"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10,
+                  background: 'var(--surface-2)', border: '1px solid var(--border)',
+                  color: 'var(--text-1)', fontSize: 12, fontWeight: 700,
+                  cursor: loadingMore ? 'wait' : 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {loadingMore ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            ) : (
+              items.length > PAGE_SIZE && (
+                <span data-testid="text-end-of-list" style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                  That's everything in your inbox.
+                </span>
+              )
+            )}
+          </div>
         </div>
       )}
 

@@ -391,6 +391,9 @@ async def list_memories(
     unreviewed: bool = False,
     include_archived: bool = False,
     include_trashed: bool = False,
+    source_type: str = "",
+    offset: int = 0,
+    q: str = "",
 ) -> List[dict]:
     """List the current user's memories, newest first.
 
@@ -404,6 +407,22 @@ async def list_memories(
     (`archived=True`) are excluded from the main list. Pass
     `include_archived=True` to merge archived items back in. Trashed items
     only appear via the dedicated /trash endpoints.
+
+    `source_type` narrows the result set to a single capture type
+    (`web` / `youtube` / `pdf` / `note`). Unknown values are ignored so a
+    bad query string can't make the inbox silently empty.
+
+    `offset` skips the first N items in the post-filter, post-sort
+    candidate list and is used by the Inbox "Load more" pagination — the
+    candidate window we read from Firestore is widened proportionally
+    so deep pages still see enough rows to satisfy `limit`.
+
+    `q` is a case-insensitive substring match against `title` and
+    `summary`. It runs in-app (Firestore can't do substring search) and
+    is applied AFTER the user / unreviewed / archived predicates but
+    BEFORE the offset/limit slice, so the Inbox can fall back to a true
+    server-side search across the entire candidate window when the
+    client-side text filter on the loaded page returns nothing.
     """
     db = await get_db()
     query_ref = db.collection("memories")
@@ -411,8 +430,19 @@ async def list_memories(
         query_ref = query_ref.where("domain", "==", domain)
     # Over-fetch then filter to current user (and optionally unreviewed)
     # Pull a wide window so pinned items further back can still float into
-    # the returned page even when many newer items exist.
-    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(max(limit * 6, 120)).get()
+    # the returned page even when many newer items exist. We also widen the
+    # window to cover the requested `offset` so pagination doesn't run out
+    # of candidates after page 1.
+    safe_offset = max(0, int(offset or 0))
+    safe_limit = max(1, int(limit or 20))
+    # Widen the candidate window further when a text query is active so
+    # the substring match has plenty of docs to scan across.
+    base_window = max(safe_limit * 6, 120) + safe_offset
+    fetch_window = base_window * (3 if q else 1)
+    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(fetch_window).get()
+    allowed_sources = {"youtube", "web", "pdf", "note"}
+    src_filter = source_type if source_type in allowed_sources else ""
+    needle = (q or "").strip().lower()
     candidates = []
     for doc in snapshot:
         m = doc.to_dict()
@@ -426,14 +456,21 @@ async def list_memories(
             continue
         if unreviewed and (m.get("reviewed") is True or m.get("archived") is True):
             continue
+        if src_filter and m.get("source_type") != src_filter:
+            continue
+        if needle:
+            hay = f"{m.get('title') or ''} {m.get('summary') or ''}".lower()
+            if needle not in hay:
+                continue
         m["id"] = doc.id
         if "created_at" in m and hasattr(m["created_at"], "isoformat"):
             m["created_at"] = m["created_at"].isoformat()
         candidates.append(m)
-    # Pinned items float to the top first, THEN we apply the page limit so
-    # pinned docs anywhere in the candidate window still surface.
+    # Pinned items float to the top first, THEN we apply the page window
+    # so pinned docs anywhere in the candidate window still surface on
+    # page 1. Pagination skips the first `offset` rows of this sorted list.
     candidates.sort(key=lambda x: 0 if x.get("pinned") else 1)
-    return candidates[:limit]
+    return candidates[safe_offset:safe_offset + safe_limit]
 
 
 async def get_memory(memory_id: str) -> dict:
