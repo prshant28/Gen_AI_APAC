@@ -56,3 +56,7 @@ GEMINI_MODEL = "gemini-2.0-flash"
 GOOGLE_CALENDAR_ID = "prashantmaurya600@gmail.com"
 GOOGLE_APPLICATION_CREDENTIALS = "./service_account.json"
 FIREBASE_DATABASE_ID = "ai-studio-0d9554f0-7614-463d-8270-18fd12dd72e2"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
