@@ -42,7 +42,7 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Auto-tagging:** AI suggests and merges tags.
 - **SPA Deep-Link Hardening:** HTTP middleware serves `index.html` for SPA routes, handling API and static asset exceptions.
 - **Firestore Persistence Strategy:** Prioritizes explicit credentials, then Application Default Credentials, with an in-memory mock as a fallback for development.
-- **Daily Briefing:** AI-generated briefing grounded in recent memories and user stats.
+- **Daily Briefing:** AI-generated briefing grounded in recent memories and user stats. An opt-in scheduler (off by default) auto-delivers each morning's briefing at the user's chosen local hour as an in-app banner (and, when the browser allows, a system notification) so the user never has to open the page. Settings live in `briefing_settings` (per-user toggle / hour / tz offset); the latest unseen briefing is mirrored to `briefing_notifications` and the frontend `BriefingNotifier` polls `/briefing/notification` every 60s.
 - **Per-User Data Scoping:** Multi-tenant isolation across all collections using `X-User-Id` header for data filtering and persistence.
 
 ### Feature Specifications

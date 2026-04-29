@@ -24,6 +24,12 @@ from app.config import settings
 
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
+# Briefing notification settings — keyed by user_id. Values are intentionally
+# small (a toggle, an hour, a tz offset, and the last date we already
+# notified) so the scheduler can scan them cheaply.
+_SETTINGS_COLLECTION = "briefing_settings"
+_NOTIFICATION_COLLECTION = "briefing_notifications"
+
 
 def _today_iso() -> str:
     return datetime.datetime.now(IST).date().isoformat()
@@ -425,3 +431,271 @@ async def generate_recap(period: str = "week") -> Dict[str, Any]:
         "recap": recap_text,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
+
+
+# ── Notification settings ───────────────────────────────────────────────────
+
+DEFAULT_SEND_HOUR = 8
+_VALID_HOURS = set(range(24))
+
+
+def _normalize_settings(raw: Optional[Dict[str, Any]], uid: str) -> Dict[str, Any]:
+    """Return a clean settings dict with safe defaults applied. Settings are
+    intentionally minimal: a toggle, the local hour to deliver at, the
+    user's timezone offset (minutes from UTC, matches `Date.getTimezoneOffset`
+    inverted), and bookkeeping for the scheduler."""
+    raw = raw or {}
+    try:
+        hour = int(raw.get("send_hour", DEFAULT_SEND_HOUR))
+    except Exception:
+        hour = DEFAULT_SEND_HOUR
+    if hour not in _VALID_HOURS:
+        hour = DEFAULT_SEND_HOUR
+    try:
+        # tz_offset_minutes: positive east of UTC. e.g. IST = +330.
+        # Frontend computes -new Date().getTimezoneOffset() so values are sign-correct.
+        tz = int(raw.get("tz_offset_minutes", 330))
+    except Exception:
+        tz = 330
+    if tz < -14 * 60 or tz > 14 * 60:
+        tz = 330
+    return {
+        "user_id": uid,
+        "notifications_enabled": bool(raw.get("notifications_enabled", False)),
+        "send_hour": hour,
+        "tz_offset_minutes": tz,
+        "last_notified_date": str(raw.get("last_notified_date") or ""),
+        "updated_at": str(raw.get("updated_at") or ""),
+    }
+
+
+async def get_briefing_settings(uid: Optional[str] = None) -> Dict[str, Any]:
+    """Return the briefing notification preferences for the current user, or a
+    safe default (notifications off, 8am IST) if none has been saved yet."""
+    user_id = uid or get_uid()
+    db = await get_db()
+    try:
+        snap = await db.collection(_SETTINGS_COLLECTION).document(user_id).get()
+        if getattr(snap, "exists", False):
+            data = snap.to_dict() or {}
+            return _normalize_settings(data, user_id)
+    except Exception as e:
+        print(f"get_briefing_settings error: {e}")
+    return _normalize_settings(None, user_id)
+
+
+async def set_briefing_settings(
+    notifications_enabled: bool,
+    send_hour: Optional[int] = None,
+    tz_offset_minutes: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Persist the user's notification preferences. Only fields the caller
+    supplies are updated; the rest fall back to whatever is already saved
+    (or the defaults from `_normalize_settings`)."""
+    uid = get_uid()
+    current = await get_briefing_settings(uid)
+    merged = dict(current)
+    merged["notifications_enabled"] = bool(notifications_enabled)
+    if send_hour is not None:
+        merged["send_hour"] = send_hour
+    if tz_offset_minutes is not None:
+        merged["tz_offset_minutes"] = tz_offset_minutes
+    merged = _normalize_settings(merged, uid)
+    merged["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    db = await get_db()
+    try:
+        await db.collection(_SETTINGS_COLLECTION).document(uid).set(merged)
+    except Exception as e:
+        print(f"set_briefing_settings error: {e}")
+    return merged
+
+
+async def list_users_with_notifications_enabled() -> List[Dict[str, Any]]:
+    """Scan the settings collection and return everyone who has notifications
+    turned on. Used by the scheduler — kept tiny on purpose so the scan is
+    cheap even if the collection grows."""
+    db = await get_db()
+    out: List[Dict[str, Any]] = []
+    try:
+        try:
+            snap = await db.collection(_SETTINGS_COLLECTION).where(
+                "notifications_enabled", "==", True
+            ).get()
+        except Exception:
+            # Backend doesn't support `.where` (mock) — fall through to full scan.
+            snap = await db.collection(_SETTINGS_COLLECTION).get()
+        for doc in snap:
+            data = doc.to_dict() or {}
+            uid = data.get("user_id") or getattr(doc, "id", "")
+            if not uid:
+                continue
+            if not data.get("notifications_enabled"):
+                continue
+            out.append(_normalize_settings(data, uid))
+    except Exception as e:
+        print(f"list_users_with_notifications_enabled error: {e}")
+    return out
+
+
+async def _persist_notification(uid: str, payload: Dict[str, Any]) -> None:
+    """Upsert the *latest* unread briefing notification for `uid`. We keep one
+    doc per user (keyed by uid) so the in-app banner always shows today's
+    briefing and we don't accumulate stale rows."""
+    db = await get_db()
+    doc = {
+        "user_id": uid,
+        "date": payload.get("date") or "",
+        "executive_summary": (payload.get("executive_summary") or "")[:600],
+        "preview": (payload.get("briefing") or "")[:300],
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "seen": False,
+    }
+    try:
+        await db.collection(_NOTIFICATION_COLLECTION).document(uid).set(doc)
+    except Exception as e:
+        print(f"_persist_notification error: {e}")
+
+
+async def get_pending_notification() -> Optional[Dict[str, Any]]:
+    """Return the latest *unseen* briefing notification for the current user,
+    or None. The frontend polls this and shows a banner / browser notification
+    when a payload is returned."""
+    uid = get_uid()
+    db = await get_db()
+    try:
+        snap = await db.collection(_NOTIFICATION_COLLECTION).document(uid).get()
+        if not getattr(snap, "exists", False):
+            return None
+        data = snap.to_dict() or {}
+        if not belongs_to_current_user(data):
+            return None
+        if data.get("seen"):
+            return None
+        return data
+    except Exception as e:
+        print(f"get_pending_notification error: {e}")
+    return None
+
+
+async def mark_notification_seen() -> Dict[str, Any]:
+    """Flag the current user's latest briefing notification as seen so it
+    stops re-appearing in the banner. Idempotent."""
+    uid = get_uid()
+    db = await get_db()
+    try:
+        snap = await db.collection(_NOTIFICATION_COLLECTION).document(uid).get()
+        if not getattr(snap, "exists", False):
+            return {"ok": True, "had_notification": False}
+        data = snap.to_dict() or {}
+        data["seen"] = True
+        data["seen_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        await db.collection(_NOTIFICATION_COLLECTION).document(uid).set(data)
+    except Exception as e:
+        print(f"mark_notification_seen error: {e}")
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "had_notification": True}
+
+
+# ── Scheduler helpers ───────────────────────────────────────────────────────
+
+def _user_local_now(tz_offset_minutes: int) -> datetime.datetime:
+    """Convert UTC now to the user's local wall-clock using a fixed minute
+    offset (no DST handling — good enough for an 8am notification)."""
+    tz = datetime.timezone(datetime.timedelta(minutes=tz_offset_minutes))
+    return datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
+
+
+def should_send_now(s: Dict[str, Any], now_utc: Optional[datetime.datetime] = None) -> bool:
+    """True if the user's local time is at or past their configured send hour
+    AND we haven't already notified them today. Designed to be called every
+    few minutes so a delayed scheduler tick still catches them — once we
+    notify, `last_notified_date` blocks any duplicates for the day."""
+    if not s.get("notifications_enabled"):
+        return False
+    # Explicit None-check, not `or`, so a user who chose 0 (midnight) or a
+    # timezone offset of exactly 0 (UTC) is honored instead of silently
+    # falling back to the default.
+    raw_tz = s.get("tz_offset_minutes")
+    tz_offset = int(raw_tz) if raw_tz is not None else 330
+    raw_hour = s.get("send_hour")
+    send_hour = int(raw_hour) if raw_hour is not None else DEFAULT_SEND_HOUR
+    tz = datetime.timezone(datetime.timedelta(minutes=tz_offset))
+    base = (now_utc or datetime.datetime.now(datetime.timezone.utc))
+    local = base.astimezone(tz)
+    local_today = local.date().isoformat()
+    if s.get("last_notified_date") == local_today:
+        return False
+    # Send only within an 8-hour window starting at send_hour, so a brief
+    # outage doesn't cause us to skip the day, but a user who turned on
+    # notifications late at night still gets tomorrow's briefing rather
+    # than yesterday's. Handles wrap-around past midnight: e.g. send_hour
+    # 20 means the window is 20:00 → next day 04:00.
+    end_hour = send_hour + 8
+    h = local.hour
+    if end_hour <= 24:
+        if h < send_hour or h >= end_hour:
+            return False
+    else:
+        # Wraps midnight: in window iff hour >= send_hour OR hour < (end_hour-24).
+        if h < send_hour and h >= end_hour - 24:
+            return False
+    return True
+
+
+async def mark_user_notified(uid: str, local_date_iso: str) -> None:
+    """Record that we already pushed a notification to `uid` for the given
+    *local* date so the scheduler won't retry."""
+    db = await get_db()
+    try:
+        snap = await db.collection(_SETTINGS_COLLECTION).document(uid).get()
+        data = snap.to_dict() if getattr(snap, "exists", False) else {}
+        data = data or {}
+        data["user_id"] = uid
+        data["last_notified_date"] = local_date_iso
+        data["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        await db.collection(_SETTINGS_COLLECTION).document(uid).set(data)
+    except Exception as e:
+        print(f"mark_user_notified error: {e}")
+
+
+async def deliver_briefing_notification(uid: str) -> Dict[str, Any]:
+    """Generate (or reuse) today's briefing for `uid` and enqueue an in-app
+    notification. Used by the scheduler and by the manual /briefing/notify-now
+    endpoint so the same code path serves both. Sets the user-context var so
+    every downstream function (which reads `get_uid()`) operates as `uid`."""
+    from app.user_context import current_user_id_var
+    from app.capture_agent import generate_daily_briefing
+
+    token = current_user_id_var.set(uid)
+    try:
+        s = await get_briefing_settings(uid)
+        raw_tz = s.get("tz_offset_minutes")
+        tz_offset = int(raw_tz) if raw_tz is not None else 330
+        local_today = _user_local_now(tz_offset).date().isoformat()
+
+        # Prefer a briefing already saved for the user's local date; fall
+        # back to today-IST (the existing on-demand cache) for anyone close
+        # to that timezone. Only when neither exists do we regenerate, which
+        # keeps the scheduler cheap and avoids a date-skew bug for users far
+        # from IST whose local date crosses a UTC boundary.
+        existing = await get_briefing(local_today)
+        if existing is None and local_today != _today_iso():
+            existing = await get_briefing(_today_iso())
+        if existing:
+            briefing = existing
+        else:
+            briefing = await generate_daily_briefing()
+            try:
+                await save_briefing(briefing, date_iso=local_today)
+            except Exception as e:
+                print(f"deliver_briefing_notification save error: {e}")
+
+        await _persist_notification(uid, {
+            "date": briefing.get("date") or local_today,
+            "executive_summary": briefing.get("executive_summary") or "",
+            "briefing": briefing.get("briefing") or "",
+        })
+        await mark_user_notified(uid, local_today)
+        return {"ok": True, "user_id": uid, "date": local_today}
+    finally:
+        current_user_id_var.reset(token)

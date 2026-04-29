@@ -36,7 +36,13 @@ from app.briefing_agent import (
     toggle_action_item as briefing_toggle_action,
     todays_timeline as briefing_today_timeline,
     generate_recap as briefing_generate_recap,
+    get_briefing_settings as briefing_get_settings,
+    set_briefing_settings as briefing_set_settings,
+    get_pending_notification as briefing_get_notification,
+    mark_notification_seen as briefing_mark_notification_seen,
+    deliver_briefing_notification as briefing_deliver_notification,
 )
+from app.briefing_scheduler import start_scheduler as start_briefing_scheduler, run_once as briefing_scheduler_run_once
 from app.plan_agent import generate_plan, GOAL_TYPES
 from app.workspace_agent import (
     list_projects as ws_list_projects,
@@ -350,6 +356,11 @@ async def startup_event():
         logger.info("Extras (notes, bookmarks, habits) seeded.")
     except Exception as e:
         logger.warning(f"Extras seed skipped: {e}")
+    try:
+        start_briefing_scheduler()
+        logger.info("Daily briefing notification scheduler started.")
+    except Exception as e:
+        logger.warning(f"briefing scheduler start failed: {e}")
     logger.info("Startup complete.")
 
 
@@ -2219,6 +2230,77 @@ async def briefing_recap_endpoint(period: str = "week"):
     if period not in ("week", "month"):
         raise HTTPException(status_code=400, detail="period must be 'week' or 'month'")
     return await briefing_generate_recap(period=period)
+
+
+# --- Daily Briefing — auto-delivery (notification settings + polling) -------
+
+class BriefingSettingsRequest(BaseModel):
+    notifications_enabled: bool
+    send_hour: Optional[int] = None
+    tz_offset_minutes: Optional[int] = None
+
+
+@app.get("/briefing/settings")
+async def briefing_settings_get_endpoint():
+    """Return the current user's briefing notification preferences (toggle,
+    delivery hour, timezone offset). Defaults: off, 8am, IST."""
+    return await briefing_get_settings()
+
+
+@app.post("/briefing/settings")
+async def briefing_settings_set_endpoint(body: BriefingSettingsRequest):
+    """Save the user's briefing notification preferences."""
+    if body.send_hour is not None and (body.send_hour < 0 or body.send_hour > 23):
+        raise HTTPException(status_code=400, detail="send_hour must be between 0 and 23")
+    if body.tz_offset_minutes is not None and (body.tz_offset_minutes < -14 * 60 or body.tz_offset_minutes > 14 * 60):
+        raise HTTPException(status_code=400, detail="tz_offset_minutes out of range")
+    return await briefing_set_settings(
+        notifications_enabled=body.notifications_enabled,
+        send_hour=body.send_hour,
+        tz_offset_minutes=body.tz_offset_minutes,
+    )
+
+
+@app.get("/briefing/notification")
+async def briefing_notification_get_endpoint():
+    """Return the latest unseen briefing notification for the current user
+    (or `{notification: null}` if there isn't one). Polled by the in-app
+    notifier every minute or so."""
+    n = await briefing_get_notification()
+    return {"notification": n}
+
+
+@app.post("/briefing/notification/seen")
+async def briefing_notification_seen_endpoint():
+    """Mark the current user's most recent briefing notification as seen."""
+    return await briefing_mark_notification_seen()
+
+
+@app.post("/briefing/notify-now")
+async def briefing_notify_now_endpoint():
+    """Force-deliver today's briefing notification for the current user.
+    Used for manual testing and as a 'send me my briefing now' button so
+    users don't have to wait for the next 8am tick to see how it looks."""
+    from app.user_context import get_uid
+    uid = get_uid()
+    return await briefing_deliver_notification(uid)
+
+
+@app.post("/briefing/scheduler/run")
+async def briefing_scheduler_run_endpoint(request: Request):
+    """Manually advance the scheduler one tick. This is an admin-only debug
+    hatch — not exposed in production. Set the env var
+    `BRIEFING_SCHEDULER_DEBUG_KEY` and pass the same value in the
+    `X-Debug-Key` header to call it. Without the env var the endpoint
+    returns 404 so an attacker can't enumerate it."""
+    debug_key = os.environ.get("BRIEFING_SCHEDULER_DEBUG_KEY", "").strip()
+    if not debug_key:
+        raise HTTPException(status_code=404, detail="Not found")
+    supplied = (request.headers.get("x-debug-key") or "").strip()
+    if not supplied or supplied != debug_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    delivered = await briefing_scheduler_run_once()
+    return {"delivered": delivered}
 
 
 # --- Notes ---

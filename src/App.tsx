@@ -60,6 +60,7 @@ import {
   Library, Target, Sparkles
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
+import BriefingNotifier from './components/BriefingNotifier';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   auth,
@@ -724,6 +725,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
       {/* Global Toast + FAB */}
       <GlobalToast />
       <QuickCaptureFAB />
+      <BriefingNotifier />
 
       {/* Onboarding Tour */}
       <OnboardingTour open={showTour} onClose={() => setShowTour(false)} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight } from 'lucide-react';
+import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const SettingsView = () => {
@@ -31,6 +31,86 @@ const SettingsView = () => {
   };
 
   useEffect(() => { loadConfig(); }, []);
+
+  // ── Daily briefing notification preferences ────────────────────────────
+  const [briefPrefs, setBriefPrefs] = useState<{ notifications_enabled: boolean; send_hour: number; tz_offset_minutes: number } | null>(null);
+  const [briefSaving, setBriefSaving] = useState(false);
+  const [briefStatus, setBriefStatus] = useState<{ kind: 'ok' | 'err' | 'sent'; msg: string } | null>(null);
+  const [browserPerm, setBrowserPerm] = useState<NotificationPermission | 'unsupported'>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+  );
+
+  useEffect(() => {
+    fetch('/briefing/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setBriefPrefs({
+          notifications_enabled: !!data.notifications_enabled,
+          send_hour: typeof data.send_hour === 'number' ? data.send_hour : 8,
+          tz_offset_minutes: typeof data.tz_offset_minutes === 'number' ? data.tz_offset_minutes : -new Date().getTimezoneOffset(),
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveBriefPrefs = async (next: { notifications_enabled?: boolean; send_hour?: number }) => {
+    if (!briefPrefs) return;
+    const merged = { ...briefPrefs, ...next };
+    setBriefPrefs(merged);
+    setBriefSaving(true);
+    setBriefStatus(null);
+
+    // If the user is turning notifications ON and the browser hasn't granted
+    // permission yet, ask now. We still save the preference either way so the
+    // in-app banner works even when system notifications are blocked.
+    if (next.notifications_enabled && browserPerm === 'default' && 'Notification' in window) {
+      try {
+        const result = await Notification.requestPermission();
+        setBrowserPerm(result);
+      } catch {}
+    }
+
+    try {
+      const res = await fetch('/briefing/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notifications_enabled: merged.notifications_enabled,
+          send_hour: merged.send_hour,
+          tz_offset_minutes: -new Date().getTimezoneOffset(),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setBriefPrefs({
+        notifications_enabled: !!data.notifications_enabled,
+        send_hour: data.send_hour ?? merged.send_hour,
+        tz_offset_minutes: data.tz_offset_minutes ?? merged.tz_offset_minutes,
+      });
+      setBriefStatus({ kind: 'ok', msg: 'Saved.' });
+    } catch (e) {
+      setBriefStatus({ kind: 'err', msg: 'Could not save preferences. Try again.' });
+    } finally {
+      setBriefSaving(false);
+    }
+  };
+
+  const sendNow = async () => {
+    setBriefSaving(true);
+    setBriefStatus(null);
+    try {
+      const res = await fetch('/briefing/notify-now', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setBriefStatus({ kind: 'sent', msg: "Today's briefing is on its way — watch for the banner." });
+      // Nudge the in-app notifier so the banner shows up immediately
+      // instead of waiting for the next 60-second poll.
+      try { window.dispatchEvent(new CustomEvent('recall-briefing-poll')); } catch {}
+    } catch {
+      setBriefStatus({ kind: 'err', msg: 'Could not send briefing right now.' });
+    } finally {
+      setBriefSaving(false);
+    }
+  };
 
   const handleTestAI = async () => {
     setIsTesting(true);
@@ -209,6 +289,84 @@ const SettingsView = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Daily Briefing notifications */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+        className="view-card" style={{ marginTop: 20, padding: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {briefPrefs?.notifications_enabled ? <Bell size={16} color="#8b5cf6" /> : <BellOff size={16} color="#8b5cf6" />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 3px' }}>Daily Briefing notifications</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
+              Get a heads-up each morning with today's executive summary — no need to open the page.
+            </p>
+          </div>
+          {/* Toggle */}
+          <button
+            disabled={briefSaving || !briefPrefs}
+            onClick={() => saveBriefPrefs({ notifications_enabled: !briefPrefs!.notifications_enabled })}
+            aria-pressed={!!briefPrefs?.notifications_enabled}
+            aria-label="Toggle daily briefing notifications"
+            style={{
+              width: 44, height: 24, borderRadius: 999,
+              background: briefPrefs?.notifications_enabled ? '#8b5cf6' : 'var(--surface-3)',
+              border: '1px solid var(--border)', cursor: briefSaving || !briefPrefs ? 'wait' : 'pointer',
+              padding: 0, position: 'relative', transition: 'background 0.18s', flexShrink: 0,
+            }}>
+            <span style={{
+              position: 'absolute', top: 2, left: briefPrefs?.notifications_enabled ? 22 : 2,
+              width: 18, height: 18, borderRadius: '50%', background: '#fff',
+              transition: 'left 0.18s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }} />
+          </button>
+        </div>
+
+        {briefPrefs?.notifications_enabled && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <label htmlFor="briefing-hour" style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>Deliver at</label>
+              <select
+                id="briefing-hour"
+                value={briefPrefs.send_hour}
+                disabled={briefSaving}
+                onChange={(e) => saveBriefPrefs({ send_hour: parseInt(e.target.value, 10) })}
+                style={{ padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer' }}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{h.toString().padStart(2, '0')}:00</option>
+                ))}
+              </select>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                your local time ({Intl.DateTimeFormat().resolvedOptions().timeZone || 'browser timezone'})
+              </span>
+            </div>
+            <button onClick={sendNow} disabled={briefSaving} className="btn-secondary"
+              style={{ alignSelf: 'flex-start', fontSize: 12, padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Send size={12} /> Send me a test notification now
+            </button>
+            {browserPerm === 'denied' && (
+              <p style={{ fontSize: 11, color: '#f59e0b', margin: 0 }}>
+                Browser notifications are blocked. You'll still see the in-app banner — to also get a system notification, allow notifications for this site in your browser settings.
+              </p>
+            )}
+            {browserPerm === 'default' && (
+              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: 0 }}>
+                We'll ask permission to show a system notification the next time you save these settings.
+              </p>
+            )}
+          </div>
+        )}
+
+        {briefStatus && (
+          <p style={{
+            margin: '10px 0 0', fontSize: 11, fontWeight: 600,
+            color: briefStatus.kind === 'err' ? '#ef4444' : (briefStatus.kind === 'sent' ? '#06b6d4' : '#10b981'),
+          }}>
+            {briefStatus.msg}
+          </p>
+        )}
+      </motion.div>
 
       {/* Pitch Deck — promoted from sidebar to a Settings entry */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
