@@ -156,7 +156,7 @@ const Sidebar = ({
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-            <ChevronLeft size={15} style={{ transform: 'rotate(180deg)' }} />
+            <ChevronLeft size={16} strokeWidth={1.75} style={{ transform: 'rotate(180deg)' }} />
           </button>
         ) : (
           <>
@@ -165,7 +165,7 @@ const Sidebar = ({
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} strokeWidth={1.75} />
             </button>
           </>
         )}
@@ -188,7 +188,7 @@ const Sidebar = ({
           {/* ── PINNED ESSENTIALS — always visible, prominent ───────────────── */}
           {!isCollapsed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 6px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>
-              <Pin size={9} /> Essentials
+              <Pin size={12} strokeWidth={1.75} /> Essentials
             </div>
           )}
           {isCollapsed && <div style={{ height: 4 }} />}
@@ -198,8 +198,8 @@ const Sidebar = ({
               <button key={id} onClick={() => navigate(path)} title={isCollapsed ? `${label} — ${desc}` : desc}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: isCollapsed ? '10px 0' : '8px 10px',
-                  borderRadius: 10, border: 'none',
+                  padding: isCollapsed ? '8px 0' : '8px 10px',
+                  borderRadius: 9, border: 'none',
                   background: active ? `${color}15` : 'transparent',
                   cursor: 'pointer', transition: 'all 0.15s ease',
                   position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
@@ -207,19 +207,11 @@ const Sidebar = ({
                 }}
                 onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; } }}
                 onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; } }}>
-                {active && <div style={{ position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
-                <div style={{
-                  width: isCollapsed ? 26 : 28, height: isCollapsed ? 26 : 28, borderRadius: 8,
-                  background: active ? color : `${color}18`,
-                  border: active ? 'none' : `1px solid ${color}30`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  transition: 'all 0.15s',
-                }}>
-                  <Icon size={14} color={active ? '#fff' : color} strokeWidth={2.2} />
-                </div>
+                {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
+                <Icon size={16} color={color} strokeWidth={1.75} style={{ flexShrink: 0, opacity: active ? 1 : 0.85 }} />
                 {!isCollapsed && (
                   <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                    <div style={{ color: active ? 'var(--text-1)' : 'var(--text-1)', fontSize: 13, fontWeight: active ? 700 : 600, lineHeight: 1.15, letterSpacing: '-0.1px' }}>{label}</div>
+                    <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: active ? 700 : 600, lineHeight: 1.15, letterSpacing: '-0.1px' }}>{label}</div>
                     <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</div>
                   </div>
                 )}
@@ -248,9 +240,9 @@ const Sidebar = ({
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                    <GroupIcon size={11} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
+                    <GroupIcon size={12} strokeWidth={1.75} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
                     <span style={{ flex: 1, textAlign: 'left', color: containsActive ? 'var(--text-2)' : 'var(--text-3)' }}>{group.label}</span>
-                    {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                    {open ? <ChevronDown size={12} strokeWidth={1.75} /> : <ChevronRight size={12} strokeWidth={1.75} />}
                   </button>
                 ) : (
                   <div style={{ height: 8, borderTop: '1px solid var(--border)', margin: '6px 8px 4px' }} />
@@ -280,7 +272,7 @@ const Sidebar = ({
                             onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
                             onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
                             {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
-                            <Icon size={13} color={active ? 'var(--primary)' : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
+                            <Icon size={16} strokeWidth={1.75} color={active ? 'var(--primary)' : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
                             {!isCollapsed && <span style={{ color: active ? 'var(--primary)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
                           </button>
                         );
@@ -310,7 +302,7 @@ const Sidebar = ({
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
                   {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
-                  <Icon size={14} color={active ? color : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
+                  <Icon size={16} strokeWidth={1.75} color={color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
                   {!isCollapsed && <span style={{ color: active ? 'var(--text-1)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
                 </button>
               );
@@ -333,7 +325,7 @@ const Sidebar = ({
                     }}
                     onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
                     onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
-                    <Icon size={13} />
+                    <Icon size={16} strokeWidth={1.75} />
                     <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.2px' }}>{label.split(' ')[0]}</span>
                   </button>
                 );
@@ -354,7 +346,7 @@ const Sidebar = ({
                     }}
                     onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
                     onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
-                    <Icon size={13} />
+                    <Icon size={16} strokeWidth={1.75} />
                   </button>
                 );
               })}
@@ -390,7 +382,7 @@ const Sidebar = ({
               style={{ padding: 5, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-              <LogOut size={13} />
+              <LogOut size={16} strokeWidth={1.75} />
             </button>
           )}
         </div>
@@ -399,7 +391,7 @@ const Sidebar = ({
             style={{ width: '100%', marginTop: 6, padding: '5px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-            <LogOut size={13} />
+            <LogOut size={16} strokeWidth={1.75} />
           </button>
         )}
       </div>
