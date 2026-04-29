@@ -8,6 +8,9 @@ I prefer detailed explanations.
 I want iterative development.
 Ask before making major changes.
 
+## Recent Fixes (Apr 29, 2026)
+- **Recall AI source-type intent:** `app/recall_agent.py` now detects when a user mentions a specific source (YouTube/web/note/PDF) in their query and returns ONLY items of that type. Previously, "What are the key points from my YouTube videos?" returned a "Building a Second Brain" note because tag-based search missed the intent. Tier 0 now hard-filters by `source_type` first, with fallback to general search if zero items match (handles false positives like "how to film a video for marketing").
+
 ## System Architecture
 The application employs a multi-agent AI architecture with a central orchestrator.
 
