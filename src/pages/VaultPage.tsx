@@ -205,14 +205,21 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
           const missing = ids.filter(id => !memories.some(m => m.id === id));
           if (missing.length) {
             const fetched = await Promise.all(missing.map(id => fetch(`/memories/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)));
-            const valid = fetched.filter(Boolean);
+            // Honour the active domain + source-type constraints — otherwise
+            // deep-search fans out across the user's whole library and ignores
+            // the filter strip the user just set.
+            const valid = (fetched.filter(Boolean) as Memory[]).filter(m => {
+              if (domainFilter && m.domain !== domainFilter) return false;
+              if (sourceTypeFilter && m.source_type !== sourceTypeFilter) return false;
+              return true;
+            });
             if (valid.length) setMemories(prev => [...valid, ...prev]);
           }
         }
       } catch { setDeepResults({}); }
     }, 350);
     return () => clearTimeout(t);
-  }, [deepMode, filter]);
+  }, [deepMode, filter, domainFilter, sourceTypeFilter, memories]);
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

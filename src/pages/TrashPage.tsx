@@ -90,18 +90,30 @@ const TrashPage: React.FC = () => {
     const entities: Entity[] = ['memory', 'note', 'bookmark'];
     setBusy(true);
     let total = 0;
+    const failed: Entity[] = [];
     try {
       for (const e of entities) {
         const ids = Array.from(selected[e]);
         if (!ids.length) continue;
-        const r = await fetch(`/trash/${path}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entity: e, ids }),
-        });
-        const j = await r.json().catch(() => ({}));
-        total += (j.restored ?? j.purged ?? 0);
+        try {
+          const r = await fetch(`/trash/${path}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity: e, ids }),
+          });
+          if (!r.ok) { failed.push(e); continue; }
+          const j = await r.json().catch(() => ({}));
+          total += (j.restored ?? j.purged ?? 0);
+        } catch {
+          failed.push(e);
+        }
       }
-      showToast(path === 'restore' ? `Restored ${total} item${total === 1 ? '' : 's'}` : `Deleted ${total} item${total === 1 ? '' : 's'} forever`);
+      if (failed.length) {
+        const verb = path === 'restore' ? 'Restore' : 'Delete';
+        const labels = failed.map(e => ENTITY_META[e].label.toLowerCase()).join(', ');
+        showToast(`${verb} failed for ${labels}${total ? ` — ${total} other item${total === 1 ? '' : 's'} succeeded` : ''}`, 'error');
+      } else {
+        showToast(path === 'restore' ? `Restored ${total} item${total === 1 ? '' : 's'}` : `Deleted ${total} item${total === 1 ? '' : 's'} forever`);
+      }
       clearSel();
       load();
     } finally { setBusy(false); }
