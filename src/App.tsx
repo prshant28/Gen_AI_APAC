@@ -105,72 +105,42 @@ import LearnPage from './pages/LearnPage';
 import InsightsPage from './pages/InsightsPage';
 import './pages/pages.css';
 
-// ── Pinned essentials — the 4 daily-driver pages, always visible at the top ──
-const PINNED_NAV = [
-  { id: 'dashboard', label: 'Dashboard',      desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
-  { id: 'briefing',  label: 'Daily Briefing', desc: 'Today, with audio & actions', path: '/briefing',  icon: Sparkles,        color: '#8b5cf6' },
-  { id: 'library',   label: 'Library',        desc: 'Vault, notes, files & inbox', path: '/library',   icon: Library,         color: '#f472b6' },
-  { id: 'recall',    label: 'Recall AI',      desc: 'Ask & get answers',           path: '/recall',    icon: Bot,             color: '#00d4ff' },
-  { id: 'agent',     label: 'Agent Hub',      desc: 'Multi-agent workflows',       path: '/agent',     icon: Cpu,             color: '#a78bfa' },
+// ── Core nav — the 5 daily-driver pages, each with a keyboard shortcut ──────
+const CORE_NAV = [
+  { id: 'dashboard', label: 'Dashboard',      desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6', shortcut: '1' },
+  { id: 'briefing',  label: 'Daily Briefing', desc: 'Today, with audio & actions', path: '/briefing',  icon: Sparkles,        color: '#8b5cf6', shortcut: '2' },
+  { id: 'library',   label: 'Library',        desc: 'Vault, notes, files & inbox', path: '/library',   icon: Library,         color: '#f472b6', shortcut: '3' },
+  { id: 'recall',    label: 'Recall AI',      desc: 'Ask & get answers',           path: '/recall',    icon: Bot,             color: '#00d4ff', shortcut: '4' },
+  { id: 'agent',     label: 'Agent Hub',      desc: 'Multi-agent workflows',       path: '/agent',     icon: Cpu,             color: '#a78bfa', shortcut: '5' },
 ];
 
-// ── Collapsible groups — secondary features, organized by intent ───────────
-const NAV_GROUPS = [
-  {
-    id: 'workspace',
-    label: 'Workspace',
-    icon: Kanban,
-    items: [
-      { id: 'workspace', label: 'Projects', path: '/workspace', icon: Kanban,       color: '#f59e0b' },
-      { id: 'focus',     label: 'Focus',    path: '/focus',     icon: Target,       color: '#10b981' },
-      { id: 'calendar',  label: 'Calendar', path: '/calendar',  icon: CalendarIcon, color: '#818cf8' },
-    ]
-  },
+// ── Tools nav — workspace + learning destinations, always flat ──────────────
+const TOOLS_NAV = [
+  { id: 'workspace', label: 'Projects',  path: '/workspace', icon: Kanban,        color: '#f59e0b' },
+  { id: 'focus',     label: 'Focus',     path: '/focus',     icon: Target,        color: '#10b981' },
+  { id: 'calendar',  label: 'Calendar',  path: '/calendar',  icon: CalendarIcon,  color: '#818cf8' },
+  { id: 'learn',     label: 'Learn',     path: '/learn',     icon: GraduationCap, color: '#7c3aed' },
+  { id: 'discover',  label: 'Discover',  path: '/discover',  icon: Compass,       color: '#06b6d4' },
+  { id: 'insights',  label: 'Insights',  path: '/insights',  icon: BarChart2,     color: '#34d399' },
 ];
 
-// ── Flat nav — top-level destinations rendered between groups and footer ───
-const FLAT_NAV = [
-  { id: 'learn',    label: 'Learn',    path: '/learn',    icon: GraduationCap, color: '#7c3aed' },
-  { id: 'discover', label: 'Discover', path: '/discover', icon: Compass,       color: '#06b6d4' },
-  { id: 'insights', label: 'Insights', path: '/insights', icon: BarChart2,     color: '#10b981' },
-];
-
-// ── Footer — system/admin pages, demoted to small icons at the bottom ──────
-const FOOTER_NAV = [
+// ── System nav — settings & integrations as proper nav rows ─────────────────
+const SYSTEM_NAV = [
+  { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings, color: '#94a3b8' },
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,     color: '#22d3ee' },
-  { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings, color: '#6b7280' },
 ];
-
-const NAV_OPEN_KEY = 'recall-x247-nav-open-v1';
-
-const loadOpenGroups = (): Record<string, boolean> => {
-  try {
-    const raw = localStorage.getItem(NAV_OPEN_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  // First-time defaults: only "Workspace" is open. Keeps initial nav clean.
-  return { workspace: true };
-};
 
 const Sidebar = ({
   isCollapsed, setIsCollapsed, user, onSignOut,
 }: {
   isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
-  user: any; onSignOut: () => void;
+  user: { displayName?: string; email?: string; photoURL?: string } | null;
+  onSignOut: () => void;
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const navRef = useRef<HTMLElement>(null);
   const [canScrollDown, setCanScrollDown] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(loadOpenGroups);
-
-  const toggleGroup = (id: string) => {
-    setOpenGroups(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      try { localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
 
   const checkScroll = useCallback(() => {
     const el = navRef.current;
@@ -185,265 +155,232 @@ const Sidebar = ({
     el.addEventListener('scroll', checkScroll);
     window.addEventListener('resize', checkScroll);
     return () => { el.removeEventListener('scroll', checkScroll); window.removeEventListener('resize', checkScroll); };
-  }, [checkScroll, isCollapsed, openGroups]);
-
-  // If a group contains the active route, auto-expand it (so the user sees where they are)
-  useEffect(() => {
-    const groupForActive = NAV_GROUPS.find(g => g.items.some(i => i.path === location.pathname));
-    if (groupForActive && !openGroups[groupForActive.id]) {
-      setOpenGroups(prev => ({ ...prev, [groupForActive.id]: true }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [checkScroll, isCollapsed]);
 
   const isActive = (path: string) =>
     location.pathname === path || (path === '/dashboard' && location.pathname === '/');
 
+  const NavItem = ({
+    id, label, path, icon: Icon, color, shortcut, desc,
+  }: {
+    id: string; label: string; path: string; icon: React.ElementType;
+    color: string; shortcut?: string; desc?: string;
+  }) => {
+    const active = isActive(path);
+    const [hovered, setHovered] = useState(false);
+    const bg = active ? `${color}18` : hovered ? 'var(--surface-2)' : 'transparent';
+    const shadow = active ? `inset 0 0 0 1px ${color}28` : 'none';
+    return (
+      <button
+        key={id}
+        onClick={() => navigate(path)}
+        title={isCollapsed ? (desc ? `${label} — ${desc}` : label) : undefined}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: isCollapsed ? '9px 0' : '7px 10px',
+          borderRadius: 9, border: 'none',
+          background: bg,
+          boxShadow: shadow,
+          cursor: 'pointer',
+          transition: 'background 0.14s ease, box-shadow 0.14s ease',
+          position: 'relative',
+          justifyContent: isCollapsed ? 'center' : 'flex-start',
+          width: '100%', marginBottom: 1,
+          fontFamily: 'inherit',
+        }}>
+        {/* Left accent bar for active state */}
+        {active && (
+          <div style={{
+            position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3,
+            background: `linear-gradient(to bottom, ${color}, ${color}88)`,
+            borderRadius: '0 3px 3px 0',
+          }} />
+        )}
+        {/* Icon with colored container when active */}
+        <div style={{
+          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: active ? `${color}22` : 'transparent',
+          transition: 'background 0.14s ease',
+        }}>
+          <Icon size={15} color={active ? color : hovered ? 'var(--text-2)' : 'var(--text-3)'} strokeWidth={active ? 2 : 1.75} />
+        </div>
+        {!isCollapsed && (
+          <>
+            <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+              <div style={{
+                color: active ? 'var(--text-1)' : 'var(--text-2)',
+                fontSize: 13, fontWeight: active ? 700 : 500,
+                lineHeight: 1.2, letterSpacing: active ? '-0.2px' : '-0.1px',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>{label}</div>
+              {desc && (
+                <div style={{
+                  color: 'var(--text-3)', fontSize: 10.5, marginTop: 1,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  opacity: active ? 0.9 : 0.7,
+                }}>{desc}</div>
+              )}
+            </div>
+            {shortcut && (
+              <span style={{
+                fontSize: 9.5, fontWeight: 600, color: active ? color : 'var(--text-3)',
+                opacity: active ? 0.8 : 0.55,
+                background: active ? `${color}14` : 'var(--surface-3)',
+                border: `1px solid ${active ? color + '28' : 'var(--border)'}`,
+                borderRadius: 5, padding: '1px 5px', flexShrink: 0,
+                letterSpacing: '0.3px',
+              }}>⌘{shortcut}</span>
+            )}
+          </>
+        )}
+      </button>
+    );
+  };
+
+  const SectionLabel = ({ label }: { label: string }) => (
+    !isCollapsed ? (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 10px 4px', marginTop: 2,
+      }}>
+        <span style={{
+          color: 'var(--text-3)', fontSize: 9, fontWeight: 700,
+          letterSpacing: '1.5px', textTransform: 'uppercase', flexShrink: 0,
+        }}>{label}</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)', opacity: 0.6 }} />
+      </div>
+    ) : (
+      <div style={{ height: 1, background: 'var(--border)', margin: '8px 10px', opacity: 0.5 }} />
+    )
+  );
+
   return (
     <div style={{ width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Logo + collapse toggle */}
-      <div style={{ padding: isCollapsed ? '12px 0' : '14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', flexShrink: 0, minHeight: 56 }}>
+
+      {/* ── Header: logo + collapse toggle ─────────────────────────────────── */}
+      <div style={{
+        padding: isCollapsed ? '13px 0' : '13px 14px',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center',
+        justifyContent: isCollapsed ? 'center' : 'space-between',
+        flexShrink: 0, minHeight: 54,
+      }}>
         {isCollapsed ? (
           <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-            <ChevronLeft size={16} strokeWidth={1.75} style={{ transform: 'rotate(180deg)' }} />
+            <ChevronRight size={15} strokeWidth={2} />
           </button>
         ) : (
           <>
             <img src="/x247-logo.png" alt="x247 AI" className="x247-logo-img" draggable={false} style={{ height: 22, width: 'auto' }} />
             <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 7, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-              <ChevronLeft size={16} strokeWidth={1.75} />
+              <ChevronLeft size={15} strokeWidth={2} />
             </button>
           </>
         )}
       </div>
 
-      {/* Status pill */}
-      {!isCollapsed && (
-        <div style={{ margin: '10px 12px 4px', padding: '5px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0, boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
-          <span style={{ color: '#10b981', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.2px' }}>System Ready</span>
-        </div>
-      )}
-      {isCollapsed && (
-        <div style={{ margin: '8px auto 0', width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.5)', flexShrink: 0 }} />
-      )}
-
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <nav ref={navRef} style={{ flex: 1, padding: '8px', overflowY: 'auto', overflowX: 'hidden' }} className="sidebar-nav">
-
-          {/* ── PINNED ESSENTIALS — always visible, prominent ───────────────── */}
-          {!isCollapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 6px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>
-              <Pin size={16} strokeWidth={1.75} /> Essentials
-            </div>
-          )}
-          {isCollapsed && <div style={{ height: 4 }} />}
-          {PINNED_NAV.map(({ id, label, desc, path, icon: Icon, color }) => {
-            const active = isActive(path);
-            return (
-              <button key={id} onClick={() => navigate(path)} title={isCollapsed ? `${label} — ${desc}` : desc}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: isCollapsed ? '8px 0' : '8px 10px',
-                  borderRadius: 9, border: 'none',
-                  background: active ? `${color}15` : 'transparent',
-                  cursor: 'pointer', transition: 'all 0.15s ease',
-                  position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
-                  flexShrink: 0, width: '100%', marginBottom: 2,
-                }}
-                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; } }}
-                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; } }}>
-                {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
-                <Icon size={16} color={color} strokeWidth={1.75} style={{ flexShrink: 0, opacity: active ? 1 : 0.85 }} />
-                {!isCollapsed && (
-                  <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                    <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: active ? 700 : 600, lineHeight: 1.15, letterSpacing: '-0.1px' }}>{label}</div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-
-          {/* ── COLLAPSIBLE GROUPS — secondary features ──────────────────────── */}
-          {NAV_GROUPS.map(group => {
-            const GroupIcon = group.icon;
-            const open = !!openGroups[group.id];
-            const containsActive = group.items.some(i => isActive(i.path));
-            return (
-              <div key={group.id} style={{ marginTop: 10 }}>
-                {!isCollapsed ? (
-                  <button onClick={() => toggleGroup(group.id)}
-                    aria-expanded={open}
-                    aria-controls={`nav-group-${group.id}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '6px 8px', borderRadius: 7, border: 'none',
-                      background: 'transparent', cursor: 'pointer',
-                      color: 'var(--text-3)', fontSize: 9.5, letterSpacing: '1.5px',
-                      textTransform: 'uppercase', fontWeight: 700, fontFamily: 'inherit',
-                      transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                    <GroupIcon size={16} strokeWidth={1.75} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
-                    <span style={{ flex: 1, textAlign: 'left', color: containsActive ? 'var(--text-2)' : 'var(--text-3)' }}>{group.label}</span>
-                    {open ? <ChevronDown size={16} strokeWidth={1.75} /> : <ChevronRight size={16} strokeWidth={1.75} />}
-                  </button>
-                ) : (
-                  <div style={{ height: 8, borderTop: '1px solid var(--border)', margin: '6px 8px 4px' }} />
-                )}
-                <AnimatePresence initial={false}>
-                  {(open || isCollapsed) && (
-                    <motion.div
-                      id={`nav-group-${group.id}`}
-                      initial={isCollapsed ? false : { height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      style={{ overflow: 'hidden' }}>
-                      {group.items.map(({ id, label, path, icon: Icon, color }) => {
-                        const active = isActive(path);
-                        return (
-                          <button key={id} onClick={() => navigate(path)} title={isCollapsed ? label : undefined}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 9,
-                              padding: isCollapsed ? '8px 0' : '6.5px 10px 6.5px 14px',
-                              borderRadius: 8, border: 'none',
-                              background: active ? 'var(--primary-bg)' : 'transparent',
-                              cursor: 'pointer', transition: 'all 0.15s ease',
-                              position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
-                              flexShrink: 0, width: '100%', marginBottom: 1,
-                            }}
-                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
-                            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                            {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: 'var(--primary)', borderRadius: '0 3px 3px 0' }} />}
-                            <Icon size={16} strokeWidth={1.75} color={active ? 'var(--primary)' : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
-                            {!isCollapsed && <span style={{ color: active ? 'var(--primary)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-
-          {/* ── FLAT NAV — top-level destinations ──────────────────────────── */}
-          <div style={{ marginTop: 10 }}>
-            {FLAT_NAV.map(({ id, label, path, icon: Icon, color }) => {
-              const active = isActive(path);
-              return (
-                <button key={id} onClick={() => navigate(path)} title={isCollapsed ? label : undefined}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: isCollapsed ? '8px 0' : '7px 10px',
-                    borderRadius: 9, border: 'none',
-                    background: active ? `${color}15` : 'transparent',
-                    cursor: 'pointer', transition: 'all 0.15s ease',
-                    position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
-                    flexShrink: 0, width: '100%', marginBottom: 2,
-                  }}
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                  {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
-                  <Icon size={16} strokeWidth={1.75} color={color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
-                  {!isCollapsed && <span style={{ color: active ? 'var(--text-1)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
-                </button>
-              );
-            })}
+      {/* ── System Ready badge ──────────────────────────────────────────────── */}
+      {!isCollapsed ? (
+        <div style={{
+          margin: '10px 10px 2px',
+          padding: '6px 10px',
+          background: 'rgba(16,185,129,0.07)',
+          border: '1px solid rgba(16,185,129,0.18)',
+          borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: 8,
+          flexShrink: 0,
+        }}>
+          <div style={{ position: 'relative', width: 7, height: 7, flexShrink: 0 }}>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 5px rgba(16,185,129,0.7)', animation: 'sidebarPulse 2.4s ease-in-out infinite' }} />
           </div>
+          <span style={{ color: '#10b981', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.15px', flex: 1 }}>System Ready</span>
+          <span style={{ color: 'var(--text-3)', fontSize: 9.5 }}>
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+      ) : (
+        <div title="System Ready" style={{ margin: '10px auto 2px', width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.6)', flexShrink: 0, animation: 'sidebarPulse 2.4s ease-in-out infinite' }} />
+      )}
 
-          {/* ── FOOTER ICONS — system pages, demoted ─────────────────────────── */}
-          {!isCollapsed && (
-            <div style={{ marginTop: 14, padding: '8px 8px 4px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', gap: 4 }}>
-              {FOOTER_NAV.map(({ id, label, path, icon: Icon }) => {
-                const active = isActive(path);
-                return (
-                  <button key={id} onClick={() => navigate(path)} title={label}
-                    style={{
-                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                      padding: '7px 4px', background: active ? 'var(--primary-bg)' : 'transparent',
-                      border: 'none', borderRadius: 8, cursor: 'pointer',
-                      transition: 'all 0.15s', color: active ? 'var(--primary)' : 'var(--text-3)',
-                      fontFamily: 'inherit',
-                    }}
-                    onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
-                    onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
-                    <Icon size={16} strokeWidth={1.75} />
-                    <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.2px' }}>{label.split(' ')[0]}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {isCollapsed && (
-            <div style={{ marginTop: 10, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-              {FOOTER_NAV.map(({ id, label, path, icon: Icon }) => {
-                const active = isActive(path);
-                return (
-                  <button key={id} onClick={() => navigate(path)} title={label}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      padding: '8px 0', background: active ? 'var(--primary-bg)' : 'transparent',
-                      border: 'none', borderRadius: 8, cursor: 'pointer',
-                      transition: 'all 0.15s', color: active ? 'var(--primary)' : 'var(--text-3)', marginBottom: 2,
-                    }}
-                    onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'; } }}
-                    onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; } }}>
-                    <Icon size={16} strokeWidth={1.75} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {/* ── Scrollable nav area ─────────────────────────────────────────────── */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <nav ref={navRef} style={{ flex: 1, padding: '6px 6px 8px', overflowY: 'auto', overflowX: 'hidden' }} className="sidebar-nav">
+
+          {/* Core destinations */}
+          <div style={{ height: 4 }} />
+          {CORE_NAV.map(item => <NavItem key={item.id} {...item} />)}
+
+          {/* Tools section */}
+          <SectionLabel label="Tools" />
+          {TOOLS_NAV.map(item => <NavItem key={item.id} {...item} />)}
+
+          {/* System section */}
+          <SectionLabel label="System" />
+          {SYSTEM_NAV.map(item => <NavItem key={item.id} {...item} />)}
+
         </nav>
+
+        {/* Scroll-more fade hint */}
         {!isCollapsed && canScrollDown && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 2, pointerEvents: 'none' }}>
-            <ChevronDown size={16} strokeWidth={1.75} color="var(--text-3)" style={{ opacity: 0.45 }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 3, pointerEvents: 'none' }}>
+            <ChevronDown size={14} strokeWidth={2} color="var(--text-3)" style={{ opacity: 0.4 }} />
           </div>
         )}
       </div>
 
-      {/* Profile footer */}
-      <div style={{ padding: isCollapsed ? '8px 6px 10px' : '8px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <div onClick={() => navigate('/profile')} title="Open profile" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isCollapsed ? '5px' : '6px 8px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', justifyContent: isCollapsed ? 'center' : 'flex-start', cursor: 'pointer', transition: 'all 0.15s' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary-border)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}>
+      {/* ── Profile footer ──────────────────────────────────────────────────── */}
+      <div style={{ padding: isCollapsed ? '8px 6px 10px' : '8px 8px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <div
+          onClick={() => navigate('/profile')}
+          title={isCollapsed ? 'Profile' : 'Open profile'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: isCollapsed ? '6px' : '7px 9px',
+            borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(99,102,241,0.35)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-3)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'; }}>
           {user?.photoURL
-            ? <img src={user.photoURL} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid var(--primary-border)' }} />
-            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#2563eb,#1e3a8a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px' }}>
+            ? <img src={user.photoURL} alt="avatar" style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: '2px solid rgba(99,102,241,0.3)' }} />
+            : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '-0.3px', border: '2px solid rgba(99,102,241,0.3)' }}>
                 {user?.displayName?.[0]?.toUpperCase() ?? 'U'}
               </div>
           }
           {!isCollapsed && (
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.displayName ?? 'User'}</div>
-              <div style={{ color: 'var(--text-3)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email ?? ''}</div>
-            </div>
-          )}
-          {!isCollapsed && (
-            <button onClick={e => { e.stopPropagation(); onSignOut(); }} title="Sign out"
-              style={{ padding: 5, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-              <LogOut size={16} strokeWidth={1.75} />
-            </button>
+            <>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>{user?.displayName ?? 'User'}</div>
+                <div style={{ color: 'var(--text-3)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>{user?.email ?? ''}</div>
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); onSignOut(); }}
+                title="Sign out"
+                style={{ padding: 5, background: 'transparent', border: 'none', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
+                <LogOut size={14} strokeWidth={2} />
+              </button>
+            </>
           )}
         </div>
         {isCollapsed && (
           <button onClick={onSignOut} title="Sign out"
-            style={{ width: '100%', marginTop: 6, padding: '5px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+            style={{ width: '100%', marginTop: 5, padding: '5px', background: 'transparent', border: 'none', borderRadius: 7, cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-            <LogOut size={16} strokeWidth={1.75} />
+            <LogOut size={14} strokeWidth={2} />
           </button>
         )}
       </div>
@@ -452,10 +389,9 @@ const Sidebar = ({
 };
 
 const ALL_NAV = [
-  ...PINNED_NAV.map(p => ({ ...p, color: p.color })),
-  ...NAV_GROUPS.flatMap(g => g.items),
-  ...FLAT_NAV,
-  ...FOOTER_NAV,
+  ...CORE_NAV,
+  ...TOOLS_NAV,
+  ...SYSTEM_NAV,
 ];
 
 /* ─────────────────────────────────────────────
