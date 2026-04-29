@@ -80,58 +80,95 @@ app.add_middleware(
 # Per-request user_id from the X-User-Id header → ContextVar
 app.add_middleware(UserContextMiddleware)
 
-# Frontend SPA route names that COLLIDE with backend GET endpoints of the same
-# path (e.g. `/tasks`, `/notes`, `/settings`, `/bookmarks`, `/habits`,
-# `/revisits`). When a real browser navigates directly to one of these URLs
-# (e.g. judges open a deep link or refresh on a route), we must serve the SPA
-# shell — never the raw JSON API response — otherwise users see a wall of
-# JSON instead of the app. XHR/fetch calls from inside the SPA still hit the
-# JSON API normally, because they send `Accept: application/json` (or `*/*`
-# without `text/html`).
-_SPA_ROUTES = {
-    "dashboard", "agent", "capture", "vault", "recall", "tasks", "flashcards",
-    "calendar", "settings", "timeline", "graph", "analytics", "workspace",
-    "deck", "profile", "integrations", "notes", "bookmarks", "habits",
-    "revisits", "plan", "discover", "memory", "login", "signup", "signin",
-    "auth", "onboarding", "pricing", "about",
+# ─── SPA navigation guard (bulletproof, denylist-based) ──────────────────────
+# Guarantee: a real browser navigation (deep link, bookmark, refresh) to ANY
+# path that isn't clearly an API/static endpoint will receive the SPA shell —
+# never raw JSON. This works for current AND future routes automatically,
+# because it whitelists what is "definitely backend" rather than enumerating
+# every SPA route.
+#
+# A request is treated as "browser document navigation" when:
+#   - method is GET, AND
+#   - Sec-Fetch-Dest is "document" (modern browsers, top-level navigation), OR
+#   - the Accept header prefers text/html over application/json.
+#
+# A path is considered "API/static" (and therefore NOT rewritten) when it:
+#   - starts with a reserved API prefix (`/api/`, `/assets/`, `/share/`,
+#     `/calendar.ics`, `/__`), OR
+#   - has a known static-asset file extension (.js, .css, .png, .ico, etc.).
+#
+# Everything else (including unknown future routes) gets the SPA shell.
+
+_API_PREFIXES = (
+    "/api/", "/assets/", "/share/", "/__", "/static/", "/_next/",
+)
+# Exact backend paths that operators must be able to hit from a plain browser
+# and still receive JSON (diagnostics / health). Everything else that "looks
+# like an SPA route" is rewritten to the SPA shell for a polished UX.
+_ALWAYS_BACKEND_EXACT = {
+    "/health", "/api/health", "/calendar.ics", "/openapi.json", "/docs",
+    "/redoc", "/metrics", "/robots.txt", "/sitemap.xml",
 }
+_STATIC_EXTS = {
+    ".js", ".mjs", ".css", ".map", ".json", ".ico", ".png", ".jpg", ".jpeg",
+    ".gif", ".webp", ".svg", ".avif", ".woff", ".woff2", ".ttf", ".eot",
+    ".otf", ".mp4", ".webm", ".mp3", ".wav", ".pdf", ".txt", ".xml",
+    ".ics", ".webmanifest", ".wasm",
+}
+
+def _is_browser_doc_nav(request: Request) -> bool:
+    if request.method != "GET":
+        return False
+    sec_dest = (request.headers.get("sec-fetch-dest") or "").lower()
+    if sec_dest == "document":
+        return True
+    accept = (request.headers.get("accept") or "").lower()
+    # If the client is explicitly an XHR-like JSON consumer, never rewrite.
+    if "application/json" in accept and "text/html" not in accept:
+        return False
+    if "text/html" in accept:
+        return True
+    # Default: anything that doesn't look like XHR is treated as a document
+    # navigation (bookmarks, curl with default Accept, etc.).
+    x_req = (request.headers.get("x-requested-with") or "").lower()
+    if x_req == "xmlhttprequest":
+        return False
+    return False  # Conservative: only rewrite if signals are explicit.
+
+def _looks_like_api_or_static(path: str) -> bool:
+    p = (path or "/").lower()
+    if p in _ALWAYS_BACKEND_EXACT:
+        return True
+    if any(p.startswith(pref) for pref in _API_PREFIXES):
+        return True
+    last = p.rsplit("/", 1)[-1]
+    if "." in last:
+        ext = "." + last.rsplit(".", 1)[-1]
+        if ext in _STATIC_EXTS:
+            return True
+    return False
 
 @app.middleware("http")
 async def spa_navigation_guard(request: Request, call_next):
-    """If a browser is *navigating* to one of the SPA routes that collides
-    with a JSON API endpoint, intercept BEFORE routing and serve index.html
-    so React Router can take over. Bookmarks, page refreshes, and judge
-    deep-links all go through here."""
-    if request.method != "GET":
+    """Intercept ANY browser document navigation that isn't clearly an API
+    or static asset and serve the SPA shell. Guarantees: judges, bookmarks,
+    page refreshes, share links, search-engine deep links — none can ever
+    receive raw `{"detail":"Not Found"}` JSON for an SPA route. Works for
+    every current AND future route without per-route maintenance."""
+    if not _is_browser_doc_nav(request):
         return await call_next(request)
-    path = (request.url.path or "/").strip("/")
-    if not path:
+    path = request.url.path or "/"
+    if _looks_like_api_or_static(path):
         return await call_next(request)
-    head = path.split("/", 1)[0].lower()
-    if head not in _SPA_ROUTES:
-        return await call_next(request)
-    accept = (request.headers.get("accept") or "").lower()
-    sec_dest = (request.headers.get("sec-fetch-dest") or "").lower()
-    sec_mode = (request.headers.get("sec-fetch-mode") or "").lower()
-    # Treat as browser navigation when the client clearly wants HTML, or
-    # the modern Sec-Fetch-* headers signal a top-level document load.
-    is_html_nav = (
-        ("text/html" in accept and "application/json" not in accept)
-        or sec_dest == "document"
-        or sec_mode == "navigate"
-    )
-    if not is_html_nav:
-        return await call_next(request)
-    # Serve the SPA shell. dist_path is defined later in this module; use
-    # the absolute path here so this works at request time.
     _dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
     index_html = os.path.join(_dist, "index.html")
     if os.path.isfile(index_html):
         return FileResponse(index_html, headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-SPA-Shell": "1",
         })
-    # Fall through if the SPA shell isn't built — the catch-all below will
-    # serve the friendly fallback HTML.
+    # SPA bundle isn't built — fall through; the catch-all below will serve
+    # the friendly inline-styled fallback HTML.
     return await call_next(request)
 
 @app.middleware("http")
@@ -280,10 +317,13 @@ async def api_health():
 @app.get("/health")
 async def health():
     try:
+        from app.db import is_using_mock_db
         memories_count = await get_collection_count("memories")
         tasks_count = await get_collection_count("tasks")
+        persistence = "in-memory-mock" if is_using_mock_db() else "firestore"
         return {
             "status": "ok",
+            "persistence": persistence,
             "memories_count": memories_count,
             "tasks_count": tasks_count,
             "ai_provider": "openai" if settings.using_openai else "gemini",

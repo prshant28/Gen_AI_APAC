@@ -173,42 +173,102 @@ _db_instance = None
 _using_mock = False
 
 def _get_firestore_client():
-    """Try to get a real Firestore client, falling back to mock."""
+    """Get a Firestore client with persistence-first behaviour.
+
+    Strategy:
+      1. If GOOGLE_APPLICATION_CREDENTIALS points at a real service-account
+         JSON file → use it (best for local dev with explicit creds).
+      2. Otherwise, attempt Application Default Credentials (ADC). On Google
+         Cloud Run / GCE / GKE this just works via the metadata server and
+         requires NO secret to be uploaded to Replit. The runtime service
+         account simply needs the `roles/datastore.user` IAM grant on the
+         target project. This is the path that real users of the deployed
+         site rely on for persistent storage.
+      3. Only if both fail do we fall back to the in-memory mock — clearly
+         logged so it's obvious in production that data won't persist.
+
+    Env / config used:
+      - GCP_PROJECT_ID (or FIREBASE_PROJECT_ID)
+      - FIREBASE_DATABASE_ID (defaults to "(default)")
+      - GOOGLE_APPLICATION_CREDENTIALS (optional, only for explicit creds)
+    """
     global _db_instance, _using_mock
 
     if _db_instance is not None:
         return _db_instance
 
-    # Check if we have valid credentials before even trying Firestore
+    # Explicit credentials file wins if present and readable.
     creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
-    has_valid_credentials = creds_path and os.path.exists(creds_path)
+    if creds_path and not os.path.exists(creds_path):
+        # Stale env var pointing at a missing file would crash auth lookup —
+        # remove it so ADC discovery can proceed cleanly.
+        print(f"db: GOOGLE_APPLICATION_CREDENTIALS={creds_path!r} missing; "
+              f"falling back to ADC.")
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        creds_path = ""
 
-    if not has_valid_credentials:
-        # No valid service account file — clear the bad path and use in-memory DB
-        if creds_path:
-            print(f"Warning: GOOGLE_APPLICATION_CREDENTIALS={creds_path} not found. Using in-memory DB.")
-            os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
-        else:
-            print("No Firestore credentials configured. Using in-memory database.")
+    # If we have NO creds file, we'd rely on ADC. ADC on Replit dev will try
+    # to reach the GCE metadata server (`metadata.google.internal`) and hang
+    # for many seconds before failing — that hangs startup. So we do a fast
+    # DNS pre-flight: if the metadata server isn't reachable AND we have no
+    # explicit creds, use the mock immediately. On real Cloud Run / GCE the
+    # DNS resolves, ADC works, and we proceed normally.
+    if not creds_path:
+        try:
+            import socket
+            socket.setdefaulttimeout(0.4)
+            try:
+                socket.gethostbyname("metadata.google.internal")
+                metadata_reachable = True
+            except Exception:
+                metadata_reachable = False
+            finally:
+                socket.setdefaulttimeout(None)
+        except Exception:
+            metadata_reachable = False
+        if not metadata_reachable:
+            print("db: No creds file and GCE metadata server unreachable "
+                  "(local dev). Using in-memory mock — DATA WILL NOT PERSIST. "
+                  "On Cloud Run, ADC will succeed automatically.")
+            _db_instance = MockFirestoreClient()
+            _using_mock = True
+            return _db_instance
 
-        _db_instance = MockFirestoreClient()
-        _using_mock = True
-        return _db_instance
-
+    # Attempt real Firestore. On Cloud Run, ADC just works via the metadata
+    # server. With an explicit GOOGLE_APPLICATION_CREDENTIALS file, that
+    # service-account JSON is used.
     try:
         from google.cloud import firestore as gfs
-        project_id = settings.GCP_PROJECT_ID
+        project_id = (
+            settings.GCP_PROJECT_ID
+            or os.environ.get("GCP_PROJECT_ID")
+            or os.environ.get("FIREBASE_PROJECT_ID")
+        )
+        if not project_id:
+            raise RuntimeError("No GCP_PROJECT_ID configured for Firestore.")
         database_id = settings.FIREBASE_DATABASE_ID or "(default)"
-        _db_instance = gfs.AsyncClient(project=project_id, database=database_id)
+        client = gfs.AsyncClient(project=project_id, database=database_id)
+        _db_instance = client
         _using_mock = False
-        print(f"Connected to Firestore: project={project_id}, db={database_id}")
+        cred_mode = "service-account-file" if creds_path else "ADC"
+        print(f"db: Connected to Firestore via {cred_mode} "
+              f"(project={project_id}, database={database_id}).")
         return _db_instance
     except Exception as e:
-        print(f"Firestore connection failed: {e}")
-        print("Using in-memory database fallback (data will not persist across restarts).")
+        print(f"db: Firestore connection failed: {e}")
+        print("db: Falling back to in-memory mock — DATA WILL NOT PERSIST. "
+              "Grant roles/datastore.user to the runtime service account "
+              "to enable persistence.")
         _db_instance = MockFirestoreClient()
         _using_mock = True
         return _db_instance
+
+
+def is_using_mock_db() -> bool:
+    """True if we couldn't connect to real Firestore. Surfaced via /api/health
+    and a startup log so deploy issues are obvious."""
+    _get_firestore_client()  # ensure init
+    return _using_mock
 
 
 async def get_db():
