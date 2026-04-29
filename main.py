@@ -389,13 +389,24 @@ async def health():
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
 def _settings_payload():
+    import os as _os
+    from app.live_agent import is_live_configured, GEMINI_LIVE_MODEL
+    youtube_key_set = bool(
+        _os.environ.get("YOUTUBE_API_KEY") or _os.environ.get("YT_API_KEY")
+    )
+    youtube_fallback = "GOOGLE_API_KEY" if (not youtube_key_set and settings.GEMINI_API_KEY) else None
     return {
         "gen_apac_api_key_set": bool(settings.GEN_API_KEY),
         "openai_api_key_set": bool(settings.FALLBACK_AI_KEY or settings.OPENAI_API_KEY),
         "fallback_key_set": bool(settings.FALLBACK_AI_KEY),
+        "fallback_ai_model": settings.FALLBACK_AI_MODEL if settings.has_fallback else None,
         "openai_model": settings.OPENAI_MODEL,
         "gemini_api_key_set": bool(settings.GEMINI_API_KEY),
         "gemini_model": settings.GEMINI_MODEL,
+        "gemini_live_key_set": is_live_configured(),
+        "gemini_live_model": GEMINI_LIVE_MODEL,
+        "youtube_api_key_set": youtube_key_set,
+        "youtube_fallback": youtube_fallback,
         "ai_provider": "gemini" if settings.USE_GEMINI else ("openrouter" if settings.USE_OPENROUTER else "openai"),
         "ai_provider_name": settings.ai_provider_name,
         "fallback_provider": settings.FALLBACK_AI_MODEL if settings.has_fallback else None,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send } from 'lucide-react';
+import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const SettingsView = () => {
@@ -126,6 +126,8 @@ const SettingsView = () => {
       setIsTesting(false);
     }
   };
+
+  const [apiKeysOpen, setApiKeysOpen] = useState(true);
 
   const hasAiKey = cfg?.openai_api_key_set || cfg?.gen_apac_api_key_set || cfg?.gemini_api_key_set;
 
@@ -289,6 +291,189 @@ const SettingsView = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* ── API Keys reference panel ─────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
+        className="view-card" style={{ marginTop: 20 }}>
+
+        {/* header / toggle */}
+        <button
+          onClick={() => setApiKeysOpen(v => !v)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'inherit' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Key size={16} color="var(--primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-1)' }}>API Keys &amp; Configuration</span>
+          </span>
+          {apiKeysOpen ? <ChevronUp size={15} color="var(--text-3)" /> : <ChevronDown size={15} color="var(--text-3)" />}
+        </button>
+
+        {apiKeysOpen && (
+          <div style={{ padding: '0 var(--space-md) var(--space-md)' }}>
+            {isLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 0', color: 'var(--text-3)', fontSize: 13 }}>
+                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading…
+              </div>
+            ) : (
+              <>
+                {/* intro */}
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.6 }}>
+                  All secrets are set as environment variables on the server — never exposed to the browser.
+                  Each row shows the env var name, what feature it unlocks, and what the app falls back to when it is missing.
+                </p>
+
+                {/* table */}
+                {[
+                  {
+                    group: 'AI — Primary',
+                    rows: [
+                      {
+                        name: 'GOOGLE_API_KEY / GEMINI_API_KEY',
+                        set: cfg?.gemini_api_key_set,
+                        model: cfg?.gemini_model,
+                        powers: 'All AI agents — Recall, Capture, Library, Learn, Insights, Daily Briefing',
+                        fallback: cfg?.fallback_key_set ? `Auto-falls back to OPENAI_API_KEY (${cfg?.fallback_ai_model})` : 'No fallback configured — set OPENAI_API_KEY for resilience',
+                        fallbackOk: cfg?.fallback_key_set,
+                      },
+                    ],
+                  },
+                  {
+                    group: 'AI — Fallback',
+                    rows: [
+                      {
+                        name: 'OPENAI_API_KEY',
+                        set: cfg?.fallback_key_set,
+                        model: cfg?.fallback_ai_model || undefined,
+                        powers: 'Automatic fallback when Gemini hits its rate limit (429 / quota exceeded)',
+                        fallback: 'No further fallback — requests fail gracefully if both providers are unavailable',
+                        fallbackOk: false,
+                      },
+                    ],
+                  },
+                  {
+                    group: 'AI — Live Voice',
+                    rows: [
+                      {
+                        name: 'GEMINI_LIVE_API_KEY',
+                        set: cfg?.gemini_live_key_set,
+                        model: cfg?.gemini_live_model,
+                        powers: 'Real-time voice chat (Live mode) — bidirectional audio with Gemini',
+                        fallback: cfg?.gemini_api_key_set ? 'Falls back to GOOGLE_API_KEY if unset' : 'No fallback — voice mode disabled when missing',
+                        fallbackOk: cfg?.gemini_api_key_set,
+                      },
+                    ],
+                  },
+                  {
+                    group: 'Third-party',
+                    rows: [
+                      {
+                        name: 'YOUTUBE_API_KEY / YT_API_KEY',
+                        set: cfg?.youtube_api_key_set,
+                        model: undefined,
+                        powers: 'YouTube video capture — fetches video metadata and extracts transcripts',
+                        fallback: cfg?.youtube_fallback ? 'Falls back to GOOGLE_API_KEY (limited quota)' : cfg?.gemini_api_key_set ? 'Falls back to GOOGLE_API_KEY (limited quota)' : 'No fallback — YouTube capture disabled',
+                        fallbackOk: !!(cfg?.youtube_fallback || cfg?.gemini_api_key_set),
+                      },
+                      {
+                        name: 'GOOGLE_CALENDAR_ID',
+                        set: cfg?.google_calendar_configured,
+                        model: undefined,
+                        powers: 'Calendar agent — reads and writes Google Calendar events',
+                        fallback: 'No fallback — calendar features are skipped when unset',
+                        fallbackOk: false,
+                      },
+                    ],
+                  },
+                  {
+                    group: 'Infrastructure',
+                    rows: [
+                      {
+                        name: 'GCP_PROJECT_ID / FIREBASE_PROJECT_ID',
+                        set: !!(cfg?.gcp_project_id && cfg.gcp_project_id !== 'demo-project'),
+                        model: cfg?.gcp_project_id,
+                        powers: 'Firestore database — all memories, notes, tasks, habits, flashcards',
+                        fallback: 'Defaults to "demo-project" (in-process mock DB — no persistence)',
+                        fallbackOk: false,
+                      },
+                      {
+                        name: 'FIREBASE_DATABASE_ID',
+                        set: !!(cfg?.firestore_database_id),
+                        model: cfg?.firestore_database_id || '(default)',
+                        powers: 'Selects which Firestore database instance to use',
+                        fallback: 'Defaults to "(default)" — the standard Firestore instance',
+                        fallbackOk: true,
+                      },
+                    ],
+                  },
+                ].map(group => (
+                  <div key={group.group} style={{ marginBottom: 20 }}>
+                    <div style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase',
+                      color: 'var(--text-3)', padding: '0 0 6px', borderBottom: '1px solid var(--border)', marginBottom: 8,
+                    }}>
+                      {group.group}
+                    </div>
+                    {group.rows.map(r => (
+                      <div key={r.name} style={{
+                        padding: '12px 0', borderBottom: '1px solid var(--border)',
+                        display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 12px',
+                        alignItems: 'start',
+                      }}>
+                        {/* left: name + powers + fallback */}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                            <code style={{
+                              fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                              background: 'var(--surface-2)', color: 'var(--text-1)', letterSpacing: '0.3px',
+                              wordBreak: 'break-all',
+                            }}>
+                              {r.name}
+                            </code>
+                            {r.model && (
+                              <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'monospace' }}>
+                                {r.model}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '0 0 4px', lineHeight: 1.5 }}>
+                            {r.powers}
+                          </p>
+                          <p style={{
+                            fontSize: 11, margin: 0, lineHeight: 1.4,
+                            color: r.fallbackOk ? '#10b981' : 'var(--text-3)',
+                          }}>
+                            Fallback: {r.fallback}
+                          </p>
+                        </div>
+                        {/* right: status badge */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 2 }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 6,
+                            whiteSpace: 'nowrap',
+                            background: r.set ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.1)',
+                            color: r.set ? '#10b981' : '#ef4444',
+                          }}>
+                            {r.set ? '✓ SET' : '✗ MISSING'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                {/* active provider summary */}
+                <div style={{
+                  marginTop: 8, padding: '12px 14px', borderRadius: 10,
+                  background: 'var(--primary-bg)', border: '1px solid var(--primary-border)',
+                  fontSize: 12, color: 'var(--primary)', lineHeight: 1.6,
+                }}>
+                  <span style={{ fontWeight: 700 }}>Active route:</span>{' '}
+                  {cfg?.ai_provider_name || 'Unknown'}{cfg?.fallback_key_set ? ` → fallback: ${cfg.fallback_ai_model}` : ''}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </motion.div>
 
       {/* Daily Briefing notifications */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
