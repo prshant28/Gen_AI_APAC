@@ -65,6 +65,7 @@ async def save_briefing(payload: Dict[str, Any], date_iso: Optional[str] = None)
         "date": when,
         "briefing": str(payload.get("briefing") or "").strip(),
         "executive_summary": str(payload.get("executive_summary") or "").strip(),
+        "sections": payload.get("sections") or {},
         "stats": payload.get("stats") or {},
         "memories": payload.get("memories") or [],
         "tasks": payload.get("tasks") or [],
@@ -225,10 +226,28 @@ async def todays_timeline() -> List[Dict[str, Any]]:
     from app.task_agent import list_tasks
     from app.revisit_agent import list_due
     from app.calendar_agent import list_upcoming_events
+    from app.extras_agent import list_habits
 
     today = datetime.datetime.now(IST).date()
     today_iso = today.isoformat()
     items: List[Dict[str, Any]] = []
+
+    # Habits that haven't been ticked off today yet — surface as anytime items.
+    try:
+        habits = await list_habits()
+        for h in habits:
+            if h.get("completed_today"):
+                continue
+            items.append({
+                "kind": "habit",
+                "id": h.get("id", ""),
+                "title": h.get("name") or h.get("title") or "Untitled habit",
+                "subtitle": f"Streak: {h.get('streak', 0)}d",
+                "time_iso": "",  # anytime — sorted to the end
+                "color": "#10b981",
+            })
+    except Exception:
+        pass
 
     try:
         tasks = await list_tasks(status="pending", limit=200)

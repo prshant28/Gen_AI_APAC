@@ -718,40 +718,64 @@ async def generate_daily_briefing() -> dict:
                 f"2. Acknowledge their dominant domain ({top_domains[0] if top_domains else 'learning'}).\n"
                 f"3. Suggest one concrete focus action for today (a task to tackle OR a memory to revisit).\n"
                 f"4. Do NOT say 'I have no data' or 'no memories' — there are {total_memories} memories above.\n"
-                f"5. Tone: warm, energetic, concise. No filler. No emojis."
+                f"5. Tone: warm, energetic, concrete. No filler. No emojis. Plain English only."
             )
         else:
             rules_block = (
                 "1. The vault is empty — this is a brand-new user.\n"
                 "2. Welcome them warmly and suggest capturing their first knowledge item "
                 "(YouTube video, web article, or quick note) to seed the Brain.\n"
-                "3. Tone: warm, encouraging, concise. No filler. No emojis."
+                "3. Tone: warm, encouraging, concrete. No filler. No emojis. Plain English only."
             )
 
-        prompt = f"""You are the user's personal AI Second Brain assistant. Generate a 3-4 sentence daily briefing for today ({datetime.date.today().strftime('%A, %B %d, %Y')}).
+        # Longer, structured briefing for the standalone Daily Briefing page.
+        # The output is parsed into four named paragraphs so the page can show
+        # them as separate sections while the dashboard keeps showing the
+        # short executive summary.
+        prompt = f"""You are the user's personal AI Second Brain assistant. Generate today's structured daily briefing for {datetime.date.today().strftime('%A, %B %d, %Y')}.
 
 USER'S VAULT STATS:
 {stats_block}
 
-RECENT KNOWLEDGE (most recent first — use SPECIFIC titles in your briefing):
+RECENT KNOWLEDGE (most recent first — use SPECIFIC titles where you can):
 {memories_block}
 
 PENDING TASKS:
 {tasks_block}
 
+Output FORMAT — return EXACTLY these five labelled blocks, each on its own line, in this order. No extra text before or after.
+
+SUMMARY: <1-2 sentences, energetic, no filler, the headline takeaway for today>
+FOCUS: <2-3 sentences naming the single most important thing to do today and why>
+NEW: <2-3 sentences on what is new or trending in their vault, referencing 1-2 specific titles>
+REVISIT: <2-3 sentences on what they should revisit today, referencing a specific topic if one stands out>
+AT_RISK: <1-2 sentences on what is slipping (overdue task, stalled topic, missed revisit) — be honest but kind>
+
 Rules:
 {rules_block}
-
-Write only the briefing text, nothing else."""
+"""
 
         content, _ = await chat_with_fallback(
             messages=[{"role": "user", "content": prompt}],
             model=settings.OPENAI_MODEL,
-            temperature=0.7,
-            max_tokens=240,
+            temperature=0.6,
+            max_tokens=800,
         )
+        sections = _parse_briefing_sections(content)
+        # Stitch the four detail paragraphs into the longer `briefing` string,
+        # so callers that only read `briefing` (e.g. legacy Dashboard usage)
+        # still get the full text.
+        long_paragraphs = [
+            f"Focus: {sections['focus']}" if sections['focus'] else "",
+            f"What's new: {sections['new']}" if sections['new'] else "",
+            f"Revisit: {sections['revisit']}" if sections['revisit'] else "",
+            f"At risk: {sections['at_risk']}" if sections['at_risk'] else "",
+        ]
+        long_briefing = "\n\n".join(p for p in long_paragraphs if p) or content.strip()
         return {
-            "briefing": content.strip(),
+            "briefing": long_briefing,
+            "executive_summary": sections["summary"] or long_briefing[:160],
+            "sections": sections,
             "date": datetime.date.today().isoformat(),
             "stats": {
                 "total_memories": total_memories,
@@ -763,11 +787,51 @@ Write only the briefing text, nothing else."""
         }
     except Exception as e:
         print(f"[briefing] generation error: {e}")
+        fallback = "Welcome back. Open the vault to pick up where you left off."
         return {
-            "briefing": "Welcome back. Open the vault to pick up where you left off.",
+            "briefing": fallback,
+            "executive_summary": fallback,
+            "sections": {"summary": fallback, "focus": "", "new": "", "revisit": "", "at_risk": ""},
             "date": datetime.date.today().isoformat(),
             "stats": {},
         }
+
+
+def _parse_briefing_sections(raw: str) -> dict:
+    """Split a LABELLED briefing string into its named sections. Robust to
+    extra whitespace, missing labels, and the model occasionally using
+    lowercase or markdown around the labels."""
+    import re
+    out = {"summary": "", "focus": "", "new": "", "revisit": "", "at_risk": ""}
+    if not raw:
+        return out
+    text = raw.strip()
+    # Map of keyword -> output key, in the order they appear.
+    labels = [
+        ("summary", "summary"),
+        ("focus", "focus"),
+        ("new", "new"),
+        ("revisit", "revisit"),
+        ("at[ _]?risk", "at_risk"),
+    ]
+    # Make the colon optional so a missing punctuation in the model output
+    # does not silently swallow a whole section.
+    pattern = re.compile(
+        r"(?im)^\s*\**\s*(summary|focus|new|revisit|at[ _]?risk)\b\s*\**\s*:?\s*",
+    )
+    matches = list(pattern.finditer(text))
+    if not matches:
+        # No labels found — treat the whole thing as the summary so the user
+        # still sees something coherent.
+        out["summary"] = text
+        return out
+    for i, m in enumerate(matches):
+        key_raw = m.group(1).lower()
+        key = "at_risk" if key_raw.startswith("at") else key_raw
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        out[key] = text[start:end].strip().strip("*").strip()
+    return out
 
 
 # ─── Auto-tag & share helpers ─────────────────────────────────────────────────

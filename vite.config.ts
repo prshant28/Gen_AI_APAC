@@ -73,7 +73,11 @@ export default defineConfig(({mode}) => {
         '/agents': 'http://127.0.0.1:8000',
         '/workflows': 'http://127.0.0.1:8000',
         '/export': 'http://127.0.0.1:8000',
-        '/briefing': 'http://127.0.0.1:8000',
+        // /briefing is BOTH the SPA Daily Briefing page (GET nav with text/html
+        // Accept) and an API root with /briefing/list, /briefing/timeline,
+        // /briefing/recap etc. Bypass to the SPA only on real page navigation
+        // so deep-link / refresh on /briefing renders the React app.
+        '/briefing': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/briefing' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },
         // /dashboard is BOTH an SPA page (GET nav) and an API root (/dashboard/advanced).
         // Bypass to SPA only on real page navigation (Accept: text/html on the bare path).
         '/dashboard': { target: 'http://127.0.0.1:8000', bypass: (req) => (req.method === 'GET' && req.url === '/dashboard' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null },

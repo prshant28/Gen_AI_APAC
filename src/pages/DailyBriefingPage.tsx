@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 import {
   Sparkles, Volume2, Square, Pause, Play, RefreshCw, ListChecks, Clock,
   Calendar as CalendarIcon, BookOpen, History, Brain, ChevronRight, ExternalLink,
-  CheckCircle2, Circle, Tag, Activity
+  CheckCircle2, Circle, Tag, Activity, TrendingUp, Hash, Bell, RotateCcw,
+  Target, Sparkle, AlertTriangle, Zap
 } from 'lucide-react';
 import { showToast } from '../App';
 
@@ -14,12 +15,31 @@ type Stats = {
   due_revisits?: number;
 };
 
+type BriefingSections = {
+  summary?: string;
+  focus?: string;
+  new?: string;
+  revisit?: string;
+  at_risk?: string;
+};
+
+type Revisit = {
+  id: string;
+  memory_id?: string;
+  title: string;
+  url?: string;
+  next_due?: string;
+  overdue_hours?: number;
+  due_in_hours?: number | null;
+};
+
 type BriefingResponse = {
   briefing: string;
   executive_summary?: string;
+  sections?: BriefingSections;
   stats?: Stats;
-  revisits_due?: Array<{ id: string; memory_id?: string; title: string; url?: string; next_due?: string }>;
-  revisits_upcoming?: Array<{ id: string; title: string; next_due?: string }>;
+  revisits_due?: Revisit[];
+  revisits_upcoming?: Revisit[];
   revisits_due_count?: number;
 };
 
@@ -34,7 +54,7 @@ type ActionItem = {
 };
 
 type TimelineItem = {
-  kind: 'task' | 'revisit' | 'event';
+  kind: 'task' | 'revisit' | 'event' | 'habit';
   id: string;
   title: string;
   subtitle: string;
@@ -65,6 +85,24 @@ type RecapResponse = {
   recap: string;
 };
 
+type AdvancedResponse = {
+  greeting?: { label?: string };
+  pulse?: {
+    memories_this_week?: { current: number; previous: number; diff: number; direction: 'up' | 'down' | 'flat' };
+  };
+  top_tags?: Array<{ tag: string; count: number }>;
+};
+
+type SmartInsightCard = {
+  id: string;
+  icon: typeof TrendingUp;
+  color: string;
+  eyebrow: string;
+  headline: string;
+  sub: string;
+  onClick?: () => void;
+};
+
 type Tab = 'today' | 'week' | 'month';
 
 const formatDate = (iso: string): string => {
@@ -84,6 +122,17 @@ const formatTime = (iso: string): string => {
   } catch { return ''; }
 };
 
+const formatLongDate = (d: Date): string =>
+  d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+const greetingForHour = (h: number): string => {
+  if (h < 5) return 'Good night';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+};
+
 export default function DailyBriefingPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -97,11 +146,25 @@ export default function DailyBriefingPage() {
   const [past, setPast] = useState<PastBriefing[]>([]);
   const [recap, setRecap] = useState<RecapResponse | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
+  const [advanced, setAdvanced] = useState<AdvancedResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Audio (browser SpeechSynthesis)
+  // Audio (browser SpeechSynthesis) — incl. progress estimate driven by an
+  // interval since the API has no native progress event in all browsers.
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const startedAtRef = useRef<number>(0);
+  const elapsedBeforePauseRef = useRef<number>(0);
+  const intervalRef = useRef<number | null>(null);
   const [audioState, setAudioState] = useState<'idle' | 'playing' | 'paused'>('idle');
+  const [audioProgress, setAudioProgress] = useState(0); // 0..1
+  const [estimatedDurationMs, setEstimatedDurationMs] = useState(0);
+
+  const today = useMemo(() => new Date(), []);
+  const todayLabel = useMemo(() => formatLongDate(today), [today]);
+  const greetLabel = useMemo(
+    () => advanced?.greeting?.label || greetingForHour(today.getHours()),
+    [advanced, today]
+  );
 
   const loadBriefing = useCallback(async (force = false) => {
     setBriefingLoading(true);
@@ -115,10 +178,11 @@ export default function DailyBriefingPage() {
 
   const loadAuxiliary = useCallback(async () => {
     try {
-      const [aRes, tRes, pRes] = await Promise.all([
+      const [aRes, tRes, pRes, advRes] = await Promise.all([
         fetch('/briefing/actions'),
         fetch('/briefing/timeline'),
         fetch('/briefing/list?limit=14'),
+        fetch('/dashboard/advanced'),
       ]);
       if (aRes.ok) {
         const j = await aRes.json();
@@ -132,6 +196,10 @@ export default function DailyBriefingPage() {
         const j = await pRes.json();
         setPast(j.briefings || []);
       }
+      if (advRes.ok) {
+        const j = await advRes.json();
+        setAdvanced(j);
+      }
     } catch { /* silent — page still works */ }
   }, []);
 
@@ -139,18 +207,21 @@ export default function DailyBriefingPage() {
     loadBriefing();
     loadAuxiliary();
     return () => {
-      // Stop any in-flight speech if user navigates away
       try { window.speechSynthesis?.cancel(); } catch {}
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
   }, [loadBriefing, loadAuxiliary]);
 
   useEffect(() => {
+    // Only push a URL update when the tab param actually differs from `tab`,
+    // otherwise React Router can churn on every render.
+    if (params.get('tab') === tab) return;
     setParams((p) => {
       const next = new URLSearchParams(p);
       next.set('tab', tab);
       return next;
     }, { replace: true });
-  }, [tab, setParams]);
+  }, [tab, params, setParams]);
 
   // Lazy-load recap when user opens week/month
   useEffect(() => {
@@ -168,8 +239,7 @@ export default function DailyBriefingPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try { window.speechSynthesis?.cancel(); } catch {}
-    setAudioState('idle');
+    handleStop();
     await Promise.all([loadBriefing(true), loadAuxiliary()]);
     if (tab !== 'today') {
       setRecapLoading(true);
@@ -186,21 +256,44 @@ export default function DailyBriefingPage() {
   // ── Audio controls ────────────────────────────────────────────────────────
   const speakable = useMemo(() => {
     if (!briefing) return '';
+    const s = briefing.sections || {};
     const parts = [
-      briefing.executive_summary || '',
-      briefing.briefing || '',
-    ].filter((s) => s && s.trim().length);
-    return parts.join('. ');
+      briefing.executive_summary || s.summary || '',
+      s.focus ? `Focus. ${s.focus}` : '',
+      s.new ? `What's new. ${s.new}` : '',
+      s.revisit ? `Revisit. ${s.revisit}` : '',
+      s.at_risk ? `At risk. ${s.at_risk}` : '',
+    ].filter((x) => x && x.trim().length);
+    if (parts.length === 0 && briefing.briefing) return briefing.briefing;
+    return parts.join(' ');
   }, [briefing]);
 
-  const handlePlay = () => {
+  // Rough estimate: ~14 chars / second of speech at default rate. Used only
+  // to drive the visual progress bar — actual playback timing wins.
+  useEffect(() => {
+    const ms = Math.max(1500, Math.round((speakable.length / 14) * 1000));
+    setEstimatedDurationMs(ms);
+  }, [speakable]);
+
+  const stopProgressLoop = () => {
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startProgressLoop = () => {
+    stopProgressLoop();
+    intervalRef.current = window.setInterval(() => {
+      const elapsed = elapsedBeforePauseRef.current + (Date.now() - startedAtRef.current);
+      const pct = estimatedDurationMs > 0 ? Math.min(1, elapsed / estimatedDurationMs) : 0;
+      setAudioProgress(pct);
+    }, 200) as unknown as number;
+  };
+
+  const playFromStart = () => {
     if (!('speechSynthesis' in window)) {
       showToast('Audio not supported in this browser', 'error');
-      return;
-    }
-    if (audioState === 'paused') {
-      window.speechSynthesis.resume();
-      setAudioState('playing');
       return;
     }
     if (!speakable.trim()) return;
@@ -208,21 +301,54 @@ export default function DailyBriefingPage() {
     const u = new SpeechSynthesisUtterance(speakable);
     u.rate = 1.0;
     u.pitch = 1.0;
-    u.onend = () => setAudioState('idle');
-    u.onerror = () => setAudioState('idle');
+    u.onend = () => {
+      setAudioProgress(1);
+      setAudioState('idle');
+      stopProgressLoop();
+      elapsedBeforePauseRef.current = 0;
+    };
+    u.onerror = () => {
+      setAudioState('idle');
+      stopProgressLoop();
+      elapsedBeforePauseRef.current = 0;
+    };
     utterRef.current = u;
+    elapsedBeforePauseRef.current = 0;
+    startedAtRef.current = Date.now();
+    setAudioProgress(0);
     window.speechSynthesis.speak(u);
     setAudioState('playing');
+    startProgressLoop();
+  };
+
+  const handlePlay = () => {
+    if (audioState === 'paused') {
+      try { window.speechSynthesis.resume(); } catch {}
+      startedAtRef.current = Date.now();
+      setAudioState('playing');
+      startProgressLoop();
+      return;
+    }
+    playFromStart();
   };
 
   const handlePause = () => {
     try { window.speechSynthesis.pause(); } catch {}
+    elapsedBeforePauseRef.current += Date.now() - startedAtRef.current;
     setAudioState('paused');
+    stopProgressLoop();
   };
 
   const handleStop = () => {
     try { window.speechSynthesis.cancel(); } catch {}
     setAudioState('idle');
+    stopProgressLoop();
+    setAudioProgress(0);
+    elapsedBeforePauseRef.current = 0;
+  };
+
+  const handleRestart = () => {
+    playFromStart();
   };
 
   // ── Action item toggle ────────────────────────────────────────────────────
@@ -241,8 +367,8 @@ export default function DailyBriefingPage() {
       ok = false;
     }
     if (!ok) {
-      // Network error OR non-2xx — revert and notify so the user knows the
-      // state on screen no longer matches what's saved.
+      // Revert on network error OR non-2xx so the screen never lies about
+      // saved state.
       setActions((prev) => prev.map((a) => (a.id === item.id ? { ...a, completed: !next } : a)));
       showToast('Could not save — try again', 'error');
       return;
@@ -250,45 +376,115 @@ export default function DailyBriefingPage() {
     if (next) showToast('Action completed');
   };
 
-  // ── Smart insights derived client-side from action + timeline data ────────
-  const insights = useMemo(() => {
-    const out: Array<{ icon: typeof Sparkles; text: string; tone: 'info' | 'warn' | 'good' }> = [];
-    const open = actions.filter((a) => !a.completed).length;
-    const done = actions.filter((a) => a.completed).length;
-    if (open > 5) {
-      out.push({ icon: ListChecks, text: `${open} open action items — pick three to finish today.`, tone: 'warn' });
-    } else if (open > 0) {
-      out.push({ icon: ListChecks, text: `${open} action item${open === 1 ? '' : 's'} waiting — light load, easy clear.`, tone: 'info' });
+  // ── Smart insights — same shape as the Dashboard cards ────────────────────
+  const smartInsights = useMemo<SmartInsightCard[]>(() => {
+    const out: SmartInsightCard[] = [];
+    const velocityWk = advanced?.pulse?.memories_this_week;
+    if (velocityWk) {
+      const dirSign = velocityWk.direction === 'up' ? '+' : velocityWk.direction === 'down' ? '−' : '';
+      const dirClr = velocityWk.direction === 'up' ? '#10b981' : velocityWk.direction === 'down' ? '#ef4444' : '#94a3b8';
+      out.push({
+        id: 'velocity',
+        icon: TrendingUp,
+        color: dirClr,
+        eyebrow: 'LEARNING VELOCITY',
+        headline: `${dirSign}${Math.abs(velocityWk.diff)} this week`,
+        sub: `${velocityWk.current} captures · was ${velocityWk.previous} last week`,
+        onClick: () => navigate('/insights?view=analytics'),
+      });
     }
-    if (done > 0) {
-      out.push({ icon: CheckCircle2, text: `${done} action${done === 1 ? '' : 's'} already done. Good momentum.`, tone: 'good' });
+    const topicLead = advanced?.top_tags?.[0];
+    if (topicLead) {
+      out.push({
+        id: 'topic',
+        icon: Hash,
+        color: '#06b6d4',
+        eyebrow: 'TOPIC LEAD',
+        headline: topicLead.tag,
+        sub: `${topicLead.count} item${topicLead.count === 1 ? '' : 's'} tagged across your vault`,
+        onClick: () => navigate(`/library?tab=vault&q=${encodeURIComponent(topicLead.tag)}`),
+      });
     }
-    const dueRev = briefing?.revisits_due_count || (briefing?.revisits_due?.length ?? 0);
-    if (dueRev > 0) {
-      out.push({ icon: Brain, text: `${dueRev} revisit${dueRev === 1 ? '' : 's'} due — quick recall keeps recall sharp.`, tone: 'info' });
-    }
-    const eventCount = timeline.filter((t) => t.kind === 'event').length;
-    if (eventCount > 0) {
-      out.push({ icon: CalendarIcon, text: `${eventCount} event${eventCount === 1 ? '' : 's'} on the calendar today.`, tone: 'info' });
-    }
-    if (out.length === 0) {
-      out.push({ icon: Sparkles, text: 'Nothing pressing — a great window for deep work.', tone: 'good' });
+    const nextRevisit: Revisit | undefined = briefing?.revisits_due?.[0] || briefing?.revisits_upcoming?.[0];
+    if (nextRevisit) {
+      const overdue = (nextRevisit.overdue_hours ?? 0) > 0;
+      const dueIn = nextRevisit.due_in_hours;
+      const meta = overdue
+        ? `Overdue by ${(nextRevisit.overdue_hours ?? 0) < 24 ? (nextRevisit.overdue_hours ?? 0) + 'h' : Math.round((nextRevisit.overdue_hours ?? 0) / 24) + 'd'}`
+        : dueIn != null
+          ? (dueIn < 24 ? `Due in ${Math.max(1, dueIn)}h` : `Due in ${Math.round(dueIn / 24)}d`)
+          : 'Coming up';
+      out.push({
+        id: 'revisit',
+        icon: Bell,
+        color: overdue ? '#ef4444' : '#f59e0b',
+        eyebrow: 'NEXT REVISIT',
+        headline: nextRevisit.title || 'Untitled',
+        sub: meta,
+        onClick: () => {
+          if (nextRevisit.memory_id) navigate(`/memory/${nextRevisit.memory_id}`);
+          else if (nextRevisit.url) window.open(nextRevisit.url, '_blank');
+        },
+      });
     }
     return out;
-  }, [actions, briefing, timeline]);
+  }, [advanced, briefing, navigate]);
+
+  const sections: BriefingSections = briefing?.sections || {};
+  const briefingFallbackParagraphs = useMemo(() => {
+    // If `sections` is empty (older saved briefing), fall back to splitting
+    // the long `briefing` text on blank lines so we still get paragraphs.
+    if (sections.focus || sections.new || sections.revisit || sections.at_risk) return null;
+    const text = briefing?.briefing || '';
+    if (!text) return null;
+    return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  }, [briefing, sections]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="briefing-page">
       <div className="briefing-header">
-        <div>
+        <div className="briefing-header-left">
           <div className="briefing-eyebrow">
             <Sparkles size={14} /> AI DAILY BRIEFING
           </div>
-          <h1 className="briefing-title">Today, in one read</h1>
-          <p className="briefing-sub">A summary of what matters, who's waiting, and what to revisit.</p>
+          <h1 className="briefing-title">{greetLabel}, here's today</h1>
+          <p className="briefing-sub">{todayLabel}</p>
         </div>
         <div className="briefing-header-actions">
+          <div className="briefing-audio-controls">
+            {audioState === 'idle' && (
+              <button type="button" className="briefing-btn primary" onClick={handlePlay} disabled={!speakable}>
+                <Volume2 size={14} /> Listen
+              </button>
+            )}
+            {audioState === 'playing' && (
+              <>
+                <button type="button" className="briefing-btn ghost" onClick={handlePause}>
+                  <Pause size={14} /> Pause
+                </button>
+                <button type="button" className="briefing-btn ghost" onClick={handleRestart} title="Restart from start">
+                  <RotateCcw size={14} />
+                </button>
+                <button type="button" className="briefing-btn ghost" onClick={handleStop}>
+                  <Square size={14} /> Stop
+                </button>
+              </>
+            )}
+            {audioState === 'paused' && (
+              <>
+                <button type="button" className="briefing-btn primary" onClick={handlePlay}>
+                  <Play size={14} /> Resume
+                </button>
+                <button type="button" className="briefing-btn ghost" onClick={handleRestart} title="Restart from start">
+                  <RotateCcw size={14} />
+                </button>
+                <button type="button" className="briefing-btn ghost" onClick={handleStop}>
+                  <Square size={14} /> Stop
+                </button>
+              </>
+            )}
+          </div>
           <button
             type="button"
             className="briefing-btn ghost"
@@ -301,6 +497,12 @@ export default function DailyBriefingPage() {
           </button>
         </div>
       </div>
+
+      {(audioState === 'playing' || audioState === 'paused') && (
+        <div className="briefing-progress" aria-label="Audio progress">
+          <div className="briefing-progress-fill" style={{ width: `${Math.round(audioProgress * 100)}%` }} />
+        </div>
+      )}
 
       <div className="briefing-tabs" role="tablist">
         {(['today', 'week', 'month'] as Tab[]).map((t) => (
@@ -318,200 +520,226 @@ export default function DailyBriefingPage() {
       </div>
 
       {tab === 'today' ? (
-        <div className="briefing-grid">
-          {/* Main column */}
-          <div className="briefing-main">
-            <motion.section
-              className="briefing-card hero"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            >
-              <div className="briefing-card-head">
+        <>
+          {/* Smart insights row — Dashboard-style cards, larger */}
+          {smartInsights.length > 0 && (
+            <div className="briefing-insight-row">
+              {smartInsights.map((ins) => {
+                const Icon = ins.icon;
+                return (
+                  <button
+                    key={ins.id}
+                    type="button"
+                    className="briefing-insight-card"
+                    onClick={ins.onClick}
+                    style={{ borderColor: `${ins.color}55` }}
+                  >
+                    <div className="briefing-insight-card-head">
+                      <span className="briefing-insight-card-eyebrow" style={{ color: ins.color }}>
+                        <Icon size={12} /> {ins.eyebrow}
+                      </span>
+                    </div>
+                    <div className="briefing-insight-card-headline">{ins.headline}</div>
+                    <div className="briefing-insight-card-sub">{ins.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="briefing-grid">
+            {/* Main column */}
+            <div className="briefing-main">
+              <motion.section
+                className="briefing-card hero"
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              >
                 <div className="briefing-card-eyebrow"><Sparkles size={12} /> SUMMARY</div>
-                <div className="briefing-audio-controls">
-                  {audioState === 'idle' && (
-                    <button type="button" className="briefing-btn primary" onClick={handlePlay} disabled={!speakable}>
-                      <Volume2 size={14} /> Listen
-                    </button>
-                  )}
-                  {audioState === 'playing' && (
-                    <>
-                      <button type="button" className="briefing-btn ghost" onClick={handlePause}>
-                        <Pause size={14} /> Pause
-                      </button>
-                      <button type="button" className="briefing-btn ghost" onClick={handleStop}>
-                        <Square size={14} /> Stop
-                      </button>
-                    </>
-                  )}
-                  {audioState === 'paused' && (
-                    <>
-                      <button type="button" className="briefing-btn primary" onClick={handlePlay}>
-                        <Play size={14} /> Resume
-                      </button>
-                      <button type="button" className="briefing-btn ghost" onClick={handleStop}>
-                        <Square size={14} /> Stop
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {briefingLoading ? (
-                <div className="briefing-skeleton">
-                  <div className="briefing-skel-line" />
-                  <div className="briefing-skel-line short" />
-                  <div className="briefing-skel-line" />
-                </div>
-              ) : (
-                <p className="briefing-body-text">{briefing?.briefing || 'No briefing yet — your first capture will get one started.'}</p>
-              )}
-            </motion.section>
+                {briefingLoading ? (
+                  <div className="briefing-skeleton">
+                    <div className="briefing-skel-line" />
+                    <div className="briefing-skel-line short" />
+                    <div className="briefing-skel-line" />
+                  </div>
+                ) : (
+                  <>
+                    {briefing?.executive_summary && (
+                      <p className="briefing-exec">{briefing.executive_summary}</p>
+                    )}
+                    <div className="briefing-sections">
+                      {sections.focus && (
+                        <div className="briefing-section">
+                          <div className="briefing-section-head">
+                            <Target size={13} /> <span>Focus</span>
+                          </div>
+                          <p>{sections.focus}</p>
+                        </div>
+                      )}
+                      {sections.new && (
+                        <div className="briefing-section">
+                          <div className="briefing-section-head">
+                            <Sparkle size={13} /> <span>What's new in your vault</span>
+                          </div>
+                          <p>{sections.new}</p>
+                        </div>
+                      )}
+                      {sections.revisit && (
+                        <div className="briefing-section">
+                          <div className="briefing-section-head">
+                            <Brain size={13} /> <span>What to revisit</span>
+                          </div>
+                          <p>{sections.revisit}</p>
+                        </div>
+                      )}
+                      {sections.at_risk && (
+                        <div className="briefing-section">
+                          <div className="briefing-section-head warn">
+                            <AlertTriangle size={13} /> <span>What's at risk</span>
+                          </div>
+                          <p>{sections.at_risk}</p>
+                        </div>
+                      )}
+                    </div>
+                    {briefingFallbackParagraphs && briefingFallbackParagraphs.map((p, i) => (
+                      <p key={i} className="briefing-body-text">{p}</p>
+                    ))}
+                  </>
+                )}
+              </motion.section>
 
-            {/* Smart insights */}
-            <section className="briefing-card">
-              <div className="briefing-card-head">
-                <div className="briefing-card-eyebrow"><Activity size={12} /> SMART INSIGHTS</div>
-              </div>
-              <ul className="briefing-insights">
-                {insights.map((ins, i) => {
-                  const Icon = ins.icon;
-                  return (
-                    <li key={i} className={`briefing-insight tone-${ins.tone}`}>
-                      <Icon size={14} />
-                      <span>{ins.text}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-
-            {/* Action items */}
-            <section className="briefing-card">
-              <div className="briefing-card-head">
-                <div className="briefing-card-eyebrow"><ListChecks size={12} /> ACTION ITEMS</div>
-                <span className="briefing-count">
-                  {actions.filter((a) => !a.completed).length} open
-                </span>
-              </div>
-              {actions.length === 0 ? (
-                <div className="briefing-empty">No action items right now — capture a few notes and they'll appear here.</div>
-              ) : (
-                <ul className="briefing-actions">
-                  {actions.map((a) => (
-                    <li key={a.id} className={`briefing-action ${a.completed ? 'done' : ''}`}>
-                      <button
-                        type="button"
-                        className="briefing-action-check"
-                        onClick={() => toggleAction(a)}
-                        aria-label={a.completed ? 'Mark incomplete' : 'Mark complete'}
-                      >
-                        {a.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                      </button>
-                      <div className="briefing-action-body">
-                        <div className="briefing-action-text">{a.text}</div>
+              {/* Action items */}
+              <section className="briefing-card">
+                <div className="briefing-card-head">
+                  <div className="briefing-card-eyebrow"><ListChecks size={12} /> ACTION ITEMS</div>
+                  <span className="briefing-count">
+                    {actions.filter((a) => !a.completed).length} open
+                  </span>
+                </div>
+                {actions.length === 0 ? (
+                  <div className="briefing-empty">No action items right now — capture a few notes and they'll appear here.</div>
+                ) : (
+                  <ul className="briefing-actions">
+                    {actions.map((a) => (
+                      <li key={a.id} className={`briefing-action ${a.completed ? 'done' : ''}`}>
                         <button
                           type="button"
-                          className="briefing-action-source"
-                          onClick={() => a.memory_id && navigate(`/memory/${a.memory_id}`)}
+                          className="briefing-action-check"
+                          onClick={() => toggleAction(a)}
+                          aria-label={a.completed ? 'Mark incomplete' : 'Mark complete'}
+                          aria-pressed={a.completed}
                         >
-                          <BookOpen size={11} /> {a.memory_title}
-                          {a.domain ? <> · <span className="briefing-action-domain">{a.domain}</span></> : null}
+                          {a.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                         </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-
-          {/* Side column */}
-          <div className="briefing-side">
-            {/* Timeline */}
-            <section className="briefing-card">
-              <div className="briefing-card-head">
-                <div className="briefing-card-eyebrow"><Clock size={12} /> TODAY'S TIMELINE</div>
-              </div>
-              {timeline.length === 0 ? (
-                <div className="briefing-empty small">A clear day — nothing scheduled.</div>
-              ) : (
-                <ul className="briefing-timeline">
-                  {timeline.map((t, i) => (
-                    <li key={`${t.kind}-${t.id || i}`} className="briefing-tl-item">
-                      <span className="briefing-tl-dot" style={{ background: t.color }} />
-                      <div className="briefing-tl-body">
-                        <div className="briefing-tl-row">
-                          <span className="briefing-tl-time">{formatTime(t.time_iso) || 'Anytime'}</span>
-                          <span className="briefing-tl-kind">{t.kind}</span>
+                        <div className="briefing-action-body">
+                          <div className="briefing-action-text">{a.text}</div>
+                          <button
+                            type="button"
+                            className="briefing-action-source"
+                            onClick={() => a.memory_id && navigate(`/memory/${a.memory_id}`)}
+                          >
+                            <BookOpen size={11} /> {a.memory_title}
+                            {a.domain ? <> · <span className="briefing-action-domain">{a.domain}</span></> : null}
+                          </button>
                         </div>
-                        <div className="briefing-tl-title">
-                          {t.url ? (
-                            <a href={t.url} target="_blank" rel="noreferrer" className="briefing-tl-link">
-                              {t.title} <ExternalLink size={10} />
-                            </a>
-                          ) : t.memory_id ? (
-                            <button
-                              type="button"
-                              className="briefing-tl-link as-btn"
-                              onClick={() => navigate(`/memory/${t.memory_id}`)}
-                            >
-                              {t.title}
-                            </button>
-                          ) : (
-                            <span>{t.title}</span>
-                          )}
-                        </div>
-                        <div className="briefing-tl-sub">{t.subtitle}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
 
-            {/* Past briefings */}
-            <section className="briefing-card">
-              <div className="briefing-card-head">
-                <div className="briefing-card-eyebrow"><History size={12} /> PAST BRIEFINGS</div>
-              </div>
-              {past.length === 0 ? (
-                <div className="briefing-empty small">Your saved briefings will live here.</div>
-              ) : (
-                <ul className="briefing-past">
-                  {past.map((p) => (
-                    <li key={p.date}>
-                      <button
-                        type="button"
-                        className="briefing-past-item"
-                        onClick={async () => {
-                          try {
-                            const r = await fetch(`/briefing/by-date/${p.date}`);
-                            if (!r.ok) return;
-                            const data = await r.json();
-                            setBriefing({
-                              briefing: data.briefing || '',
-                              executive_summary: data.executive_summary || '',
-                              stats: data.stats || {},
-                              revisits_due: [],
-                              revisits_upcoming: [],
-                              revisits_due_count: 0,
-                            });
-                            try { window.speechSynthesis?.cancel(); } catch {}
-                            setAudioState('idle');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          } catch {}
-                        }}
-                      >
-                        <span className="briefing-past-date">{formatDate(p.date)}</span>
-                        <span className="briefing-past-snip">{(p.briefing || '').slice(0, 80)}{(p.briefing || '').length > 80 ? '…' : ''}</span>
-                        <ChevronRight size={12} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {/* Side column */}
+            <div className="briefing-side">
+              {/* Timeline */}
+              <section className="briefing-card">
+                <div className="briefing-card-head">
+                  <div className="briefing-card-eyebrow"><Clock size={12} /> TODAY'S TIMELINE</div>
+                </div>
+                {timeline.length === 0 ? (
+                  <div className="briefing-empty small">A clear day — nothing scheduled.</div>
+                ) : (
+                  <ul className="briefing-timeline">
+                    {timeline.map((t, i) => (
+                      <li key={`${t.kind}-${t.id || i}`} className="briefing-tl-item">
+                        <span className="briefing-tl-dot" style={{ background: t.color }} />
+                        <div className="briefing-tl-body">
+                          <div className="briefing-tl-row">
+                            <span className="briefing-tl-time">{formatTime(t.time_iso) || 'Anytime'}</span>
+                            <span className="briefing-tl-kind">
+                              {t.kind === 'habit' ? <Zap size={9} /> : null}
+                              {t.kind}
+                            </span>
+                          </div>
+                          <div className="briefing-tl-title">
+                            {t.url ? (
+                              <a href={t.url} target="_blank" rel="noreferrer" className="briefing-tl-link">
+                                {t.title} <ExternalLink size={10} />
+                              </a>
+                            ) : t.memory_id ? (
+                              <button
+                                type="button"
+                                className="briefing-tl-link as-btn"
+                                onClick={() => navigate(`/memory/${t.memory_id}`)}
+                              >
+                                {t.title}
+                              </button>
+                            ) : (
+                              <span>{t.title}</span>
+                            )}
+                          </div>
+                          <div className="briefing-tl-sub">{t.subtitle}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* Past briefings */}
+              <section className="briefing-card">
+                <div className="briefing-card-head">
+                  <div className="briefing-card-eyebrow"><History size={12} /> PAST BRIEFINGS</div>
+                </div>
+                {past.length === 0 ? (
+                  <div className="briefing-empty small">Your saved briefings will live here.</div>
+                ) : (
+                  <ul className="briefing-past">
+                    {past.map((p) => (
+                      <li key={p.date}>
+                        <button
+                          type="button"
+                          className="briefing-past-item"
+                          onClick={async () => {
+                            try {
+                              const r = await fetch(`/briefing/by-date/${p.date}`);
+                              if (!r.ok) return;
+                              const data = await r.json();
+                              setBriefing({
+                                briefing: data.briefing || '',
+                                executive_summary: data.executive_summary || '',
+                                sections: data.sections || {},
+                                stats: data.stats || {},
+                                revisits_due: [],
+                                revisits_upcoming: [],
+                                revisits_due_count: 0,
+                              });
+                              handleStop();
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            } catch {}
+                          }}
+                        >
+                          <span className="briefing-past-date">{formatDate(p.date)}</span>
+                          <span className="briefing-past-snip">{(p.executive_summary || p.briefing || '').slice(0, 80)}{(p.executive_summary || p.briefing || '').length > 80 ? '…' : ''}</span>
+                          <ChevronRight size={12} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <RecapView loading={recapLoading} recap={recap} period={tab} />
       )}

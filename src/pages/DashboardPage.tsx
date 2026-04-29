@@ -70,9 +70,11 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
       fetch('/memories?limit=6').then(r => r.ok ? r.json() : []),
       fetch('/logs?limit=5').then(r => r.ok ? r.json() : []),
     ]).then(([s, m, l]) => { if (s) setStats(s); setRecent(m); setLogs(l); }).catch(console.error);
-    fetch('/briefing').then(r => r.ok ? r.json() : { briefing: 'Ready for another great day of learning!' })
+    fetch('/briefing').then(r => r.ok ? r.json() : { briefing: 'Ready for another great day of learning!', executive_summary: '' })
       .then(d => {
-        setBriefing(d.briefing);
+        // Prefer the short executive summary on the Dashboard so the card
+        // stays compact; the full structured briefing lives on /briefing.
+        setBriefing(d.executive_summary || d.briefing);
         setRevisits(Array.isArray(d?.revisits_due) ? d.revisits_due : []);
         setRevisitsUpcoming(Array.isArray(d?.revisits_upcoming) ? d.revisits_upcoming : []);
       })

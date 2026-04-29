@@ -166,6 +166,10 @@ async def list_habits() -> List[dict]:
         d = doc.to_dict() | {"id": doc.id}
         if not belongs_to_current_user(d):
             continue
+        # Defensive: if a habit ever gets soft-deleted via the library trash
+        # flow, don't surface it on the dashboard / briefing timeline.
+        if d.get("trashed_at"):
+            continue
         d["streak"] = _compute_streak(d.get("completions", []))
         d["completed_today"] = _today_iso() in (d.get("completions") or [])
         habits.append(d)
