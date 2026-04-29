@@ -28,6 +28,15 @@ from app.revisit_agent import (
 )
 from app.discover_agent import discover_resources
 from app.dashboard_agent import get_advanced_dashboard
+from app.briefing_agent import (
+    save_briefing as briefing_save,
+    get_briefing as briefing_get,
+    list_briefings as briefing_list,
+    list_action_items as briefing_action_items,
+    toggle_action_item as briefing_toggle_action,
+    todays_timeline as briefing_today_timeline,
+    generate_recap as briefing_generate_recap,
+)
 from app.plan_agent import generate_plan, GOAL_TYPES
 from app.workspace_agent import (
     list_projects as ws_list_projects,
@@ -2126,6 +2135,13 @@ async def briefing_endpoint(force: bool = False):
     else:
         result = await generate_daily_briefing()
         _BRIEFING_CACHE[uid] = {"data": result, "expires_at": now_ts + 300}  # 5 minutes per user
+        # Persist a copy so the user can re-read today's briefing later
+        # (and so the "Past briefings" history stays populated even after
+        # the in-memory cache rolls).
+        try:
+            await briefing_save(result)
+        except Exception as e:
+            logger.warning(f"briefing persist skipped: {e}")
     # Live revisit overlay — never cache reminders, they change as user marks visits
     try:
         rv = await list_due(window_days=7)
@@ -2137,6 +2153,56 @@ async def briefing_endpoint(force: bool = False):
         result["revisits_upcoming"] = []
         result["revisits_due_count"] = 0
     return result
+
+
+# --- Daily Briefing — history, action items, timeline, weekly/monthly recap ---
+
+@app.get("/briefing/list")
+async def briefing_list_endpoint(limit: int = 30):
+    """Recent persisted daily briefings (newest first), used by the
+    'Past briefings' rail on the standalone Daily Briefing page."""
+    return {"briefings": await briefing_list(limit=limit)}
+
+
+@app.get("/briefing/by-date/{date_iso}")
+async def briefing_by_date_endpoint(date_iso: str):
+    b = await briefing_get(date_iso)
+    if b is None:
+        raise HTTPException(status_code=404, detail="No briefing saved for that date.")
+    return b
+
+
+@app.get("/briefing/actions")
+async def briefing_actions_endpoint():
+    """Surface action items extracted from recent captures, with per-user
+    completion state."""
+    return {"actions": await briefing_action_items()}
+
+
+class ActionToggleRequest(BaseModel):
+    id: str
+    done: bool
+
+
+@app.post("/briefing/actions/toggle")
+async def briefing_actions_toggle_endpoint(body: ActionToggleRequest):
+    return await briefing_toggle_action(body.id, body.done)
+
+
+@app.get("/briefing/timeline")
+async def briefing_timeline_endpoint():
+    """Today's timeline: tasks due today + revisits due today + calendar
+    events scheduled for today, sorted by time."""
+    return {"timeline": await briefing_today_timeline()}
+
+
+@app.get("/briefing/recap")
+async def briefing_recap_endpoint(period: str = "week"):
+    """Weekly or monthly recap — aggregated capture stats plus a short
+    AI-written summary."""
+    if period not in ("week", "month"):
+        raise HTTPException(status_code=400, detail="period must be 'week' or 'month'")
+    return await briefing_generate_recap(period=period)
 
 
 # --- Notes ---

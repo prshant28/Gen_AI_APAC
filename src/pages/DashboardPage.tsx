@@ -266,6 +266,13 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
                   ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', opacity: 0.4, animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
                   : <p style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
                 }
+                <button
+                  type="button"
+                  className="briefing-handoff"
+                  onClick={() => navigate('/briefing')}
+                >
+                  Open full briefing <ChevronRight size={11} />
+                </button>
               </div>
             </div>
           </motion.div>

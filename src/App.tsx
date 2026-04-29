@@ -8,7 +8,7 @@ import {
   Settings, ChevronLeft, ChevronDown, ChevronRight, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
   Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin,
-  Library, Target
+  Library, Target, Sparkles
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import DashboardPage from './pages/DashboardPage';
+import DailyBriefingPage from './pages/DailyBriefingPage';
 import AgentPage from './pages/AgentPage';
 import CapturePage from './pages/CapturePage';
 import VaultPage from './pages/VaultPage';
@@ -57,10 +58,11 @@ import './pages/pages.css';
 
 // ── Pinned essentials — the 4 daily-driver pages, always visible at the top ──
 const PINNED_NAV = [
-  { id: 'dashboard', label: 'Dashboard', desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
-  { id: 'library',   label: 'Library',   desc: 'Vault, notes, files & inbox', path: '/library',   icon: Library,         color: '#f472b6' },
-  { id: 'recall',    label: 'Recall AI', desc: 'Ask & get answers',           path: '/recall',    icon: Bot,             color: '#00d4ff' },
-  { id: 'agent',     label: 'Agent Hub', desc: 'Multi-agent workflows',       path: '/agent',     icon: Cpu,             color: '#a78bfa' },
+  { id: 'dashboard', label: 'Dashboard',      desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
+  { id: 'briefing',  label: 'Daily Briefing', desc: 'Today, with audio & actions', path: '/briefing',  icon: Sparkles,        color: '#8b5cf6' },
+  { id: 'library',   label: 'Library',        desc: 'Vault, notes, files & inbox', path: '/library',   icon: Library,         color: '#f472b6' },
+  { id: 'recall',    label: 'Recall AI',      desc: 'Ask & get answers',           path: '/recall',    icon: Bot,             color: '#00d4ff' },
+  { id: 'agent',     label: 'Agent Hub',      desc: 'Multi-agent workflows',       path: '/agent',     icon: Cpu,             color: '#a78bfa' },
 ];
 
 // ── Collapsible groups — secondary features, organized by intent ───────────
@@ -689,6 +691,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} />} />
+                  <Route path="/briefing" element={<DailyBriefingPage />} />
                   <Route path="/agent" element={<AgentPage />} />
                   <Route path="/recall" element={<RecallPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
