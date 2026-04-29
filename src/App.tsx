@@ -756,6 +756,14 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
     } catch {}
   }, [user?.uid]);
 
+  // Settings → "Replay onboarding tour" dispatches this event so the global
+  // tour state lives here in AppShell rather than being duplicated per-page.
+  useEffect(() => {
+    const handler = () => setShowTour(true);
+    window.addEventListener('recall-replay-tour', handler);
+    return () => window.removeEventListener('recall-replay-tour', handler);
+  }, []);
+
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--text-1)', overflow: 'hidden', fontFamily: "'Poppins', system-ui, sans-serif", padding: '8px 12px', gap: 8 }}>
 

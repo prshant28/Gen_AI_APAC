@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send, Key, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send, Key, ChevronDown, ChevronUp, RotateCcw, PlayCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { showToast } from '../App';
 import { DISMISSED_PREFIX as REDIRECT_BANNER_DISMISSED_PREFIX } from '../components/LegacyRedirectBanner';
@@ -112,6 +112,16 @@ const SettingsView = () => {
     } finally {
       setBriefSaving(false);
     }
+  };
+
+  const handleReplayTour = () => {
+    try {
+      localStorage.removeItem('recall-x247-onboarded');
+    } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('recall-replay-tour'));
+    } catch {}
+    showToast('Replaying the tour from the start');
   };
 
   const handleResetRedirectBanners = () => {
@@ -578,6 +588,28 @@ const SettingsView = () => {
             {briefStatus.msg}
           </p>
         )}
+      </motion.div>
+
+      {/* Replay onboarding tour — clears the first-login gate and reopens from step 1 */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+        className="view-card" style={{ marginTop: 20, padding: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <PlayCircle size={18} color="#3b82f6" />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 3px' }}>Replay onboarding tour</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
+              Walk through the five-step tour again from the beginning — handy if you skipped it on first login or want a refresher after sidebar changes.
+            </p>
+          </div>
+          <button
+            onClick={handleReplayTour}
+            data-testid="button-replay-onboarding-tour"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', border: '1px solid rgba(37,99,235,0.4)', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(37,99,235,0.3), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+            <PlayCircle size={13} /> Replay tour
+          </button>
+        </div>
       </motion.div>
 
       {/* Reset onboarding hints — clears dismissed legacy redirect banners */}
