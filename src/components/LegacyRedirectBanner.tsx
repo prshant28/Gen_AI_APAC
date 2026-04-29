@@ -62,7 +62,7 @@ const LegacyRedirectBanner: React.FC<Props> = ({ hub }) => {
     >
       <ArrowRight size={15} color="#6366f1" style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <strong>{meta.from}</strong> ab <strong>{meta.nowIn}</strong> ka hissa hai — same content, naya ghar.
+        <strong>{meta.from}</strong> is now part of <strong>{meta.nowIn}</strong>. Same content, new home.
       </div>
       <button
         onClick={handleDismiss}
