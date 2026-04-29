@@ -8,7 +8,7 @@ import json
 import asyncio
 import datetime
 import httpx
-from typing import List, Dict, Any, AsyncGenerator
+from typing import List, Dict, Any, AsyncGenerator, Optional
 from openai import AsyncOpenAI, APITimeoutError, APIConnectionError, RateLimitError
 from app.config import settings, OPENROUTER_BASE_URL, OPENAI_BASE_URL
 
@@ -638,13 +638,21 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                 try:
                     result = await asyncio.wait_for(run_tool(tool_name, tool_args), timeout=20.0)
                     step.complete(result)
+                    entity_meta = _extract_entity_meta(tool_name, result)
+                    if entity_meta:
+                        step.entity_count = entity_meta["count"]
+                        step.entity_noun = entity_meta["noun"]
+                        step.entity_verb = entity_meta["verb"]
                     yield sse("agent_complete", {
                         "step_id": step.id,
                         "agent": agent_name,
                         "tool": tool_name,
                         "name": display_name,
                         "output_summary": _summarize_output(result),
-                        "duration_ms": round(step.duration_ms, 1)
+                        "duration_ms": round(step.duration_ms, 1),
+                        "entity_count": step.entity_count,
+                        "entity_noun": step.entity_noun,
+                        "entity_verb": step.entity_verb,
                     })
                 except asyncio.TimeoutError:
                     step.fail("Tool timed out")
@@ -711,3 +719,84 @@ def _summarize_output(result: Any) -> str:
     if isinstance(result, list):
         return f"{len(result)} items returned"
     return str(result)[:100]
+
+
+# ─── Entity audit metadata for the assistant's "done" chip ────────────────────
+# Maps each tool to (verb, singular noun, plural noun, kind). The frontend joins
+# these into phrases like "checked 3 memories, created 1 task". Tools without a
+# meaningful entity count (e.g. stats lookups) are absent and produce no chip
+# phrase — the chip falls back to the friendly agent path.
+#
+# kind:
+#   "single" — tool always produces exactly one entity on success (creates).
+#   "list"   — tool produces N entities; count is read from the actual result.
+_TOOL_ENTITY_LABELS: Dict[str, tuple] = {
+    "capture_knowledge":   ("saved",     "memory",     "memories",    "single"),
+    "recall_knowledge":    ("checked",   "memory",     "memories",    "list"),
+    "list_memories":       ("listed",    "memory",     "memories",    "list"),
+    "create_task":         ("created",   "task",       "tasks",       "single"),
+    "list_tasks":          ("listed",    "task",       "tasks",       "list"),
+    "schedule_event":      ("scheduled", "event",      "events",      "single"),
+    "list_schedule":       ("checked",   "event",      "events",      "list"),
+    "get_daily_briefing":  ("prepared",  "briefing",   "briefings",   "single"),
+    "generate_study_plan": ("drafted",   "study plan", "study plans", "single"),
+}
+
+# Known list keys to inspect on dict-shaped list-tool results, in priority order.
+# `recall_knowledge` returns {answer, sources, count, follow_ups, ...} so
+# "sources" must come before generic fallbacks. We never invent a count for
+# list-tools whose result shape doesn't match any of these — the chip falls
+# back to the friendly agent path instead.
+_LIST_KEYS = ("memories", "sources", "tasks", "events", "items", "results")
+
+
+def _extract_entity_meta(tool_name: str, result: Any) -> Optional[Dict[str, Any]]:
+    """Return {count, noun, verb} for a tool result, or None if no count fits.
+
+    Counts come from the actual result shape — never fabricated:
+      * single-tool dict (no error) → exactly 1
+      * list-tool list result → len(list)
+      * list-tool dict result → length of a known list key, or an explicit
+        integer "count" field, otherwise None (so UI falls back gracefully)
+      * any dict with "error" → None (failed steps don't contribute counts)
+    """
+    labels = _TOOL_ENTITY_LABELS.get(tool_name)
+    if not labels:
+        return None
+    if isinstance(result, dict) and "error" in result:
+        return None
+
+    verb, singular, plural, kind = labels
+    count: Optional[int] = None
+
+    if kind == "single":
+        # Creates always produce one entity on success. Allow either a dict or
+        # any non-error truthy result; fall back to None if the tool returned
+        # something falsy (defensive — shouldn't happen in practice).
+        if result:
+            count = 1
+    else:  # kind == "list"
+        if isinstance(result, list):
+            count = len(result)
+        elif isinstance(result, dict):
+            for key in _LIST_KEYS:
+                val = result.get(key)
+                if isinstance(val, list):
+                    count = len(val)
+                    break
+            # Some recall paths emit an explicit integer "count" alongside the
+            # list — if we somehow didn't see a list (e.g. it was elided), use
+            # that as the source of truth before giving up.
+            if count is None:
+                explicit = result.get("count")
+                if isinstance(explicit, int) and explicit >= 0:
+                    count = explicit
+
+    if count is None or count < 0:
+        return None
+
+    return {
+        "count": count,
+        "noun": singular if count == 1 else plural,
+        "verb": verb,
+    }

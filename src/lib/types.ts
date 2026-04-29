@@ -63,6 +63,13 @@ export interface AgentStepData {
   output_summary?: string;
   error?: string;
   duration_ms?: number;
+  // Optional entity-level audit info, populated by the backend after a tool
+  // returns. Used by the assistant's "done" chip to render concrete counts
+  // like "checked 3 memories, created 1 task". May be absent for stats /
+  // unknown tools, in which case the chip falls back to the agent path.
+  entity_count?: number | null;
+  entity_noun?: string;
+  entity_verb?: string;
 }
 
 // ─── Workspace (project / folder / section / item / group) ────────────────────

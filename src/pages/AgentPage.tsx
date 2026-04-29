@@ -86,10 +86,68 @@ const formatDuration = (ms: number): string => {
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
 };
 
-// End-of-stream summary chip: shows status + friendly agent path + total duration
-// for completed assistant messages. Read-only — drill-down lives in the toolbar export.
-// Only friendly agent labels from AGENT_LABEL are shown — unknown identifiers are dropped
-// so we never leak raw "FooAgent" or model strings into the UI.
+// Build a "saved 2 memories, created 1 task" phrase from per-step entity counts.
+// Aggregates counts that share the same (verb, noun-stem) so a workflow with
+// multiple captures collapses to one "saved 3 memories" instead of three
+// separate phrases. Returns "" when no step had a usable count, which lets the
+// chip fall back to the friendly agent path.
+const buildEntityPhrase = (steps: AgentStepData[]): string => {
+  // Order-preserving aggregation keyed by verb+noun-stem (singular). Each
+  // entry tracks the running count and the verb/noun pair we'll render.
+  const order: string[] = [];
+  const groups = new Map<string, { verb: string; singular: string; plural: string; count: number }>();
+
+  // Map any noun we receive to a (singular, plural) pair so adding a "memory"
+  // step (count 1) and a "memories" step (count 5) collapses cleanly.
+  const NOUN_FORMS: Record<string, { singular: string; plural: string }> = {
+    memory:      { singular: 'memory',     plural: 'memories'    },
+    memories:    { singular: 'memory',     plural: 'memories'    },
+    task:        { singular: 'task',       plural: 'tasks'       },
+    tasks:       { singular: 'task',       plural: 'tasks'       },
+    event:       { singular: 'event',      plural: 'events'      },
+    events:      { singular: 'event',      plural: 'events'      },
+    briefing:    { singular: 'briefing',   plural: 'briefings'   },
+    briefings:   { singular: 'briefing',   plural: 'briefings'   },
+    'study plan':  { singular: 'study plan', plural: 'study plans' },
+    'study plans': { singular: 'study plan', plural: 'study plans' },
+  };
+
+  for (const s of steps) {
+    if (s.status !== 'completed') continue;
+    const count = s.entity_count;
+    const noun = (s.entity_noun || '').toLowerCase();
+    const verb = s.entity_verb || '';
+    if (typeof count !== 'number' || count < 0 || !noun || !verb) continue;
+
+    const forms = NOUN_FORMS[noun];
+    const singular = forms?.singular || noun;
+    const plural = forms?.plural || `${noun}s`;
+    const key = `${verb}|${singular}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += count;
+    } else {
+      groups.set(key, { verb, singular, plural, count });
+      order.push(key);
+    }
+  }
+
+  if (order.length === 0) return '';
+  return order
+    .map(key => {
+      const g = groups.get(key)!;
+      const noun = g.count === 1 ? g.singular : g.plural;
+      return `${g.verb} ${g.count} ${noun}`;
+    })
+    .join(', ');
+};
+
+// End-of-stream summary chip: renders concrete counts when the backend supplied
+// per-step entity audit data ("Done — checked 3 memories, created 1 task · 2.4s"),
+// otherwise falls back to the friendly agent path ("Done · Coordinator → Tasks · 2.4s").
+// Read-only — drill-down lives in the toolbar export. Only friendly agent labels from
+// AGENT_LABEL are shown — unknown identifiers are dropped so we never leak raw
+// "FooAgent" or model strings into the UI.
 const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
   if (!steps || steps.length === 0) return null;
   const completed = steps.filter(s => s.status === 'completed').length;
@@ -104,6 +162,11 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
     const label = AGENT_LABEL[s.agent];
     if (label && !seen.has(label)) { seen.add(label); agentList.push(label); }
   }
+
+  // Prefer concrete entity counts when the backend provided them; otherwise fall
+  // back to the friendly agent path. This is the only middle slot in the chip.
+  const entityPhrase = buildEntityPhrase(steps);
+  const middleText = entityPhrase || (agentList.length > 0 ? agentList.join(' → ') : '');
 
   // Status ladder: any failures > 0 demote the chip; otherwise "Done" if at least
   // one step actually finished, else neutral "Finished" (covers stuck/unknown states).
@@ -125,8 +188,7 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
   }
 
   const durationStr = totalMs > 0 ? formatDuration(totalMs) : null;
-  const agentsTitle = agentList.length > 0 ? agentList.join(' → ') : '';
-  const titleParts = [statusText, agentsTitle, durationStr].filter(Boolean);
+  const titleParts = [statusText, middleText, durationStr].filter(Boolean);
 
   return (
     <div
@@ -151,14 +213,16 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
       }}>
       <StatusIcon size={11} strokeWidth={2.5} />
       <span style={{ color: statusColor, fontWeight: 700, letterSpacing: '0.1px' }}>{statusText}</span>
-      {agentList.length > 0 && (
+      {middleText && (
         <>
           <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>·</span>
-          <span style={{
-            color: 'var(--text-2)', fontWeight: 500,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            maxWidth: 280, minWidth: 0,
-          }}>{agentList.join(' → ')}</span>
+          <span
+            data-testid="completion-summary-detail"
+            style={{
+              color: 'var(--text-2)', fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: 360, minWidth: 0,
+            }}>{middleText}</span>
         </>
       )}
       {durationStr && (
@@ -364,7 +428,15 @@ const AgentHubView = () => {
       case 'agent_complete':
         setAgentStatuses(prev => ({ ...prev, [event.agent]: 'done' }));
         setMessages(prev => prev.map(m => m.id === thinkId
-          ? { ...m, steps: (m.steps || []).map(s => s.step_id === event.step_id ? { ...s, status: 'completed', output_summary: event.output_summary, duration_ms: event.duration_ms } : s) }
+          ? { ...m, steps: (m.steps || []).map(s => s.step_id === event.step_id ? {
+              ...s,
+              status: 'completed',
+              output_summary: event.output_summary,
+              duration_ms: event.duration_ms,
+              entity_count: event.entity_count,
+              entity_noun: event.entity_noun,
+              entity_verb: event.entity_verb,
+            } : s) }
           : m));
         break;
       case 'agent_error':

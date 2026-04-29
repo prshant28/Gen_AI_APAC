@@ -24,6 +24,12 @@ class WorkflowStep:
     started_at: str = ""
     completed_at: str = ""
     duration_ms: float = 0
+    # Entity audit fields for the assistant's "done" chip — populated by the
+    # coordinator after a tool returns. None when no count is meaningful (e.g.
+    # stats lookups). The frontend renders "{verb} {count} {noun}" when present.
+    entity_count: Optional[int] = None
+    entity_noun: str = ""
+    entity_verb: str = ""
 
     def start(self):
         self.status = "running"
@@ -54,7 +60,10 @@ class WorkflowStep:
             "error": self.error,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
-            "duration_ms": round(self.duration_ms, 1)
+            "duration_ms": round(self.duration_ms, 1),
+            "entity_count": self.entity_count,
+            "entity_noun": self.entity_noun,
+            "entity_verb": self.entity_verb,
         }
 
 
