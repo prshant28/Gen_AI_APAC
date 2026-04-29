@@ -68,9 +68,9 @@ class Settings(BaseSettings):
         if not self.FIREBASE_DATABASE_ID:
             self.FIREBASE_DATABASE_ID = os.getenv("FIREBASE_DATABASE_ID", "(default)")
 
-        # Save the RAW OPENAI/OpenRouter key before anything overwrites it.
-        # OPENAI_API_KEY_1 is checked first so newly-rotated keys (added with
-        # the _1 suffix to keep the old one around as backup) take priority.
+        # OpenAI-only mode (per user request): no Gemini, no OpenRouter,
+        # no backup tier. Just whichever OpenAI key the user has set.
+        # OPENAI_API_KEY_1 takes priority so a freshly-rotated key wins.
         raw_openai_key = (
             os.getenv("OPENAI_API_KEY_1")
             or os.getenv("OPENAI_API_KEY")
@@ -79,61 +79,26 @@ class Settings(BaseSettings):
             or os.getenv("GEN_API_KEY")
         )
 
-        # Resolve Gemini API key
-        gemini_key = (
-            os.getenv("GOOGLE_API_KEY")
-            or os.getenv("GEMINI_API_KEY")
-            or self.GEMINI_API_KEY
-        )
-        if gemini_key:
-            self.GEMINI_API_KEY = gemini_key
-            self.GOOGLE_API_KEY = gemini_key
+        # Force-disable Gemini and backup tiers regardless of env vars.
+        self.GEMINI_API_KEY = None
+        self.GOOGLE_API_KEY = None
+        self.USE_GEMINI = False
+        self.BACKUP_GEMINI_API_KEY = None
+        self.FALLBACK_AI_KEY = None
 
-        # --- Build PRIMARY client config ---
-        if self.GEMINI_API_KEY:
-            self.PRIMARY_AI_KEY = self.GEMINI_API_KEY
-            self.PRIMARY_AI_BASE_URL = GEMINI_COMPAT_URL
-            self.PRIMARY_AI_MODEL = self.GEMINI_MODEL
-            self.USE_GEMINI = True
-            self.USE_OPENROUTER = False
-            # Keep OPENAI_API_KEY pointing at Gemini for backward compat
-            self.OPENAI_API_KEY = self.GEMINI_API_KEY
-            self.OPENAI_MODEL = self.GEMINI_MODEL
-        else:
-            # No Gemini — use OpenAI / OpenRouter as primary
-            resolved_key = raw_openai_key
-            if resolved_key:
-                self.PRIMARY_AI_KEY = resolved_key
-                if _is_openrouter_key(resolved_key):
-                    self.PRIMARY_AI_BASE_URL = OPENROUTER_BASE_URL
-                    self.PRIMARY_AI_MODEL = "openai/gpt-4o-mini"
-                    self.USE_OPENROUTER = True
-                else:
-                    self.PRIMARY_AI_BASE_URL = OPENAI_BASE_URL
-                    self.PRIMARY_AI_MODEL = "gpt-4o-mini"
-                self.OPENAI_API_KEY = resolved_key
-                self.OPENAI_MODEL = self.PRIMARY_AI_MODEL
-
-        # --- Build FALLBACK client config ---
-        # Fallback = real OpenAI key (distinct from Gemini key)
-        # Only set FALLBACK if there's a separate non-Gemini key available
-        if self.USE_GEMINI and raw_openai_key:
-            # We have both Gemini (primary) and an OpenAI key (fallback)
-            self.FALLBACK_AI_KEY = raw_openai_key
+        # --- Build PRIMARY client config (OpenAI only) ---
+        if raw_openai_key:
+            self.PRIMARY_AI_KEY = raw_openai_key
             if _is_openrouter_key(raw_openai_key):
-                self.FALLBACK_AI_BASE_URL = OPENROUTER_BASE_URL
-                self.FALLBACK_AI_MODEL = "openai/gpt-4o-mini"
+                self.PRIMARY_AI_BASE_URL = OPENROUTER_BASE_URL
+                self.PRIMARY_AI_MODEL = "openai/gpt-4o-mini"
+                self.USE_OPENROUTER = True
             else:
-                self.FALLBACK_AI_BASE_URL = OPENAI_BASE_URL
-                self.FALLBACK_AI_MODEL = "gpt-4o-mini"
-        elif not self.USE_GEMINI:
-            self.FALLBACK_AI_KEY = None
-
-        # --- Build BACKUP Gemini config (third tier) ---
-        # Loaded from env so the user can rotate without code changes.
-        backup_key = os.getenv("BACKUP_GEMINI_API_KEY") or self.BACKUP_GEMINI_API_KEY
-        if backup_key:
-            self.BACKUP_GEMINI_API_KEY = backup_key
+                self.PRIMARY_AI_BASE_URL = OPENAI_BASE_URL
+                self.PRIMARY_AI_MODEL = "gpt-4o-mini"
+                self.USE_OPENROUTER = False
+            self.OPENAI_API_KEY = raw_openai_key
+            self.OPENAI_MODEL = self.PRIMARY_AI_MODEL
 
     @property
     def openai_base_url(self) -> str:
