@@ -283,13 +283,11 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLDivElement;
                 el.style.transform = 'translateY(-3px)';
-                el.style.boxShadow = `0 8px 24px ${s.color}22, inset 0 1px 0 rgba(255,255,255,0.9)`;
-                el.style.borderColor = `${s.color}50`;
+                el.style.borderColor = 'var(--primary-border)';
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLDivElement;
                 el.style.transform = '';
-                el.style.boxShadow = isDark ? '0 2px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' : '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)';
                 el.style.borderColor = 'var(--border)';
               }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AgentPipeline, { AgentStep } from '../components/AgentPipeline';
+import { card } from '../lib/ui';
 
 interface Resource {
   title?: string;
@@ -99,7 +100,8 @@ const RUNNING_PIPELINE: AgentStep[] = [
   { name: 'SchedulerAgent', label: 'Scheduler', status: 'queued', out: 'Will lay out days' },
 ];
 
-const PlanGeneratorPage: React.FC = () => {
+interface PlanGeneratorPageProps { embedded?: boolean }
+const PlanGeneratorPage: React.FC<PlanGeneratorPageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [topic, setTopic] = useState(params.get('topic') || '');
@@ -284,7 +286,6 @@ const PlanGeneratorPage: React.FC = () => {
     });
   };
 
-  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', display: 'block', marginBottom: 5 };
 
@@ -294,24 +295,26 @@ const PlanGeneratorPage: React.FC = () => {
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-        className="page-header" style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg,#6366f1,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
-            <Sparkles size={19} color="#fff" />
+      {!embedded && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="page-header" style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg,#6366f1,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+              <Sparkles size={19} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Plan Generator</h1>
+              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Multi-agent — Researcher · Discover · Organizer · Scheduler. Pulls live web data, organizes into folders, schedules to your calendar.</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Plan Generator</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Multi-agent — Researcher · Discover · Organizer · Scheduler. Pulls live web data, organizes into folders, schedules to your calendar.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => navigate(`/discover${topic ? `?topic=${encodeURIComponent(topic)}` : ''}`)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Compass size={13} /> Discover
+            </button>
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => navigate(`/discover${topic ? `?topic=${encodeURIComponent(topic)}` : ''}`)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <Compass size={13} /> Discover
-          </button>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Inputs card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}

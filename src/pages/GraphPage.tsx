@@ -7,7 +7,8 @@ interface GraphNode { id: string; label: string; x: number; y: number; r: number
 
 const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
 
-const KnowledgeGraphView = () => {
+interface KnowledgeGraphViewProps { embedded?: boolean }
+const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ embedded = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -192,17 +193,19 @@ const KnowledgeGraphView = () => {
 
   return (
     <div style={{ color: 'var(--text-1)' }}>
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Network size={17} color="#8b5cf6" />
+      {!embedded && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Network size={17} color="#8b5cf6" />
+            </div>
+            <div>
+              <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Mind Graph</h1>
+              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Interactive map of your knowledge connections — hover to explore</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Mind Graph</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Interactive map of your knowledge connections — hover to explore</p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: 14 }}>
         <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}

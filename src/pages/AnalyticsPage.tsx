@@ -3,6 +3,7 @@ import { BarChart2, Brain, TrendingUp, Zap, Target } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, CartesianGrid, Area, AreaChart } from 'recharts';
 import type { Memory } from '../lib/types';
+import { card } from '../lib/ui';
 
 const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -11,7 +12,8 @@ const TOOLTIP_STYLE = {
   cursor: { fill: 'rgba(255,255,255,0.03)' }
 };
 
-const AnalyticsView = () => {
+interface AnalyticsViewProps { embedded?: boolean }
+const AnalyticsView: React.FC<AnalyticsViewProps> = ({ embedded = false }) => {
   const [stats, setStats] = useState<any>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -26,7 +28,6 @@ const AnalyticsView = () => {
     ]).then(([s, m, l, t]) => { if (s) setStats(s); setMemories(m); setLogs(l); setTasks(t); });
   }, []);
 
-  const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 } as React.CSSProperties;
   const domains = stats?.knowledge_domains ?? [];
 
   const srcCounts = { youtube: 0, web: 0, pdf: 0, note: 0 };
@@ -61,17 +62,19 @@ const AnalyticsView = () => {
 
   return (
     <div style={{ color: 'var(--text-1)' }}>
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BarChart2 size={17} color="#10b981" />
+      {!embedded && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarChart2 size={17} color="#10b981" />
+            </div>
+            <div>
+              <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Analytics</h1>
+              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Deep insights into your knowledge patterns and learning velocity</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Analytics</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Deep insights into your knowledge patterns and learning velocity</p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginBottom: 16 }}>

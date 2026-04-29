@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { card as cardBase } from '../lib/ui';
 import {
   GitBranch, Search, Plus, Loader2, Globe, StickyNote, FileText, Brain, Youtube,
   Sparkles, CheckSquare, Lightbulb, Calendar, Folder, ArrowRight, Layers, ExternalLink,
@@ -18,12 +19,7 @@ const FILTERS = [
   { id: 'note',    label: 'Notes',   color: '#10b981' },
 ];
 
-const card: React.CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 12,
-  transition: 'all 0.18s',
-};
+const card: React.CSSProperties = { ...cardBase, transition: 'all 0.18s' };
 
 // ─── Memory-only timeline view (existing behaviour) ────────────────────────────
 const MemoryTimelineView = () => {
@@ -445,7 +441,8 @@ const WorkspaceTimelineView = () => {
 };
 
 // ─── Top-level page with tab switcher ──────────────────────────────────────────
-const TimelinePage = () => {
+interface TimelinePageProps { embedded?: boolean }
+const TimelinePage: React.FC<TimelinePageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const initialMode = params.get('mode') === 'workspace' || !!params.get('project_id') ? 'workspace' : 'memories';
@@ -453,38 +450,48 @@ const TimelinePage = () => {
 
   return (
     <div style={{ color: 'var(--text-1)' }}>
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <GitBranch size={17} color="#f472b6" />
+      {!embedded && (
+        <div className="page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <GitBranch size={17} color="#f472b6" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Timeline</h1>
+              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
+                {mode === 'memories' ? 'Chronological view of your captured knowledge' : 'How your work flows: capture → insight → task → memory'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Timeline</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
-              {mode === 'memories' ? 'Chronological view of your captured knowledge' : 'How your work flows: capture → insight → task → memory'}
-            </p>
-          </div>
+          <button onClick={() => navigate(mode === 'memories' ? '/capture' : '/workspace')}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#f472b6,#c026a1)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(244,114,182,0.35)', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <Plus size={14} /> {mode === 'memories' ? 'Add Memory' : 'Open Workspace'}
+          </button>
         </div>
-        <button onClick={() => navigate(mode === 'memories' ? '/capture' : '/workspace')}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#f472b6,#c026a1)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(244,114,182,0.35)', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          <Plus size={14} /> {mode === 'memories' ? 'Add Memory' : 'Open Workspace'}
-        </button>
-      </div>
+      )}
 
       {/* Mode switcher */}
-      <div style={{ display: 'inline-flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, marginBottom: 16 }}>
-        {([
-          { id: 'memories', label: 'Memories', color: '#f472b6' },
-          { id: 'workspace', label: 'Workspace flow', color: '#a78bfa' },
-        ] as const).map(t => {
-          const active = mode === t.id;
-          return (
-            <button key={t.id} onClick={() => setMode(t.id)}
-              style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: active ? t.color : 'transparent', color: active ? '#fff' : 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-              {t.label}
-            </button>
-          );
-        })}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'inline-flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
+          {([
+            { id: 'memories', label: 'Memories', color: '#f472b6' },
+            { id: 'workspace', label: 'Workspace flow', color: '#a78bfa' },
+          ] as const).map(t => {
+            const active = mode === t.id;
+            return (
+              <button key={t.id} onClick={() => setMode(t.id)}
+                style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: active ? t.color : 'transparent', color: active ? '#fff' : 'var(--text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        {embedded && (
+          <button onClick={() => navigate(mode === 'memories' ? '/capture' : '/workspace')}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'linear-gradient(135deg,#f472b6,#c026a1)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Plus size={13} /> {mode === 'memories' ? 'Add Memory' : 'Open Workspace'}
+          </button>
+        )}
       </div>
 
       {mode === 'memories' ? <MemoryTimelineView /> : <WorkspaceTimelineView />}

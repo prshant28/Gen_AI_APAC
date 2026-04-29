@@ -4,6 +4,7 @@ import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
 import type { Memory, Flashcard } from '../lib/types';
+import { card } from '../lib/ui';
 
 interface StudyCard extends Flashcard { status: 'unseen' | 'known' | 'unknown'; }
 
@@ -111,11 +112,13 @@ const SRC_ICON: Record<string, { icon: React.ElementType; color: string }> = {
 const DOMAINS = ['', 'AI', 'Technology', 'Science', 'Business', 'Health', 'History', 'Philosophy', 'Engineering', 'Productivity', 'Other'];
 const SORT_OPTS = [{ value: 'newest', label: 'Newest' }, { value: 'oldest', label: 'Oldest' }, { value: 'title', label: 'A–Z' }];
 
-const VaultView = () => {
+interface VaultViewProps { embedded?: boolean; initialSourceFilter?: string }
+const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFilter = '' }) => {
   const navigate = useNavigate();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [filter, setFilter] = useState('');
   const [domainFilter, setDomainFilter] = useState('');
+  const [sourceTypeFilter, setSourceTypeFilter] = useState(initialSourceFilter);
   const [sort, setSort] = useState('newest');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
@@ -144,33 +147,34 @@ const VaultView = () => {
 
   const filtered = memories
     .filter(m => !filter || m.title.toLowerCase().includes(filter.toLowerCase()) || m.tags.some(t => t.toLowerCase().includes(filter.toLowerCase())) || m.summary.toLowerCase().includes(filter.toLowerCase()))
+    .filter(m => !sourceTypeFilter || m.source_type === sourceTypeFilter)
     .sort((a, b) => {
       if (sort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       return a.title.localeCompare(b.title);
     });
 
-  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
-
   return (
     <div style={{ color: 'var(--text-1)' }}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(244,114,182,0.12)' }}>
-              <Database size={18} color="#f472b6" />
+        {!embedded && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(244,114,182,0.12)' }}>
+                <Database size={18} color="#f472b6" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Knowledge Vault</h1>
+                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>{memories.length} memories in your Second Brain</p>
+              </div>
             </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Knowledge Vault</h1>
-              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>{memories.length} memories in your Second Brain</p>
-            </div>
+            <a href="/export/vault" download="recall-x247-vault.md" title="Export vault as Markdown"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(99,102,241,0.35)', flexShrink: 0 }}>
+              <Download size={14} /> Export Vault
+            </a>
           </div>
-          <a href="/export/vault" download="recall-x247-vault.md" title="Export vault as Markdown"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(99,102,241,0.35)', flexShrink: 0 }}>
-            <Download size={14} /> Export Vault
-          </a>
-        </div>
+        )}
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

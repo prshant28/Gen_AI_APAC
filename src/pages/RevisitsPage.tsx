@@ -35,7 +35,8 @@ const FREQ_LABEL: Record<string, string> = {
   specific_date: 'Specific date',
 };
 
-const RevisitsPage: React.FC = () => {
+interface RevisitsPageProps { embedded?: boolean }
+const RevisitsPage: React.FC<RevisitsPageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const [items, setItems] = useState<Revisit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,20 +139,29 @@ const RevisitsPage: React.FC = () => {
   return (
     <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(244,114,182,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Bell size={20} color="#f59e0b" />
+      {!embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(244,114,182,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Bell size={20} color="#f59e0b" />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-1)' }}>Revisit Reminders</h1>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-3)', fontSize: 13 }}>
+              Schedule "come back later" reminders for captured items, links, and ideas.
+            </p>
+          </div>
+          <button onClick={() => setShowCreate(s => !s)} style={btnPrimary}>
+            <Plus size={13} /> New revisit
+          </button>
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-1)' }}>Revisit Reminders</h1>
-          <p style={{ margin: '4px 0 0', color: 'var(--text-3)', fontSize: 13 }}>
-            Schedule "come back later" reminders for captured items, links, and ideas.
-          </p>
+      )}
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowCreate(s => !s)} style={btnPrimary}>
+            <Plus size={13} /> New revisit
+          </button>
         </div>
-        <button onClick={() => setShowCreate(s => !s)} style={btnPrimary}>
-          <Plus size={13} /> New revisit
-        </button>
-      </div>
+      )}
 
       {/* Inline create */}
       <AnimatePresence>

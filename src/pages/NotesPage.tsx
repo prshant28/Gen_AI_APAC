@@ -35,7 +35,8 @@ const renderMarkdown = (md: string): string => {
   return `<p style="margin:8px 0;color:var(--text-2);line-height:1.6">${html}</p>`;
 };
 
-const NotesPage: React.FC = () => {
+interface NotesPageProps { embedded?: boolean }
+const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -128,34 +129,42 @@ const NotesPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '14px 0 28px', minHeight: 'calc(100vh - 5rem)' }}>
 
       {/* HERO HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.18))', border: '1px solid rgba(245,158,11,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px rgba(245,158,11,0.2)' }}>
-            <StickyNote size={24} color="#f59e0b" />
-          </div>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 20, marginBottom: 6 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.5px' }}>{notes.length} NOTES · MARKDOWN ENABLED · AUTO-SAVE</span>
+      {!embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.18))', border: '1px solid rgba(245,158,11,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px rgba(245,158,11,0.2)' }}>
+              <StickyNote size={24} color="#f59e0b" />
             </div>
-            <h2 style={{ fontSize: 'clamp(22px,3.5vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.6px', lineHeight: 1.05 }}>
-              Notes <span style={{ color: '#f59e0b' }}>✦</span>
-            </h2>
-            <p style={{ color: 'var(--text-3)', fontSize: 13.5, margin: '4px 0 0' }}>
-              Quick markdown notes that flow into your second brain
-            </p>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 20, marginBottom: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.5px' }}>{notes.length} NOTES · MARKDOWN ENABLED · AUTO-SAVE</span>
+              </div>
+              <h2 style={{ fontSize: 'clamp(22px,3.5vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.6px', lineHeight: 1.05 }}>
+                Notes <span style={{ color: '#f59e0b' }}>✦</span>
+              </h2>
+              <p style={{ color: 'var(--text-3)', fontSize: 13.5, margin: '4px 0 0' }}>
+                Quick markdown notes that flow into your second brain
+              </p>
+            </div>
           </div>
+          <button onClick={createNew} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(245,158,11,0.4)' }}>
+            <Plus size={14} /> New note
+          </button>
         </div>
-        <button onClick={createNew} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(245,158,11,0.4)' }}>
-          <Plus size={14} /> New note
-        </button>
-      </div>
+      )}
 
       {/* BODY: list + editor */}
       <div className="notes-body-grid" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 14, alignItems: 'start' }}>
 
         {/* LEFT: list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'sticky', top: 12, alignSelf: 'start', maxHeight: 'calc(100vh - 80px)' }}>
+          {embedded && (
+            <button onClick={createNew}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 12px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,158,11,0.25)' }}>
+              <Plus size={13} /> New note
+            </button>
+          )}
           <div style={{ position: 'relative' }}>
             <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes..."

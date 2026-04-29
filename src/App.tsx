@@ -7,7 +7,8 @@ import {
   Database, Bot, Network, GitBranch, BarChart2, FlipHorizontal,
   Settings, ChevronLeft, ChevronDown, ChevronRight, LogOut, Menu, Moon, Sun, Cpu, Presentation,
   CheckCircle2, AlertTriangle, Info, X, StickyNote, Globe, Zap, HelpCircle,
-  Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin
+  Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin,
+  Library, Target
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -47,15 +48,18 @@ import RevisitsPage from './pages/RevisitsPage';
 import SharePage from './pages/SharePage';
 import StudyPlanPage from './pages/StudyPlanPage';
 import DiscoverPage from './pages/DiscoverPage';
+import LibraryPage from './pages/LibraryPage';
+import FocusPage from './pages/FocusPage';
+import LearnPage from './pages/LearnPage';
+import InsightsPage from './pages/InsightsPage';
 import './pages/pages.css';
 
-// ── Pinned essentials — the 5 daily-driver pages, always visible at the top ──
+// ── Pinned essentials — the 4 daily-driver pages, always visible at the top ──
 const PINNED_NAV = [
   { id: 'dashboard', label: 'Dashboard', desc: 'Your daily overview',         path: '/dashboard', icon: LayoutDashboard, color: '#3b82f6' },
-  { id: 'capture',   label: 'Capture',   desc: 'Save anything',                path: '/capture',   icon: Plus,            color: '#06b6d4' },
-  { id: 'vault',     label: 'Vault',     desc: 'Browse your knowledge',        path: '/vault',     icon: Database,        color: '#818cf8' },
-  { id: 'recall',    label: 'Recall AI', desc: 'Ask & get answers',            path: '/recall',    icon: Bot,             color: '#00d4ff' },
-  { id: 'agent',     label: 'Agent Hub', desc: 'Multi-agent workflows',        path: '/agent',     icon: Cpu,             color: '#a78bfa' },
+  { id: 'library',   label: 'Library',   desc: 'Vault, notes, files & inbox', path: '/library',   icon: Library,         color: '#f472b6' },
+  { id: 'recall',    label: 'Recall AI', desc: 'Ask & get answers',           path: '/recall',    icon: Bot,             color: '#00d4ff' },
+  { id: 'agent',     label: 'Agent Hub', desc: 'Multi-agent workflows',       path: '/agent',     icon: Cpu,             color: '#a78bfa' },
 ];
 
 // ── Collapsible groups — secondary features, organized by intent ───────────
@@ -65,42 +69,24 @@ const NAV_GROUPS = [
     label: 'Workspace',
     icon: Kanban,
     items: [
-      { id: 'workspace',  label: 'Projects',     path: '/workspace',  icon: Kanban,         color: '#f59e0b' },
-      { id: 'tasks',      label: 'Tasks',        path: '/tasks',      icon: CheckSquare,    color: '#10b981' },
-      { id: 'calendar',   label: 'Calendar',     path: '/calendar',   icon: CalendarIcon,   color: '#818cf8' },
-      { id: 'notes',      label: 'Notes',        path: '/notes',      icon: StickyNote,     color: '#f59e0b' },
-      { id: 'bookmarks',  label: 'Bookmarks',    path: '/bookmarks',  icon: Bookmark,       color: '#ec4899' },
-    ]
-  },
-  {
-    id: 'learn',
-    label: 'Learn & grow',
-    icon: GraduationCap,
-    items: [
-      { id: 'flashcards', label: 'Flashcards',   path: '/flashcards', icon: FlipHorizontal, color: '#06b6d4' },
-      { id: 'habits',     label: 'Habits',       path: '/habits',     icon: Flame,          color: '#10b981' },
-      { id: 'revisits',   label: 'Revisits',     path: '/revisits',   icon: Bell,           color: '#f59e0b' },
-      { id: 'plan',       label: 'Study Plan',   path: '/plan',       icon: GraduationCap,  color: '#7c3aed' },
-      { id: 'discover',   label: 'Discover',     path: '/discover',   icon: Compass,        color: '#06b6d4' },
-    ]
-  },
-  {
-    id: 'insights',
-    label: 'Insights',
-    icon: BarChart2,
-    items: [
-      { id: 'timeline',   label: 'Timeline',     path: '/timeline',  icon: GitBranch,  color: '#818cf8' },
-      { id: 'graph',      label: 'Mind Graph',   path: '/graph',     icon: Network,    color: '#06b6d4' },
-      { id: 'analytics',  label: 'Analytics',    path: '/analytics', icon: BarChart2,  color: '#10b981' },
+      { id: 'workspace', label: 'Projects', path: '/workspace', icon: Kanban,       color: '#f59e0b' },
+      { id: 'focus',     label: 'Focus',    path: '/focus',     icon: Target,       color: '#10b981' },
+      { id: 'calendar',  label: 'Calendar', path: '/calendar',  icon: CalendarIcon, color: '#818cf8' },
     ]
   },
 ];
 
+// ── Flat nav — top-level destinations rendered between groups and footer ───
+const FLAT_NAV = [
+  { id: 'learn',    label: 'Learn',    path: '/learn',    icon: GraduationCap, color: '#7c3aed' },
+  { id: 'discover', label: 'Discover', path: '/discover', icon: Compass,       color: '#06b6d4' },
+  { id: 'insights', label: 'Insights', path: '/insights', icon: BarChart2,     color: '#10b981' },
+];
+
 // ── Footer — system/admin pages, demoted to small icons at the bottom ──────
 const FOOTER_NAV = [
-  { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,         color: '#22d3ee' },
-  { id: 'deck',         label: 'Pitch Deck',   path: '/deck',         icon: Presentation, color: '#22d3ee' },
-  { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings,     color: '#6b7280' },
+  { id: 'integrations', label: 'Integrations', path: '/integrations', icon: Plug,     color: '#22d3ee' },
+  { id: 'settings',     label: 'Settings',     path: '/settings',     icon: Settings, color: '#6b7280' },
 ];
 
 const NAV_OPEN_KEY = 'recall-x247-nav-open-v1';
@@ -111,7 +97,7 @@ const loadOpenGroups = (): Record<string, boolean> => {
     if (raw) return JSON.parse(raw);
   } catch {}
   // First-time defaults: only "Workspace" is open. Keeps initial nav clean.
-  return { workspace: true, learn: false, insights: false };
+  return { workspace: true };
 };
 
 const Sidebar = ({
@@ -306,6 +292,31 @@ const Sidebar = ({
             );
           })}
 
+          {/* ── FLAT NAV — top-level destinations ──────────────────────────── */}
+          <div style={{ marginTop: 10 }}>
+            {FLAT_NAV.map(({ id, label, path, icon: Icon, color }) => {
+              const active = isActive(path);
+              return (
+                <button key={id} onClick={() => navigate(path)} title={isCollapsed ? label : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: isCollapsed ? '8px 0' : '7px 10px',
+                    borderRadius: 9, border: 'none',
+                    background: active ? `${color}15` : 'transparent',
+                    cursor: 'pointer', transition: 'all 0.15s ease',
+                    position: 'relative', justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    flexShrink: 0, width: '100%', marginBottom: 2,
+                  }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                  {active && <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, background: color, borderRadius: '0 3px 3px 0' }} />}
+                  <Icon size={14} color={active ? color : color} style={{ opacity: active ? 1 : 0.85, flexShrink: 0 }} />
+                  {!isCollapsed && <span style={{ color: active ? 'var(--text-1)' : 'var(--text-2)', fontSize: 12.5, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>{label}</span>}
+                </button>
+              );
+            })}
+          </div>
+
           {/* ── FOOTER ICONS — system pages, demoted ─────────────────────────── */}
           {!isCollapsed && (
             <div style={{ marginTop: 14, padding: '8px 8px 4px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', gap: 4 }}>
@@ -399,7 +410,25 @@ const Sidebar = ({
 const ALL_NAV = [
   ...PINNED_NAV.map(p => ({ ...p, color: p.color })),
   ...NAV_GROUPS.flatMap(g => g.items),
+  ...FLAT_NAV,
   ...FOOTER_NAV,
+];
+
+// Deep links into merged hub tabs/views — surfaced in the command palette
+// so users can jump straight to a sub-page (Library → Notes, Insights → Graph, etc.)
+const HUB_DEEP_LINKS = [
+  { id: 'library:vault',     label: 'Library · Vault',      path: '/library?tab=vault',       icon: Database,        color: '#f472b6' },
+  { id: 'library:notes',     label: 'Library · Notes',      path: '/library?tab=notes',       icon: StickyNote,      color: '#f59e0b' },
+  { id: 'library:bookmarks', label: 'Library · Bookmarks',  path: '/library?tab=bookmarks',   icon: Bookmark,        color: '#ec4899' },
+  { id: 'library:files',     label: 'Library · Files',      path: '/library?tab=files',       icon: FlipHorizontal,  color: '#f472b6' },
+  { id: 'library:inbox',     label: 'Library · Inbox',      path: '/library?tab=inbox',       icon: Plus,            color: '#06b6d4' },
+  { id: 'learn:plan',        label: 'Learn · Study Plan',   path: '/learn?tab=plan',          icon: GraduationCap,   color: '#7c3aed' },
+  { id: 'learn:flashcards',  label: 'Learn · Flashcards',   path: '/learn?tab=flashcards',    icon: FlipHorizontal,  color: '#06b6d4' },
+  { id: 'learn:revisits',    label: 'Learn · Revisits',     path: '/learn?tab=revisits',      icon: Bell,            color: '#f59e0b' },
+  { id: 'insights:timeline', label: 'Insights · Timeline',  path: '/insights?view=timeline',  icon: GitBranch,       color: '#818cf8' },
+  { id: 'insights:graph',    label: 'Insights · Mind Graph',path: '/insights?view=graph',     icon: Network,         color: '#06b6d4' },
+  { id: 'insights:analytics',label: 'Insights · Analytics', path: '/insights?view=analytics', icon: BarChart2,       color: '#10b981' },
+  { id: 'settings:deck',     label: 'Settings · Pitch Deck',path: '/deck',                    icon: Presentation,    color: '#22d3ee' },
 ];
 
 /* ─────────────────────────────────────────────
@@ -654,27 +683,36 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} />} />
                   <Route path="/agent" element={<AgentPage />} />
-                  <Route path="/capture" element={<CapturePage />} />
-                  <Route path="/vault" element={<VaultPage />} />
                   <Route path="/recall" element={<RecallPage />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/flashcards" element={<FlashcardsPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/timeline" element={<TimelinePage />} />
-                  <Route path="/graph" element={<GraphPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/workspace" element={<WorkspacePage />} />
                   <Route path="/memory/:id" element={<MemoryDetailPage />} />
                   <Route path="/deck" element={<DeckPage />} />
                   <Route path="/profile" element={<ProfilePage user={user} onSignOut={onSignOut} />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
-                  <Route path="/notes" element={<NotesPage />} />
-                  <Route path="/bookmarks" element={<BookmarksPage />} />
-                  <Route path="/habits" element={<HabitsPage />} />
-                  <Route path="/revisits" element={<RevisitsPage />} />
-                  <Route path="/plan" element={<StudyPlanPage />} />
                   <Route path="/discover" element={<DiscoverPage />} />
+
+                  {/* Merged hub pages */}
+                  <Route path="/library"  element={<LibraryPage />} />
+                  <Route path="/focus"    element={<FocusPage />} />
+                  <Route path="/learn"    element={<LearnPage />} />
+                  <Route path="/insights" element={<InsightsPage />} />
+
+                  {/* Backwards-compatible redirects to the merged hubs */}
+                  <Route path="/capture"    element={<Navigate to="/library?tab=inbox"     replace />} />
+                  <Route path="/vault"      element={<Navigate to="/library?tab=vault"      replace />} />
+                  <Route path="/notes"      element={<Navigate to="/library?tab=notes"      replace />} />
+                  <Route path="/bookmarks"  element={<Navigate to="/library?tab=bookmarks"  replace />} />
+                  <Route path="/tasks"      element={<Navigate to="/focus"                  replace />} />
+                  <Route path="/habits"     element={<Navigate to="/focus"                  replace />} />
+                  <Route path="/plan"       element={<Navigate to="/learn?tab=plan"         replace />} />
+                  <Route path="/flashcards" element={<Navigate to="/learn?tab=flashcards"   replace />} />
+                  <Route path="/revisits"   element={<Navigate to="/learn?tab=revisits"     replace />} />
+                  <Route path="/timeline"   element={<Navigate to="/insights?view=timeline" replace />} />
+                  <Route path="/graph"      element={<Navigate to="/insights?view=graph"    replace />} />
+                  <Route path="/analytics"  element={<Navigate to="/insights?view=analytics" replace />} />
+
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </motion.div>
@@ -714,6 +752,18 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <item.icon size={14} color="var(--primary)" />
+                    </div>
+                    <span style={{ color: 'var(--text-1)', fontSize: 13 }}>{item.label}</span>
+                  </button>
+                ))}
+                <div style={{ padding: '12px 10px 4px', color: 'var(--text-3)', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Jump to</div>
+                {HUB_DEEP_LINKS.map((item) => (
+                  <button key={item.id} onClick={() => { navigate(item.path); setShowCommandPalette(false); }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: `${item.color}15`, border: `1px solid ${item.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <item.icon size={14} color={item.color} />
                     </div>
                     <span style={{ color: 'var(--text-1)', fontSize: 13 }}>{item.label}</span>
                   </button>

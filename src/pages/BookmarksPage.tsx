@@ -25,7 +25,8 @@ const STATUS_META = {
   done: { color: '#10b981', label: 'Done', icon: CheckCircle2 },
 };
 
-const BookmarksPage: React.FC = () => {
+interface BookmarksPageProps { embedded?: boolean }
+const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   const [items, setItems] = useState<BM[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -96,6 +97,7 @@ const BookmarksPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '14px 0 28px', minHeight: 'calc(100vh - 5rem)' }}>
 
       {/* HERO HEADER */}
+      {!embedded && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -140,6 +142,15 @@ const BookmarksPage: React.FC = () => {
           ))}
         </div>
       </div>
+      )}
+
+      {!embedded ? null : (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'linear-gradient(135deg,#ec4899,#db2777)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Plus size={13} /> Add bookmark
+          </button>
+        </div>
+      )}
 
       {/* FILTERS */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>

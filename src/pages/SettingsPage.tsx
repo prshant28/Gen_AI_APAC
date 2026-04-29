@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const SettingsView = () => {
+  const navigate = useNavigate();
   const [cfg, setCfg] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -74,14 +76,14 @@ const SettingsView = () => {
           <Settings size={11} color="var(--primary)" />
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>SYSTEM SETTINGS</span>
         </div>
-        <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Settings & Status</h2>
+        <h2 style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.5px', fontFamily: "'Alegreya Sans SC',system-ui" }}>Settings & Status</h2>
         <p style={{ color: 'var(--text-3)', fontSize: 14, margin: 0 }}>Configure AI models and monitor system health.</p>
       </motion.div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
         {/* AI Configuration Card */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="view-card" style={{ padding: 'clamp(18px,3vw,28px)' }}>
+          className="view-card" style={{ padding: 'var(--space-md)' }}>
           <h3 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, fontSize: 15 }}>
             <Sparkles size={16} color="var(--primary)" />AI Configuration
           </h3>
@@ -155,7 +157,7 @@ const SettingsView = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* System Status */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="view-card" style={{ padding: 'clamp(18px,3vw,28px)' }}>
+            className="view-card" style={{ padding: 'var(--space-md)' }}>
             <h3 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 15 }}>
               <Shield size={16} color="var(--primary)" />System Status
             </h3>
@@ -180,7 +182,7 @@ const SettingsView = () => {
 
           {/* Hackathon Features */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-            style={{ background: 'linear-gradient(135deg,#6366f1 0%,#4f46e5 40%,#7c3aed 100%)', padding: 'clamp(18px,3vw,24px)', borderRadius: 16, color: '#fff' }}>
+            style={{ background: 'linear-gradient(135deg,#6366f1 0%,#4f46e5 40%,#7c3aed 100%)', padding: 'var(--space-md)', borderRadius: 'var(--radius)', color: '#fff' }}>
             <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 14 }}>
               Hackathon Features
             </h3>
@@ -207,6 +209,24 @@ const SettingsView = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Pitch Deck — promoted from sidebar to a Settings entry */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+        className="view-card" style={{ marginTop: 20, padding: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Presentation size={18} color="#22d3ee" />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 3px' }}>Pitch Deck</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>The hackathon-ready story of x247 — open it in a new tab.</p>
+          </div>
+          <button onClick={() => navigate('/deck')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Open Pitch Deck <ArrowRight size={13} />
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 };

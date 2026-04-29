@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, CheckCircle2, Clock, Trash2, CheckSquare, Zap, AlertTriangle, ArrowDown, Calendar, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { card } from '../lib/ui';
 
 const PRI_CONFIG: Record<string, { color: string; bg: string; border: string; icon: any; label: string }> = {
   high:   { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.25)',   icon: AlertTriangle, label: 'High' },
@@ -9,7 +10,8 @@ const PRI_CONFIG: Record<string, { color: string; bg: string; border: string; ic
   low:    { color: '#10b981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  icon: ArrowDown,     label: 'Low' },
 };
 
-const TasksModule = () => {
+interface TasksPageProps { embedded?: boolean }
+const TasksModule: React.FC<TasksPageProps> = ({ embedded = false }) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [completedTasks, setCompletedTasks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,50 +106,58 @@ const TasksModule = () => {
   const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
   const today = tasks.filter(t => t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString()).length;
 
-  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
-
   return (
     <div style={{ color: 'var(--text-1)' }}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CheckSquare size={17} color="#10b981" />
-              </div>
-              <div>
-                <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Tasks</h1>
-                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
-                  {tasks.length} pending · {completedTasks.length} completed
-                  {overdue > 0 && <span style={{ color: '#ef4444', marginLeft: 6, fontWeight: 600 }}>· {overdue} overdue</span>}
-                </p>
+      {!embedded && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckSquare size={17} color="#10b981" />
+                </div>
+                <div>
+                  <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>Tasks</h1>
+                  <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
+                    {tasks.length} pending · {completedTasks.length} completed
+                    {overdue > 0 && <span style={{ color: '#ef4444', marginLeft: 6, fontWeight: 600 }}>· {overdue} overdue</span>}
+                  </p>
+                </div>
               </div>
             </div>
+            <button onClick={() => setShowNewTask(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(16,185,129,0.35)', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.45)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)'; }}>
+              <Plus size={15} /> New Task
+            </button>
           </div>
-          <button onClick={() => setShowNewTask(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(16,185,129,0.35)', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.45)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.35)'; }}>
-            <Plus size={15} /> New Task
+        </motion.div>
+      )}
+
+      {/* Summary cards (always visible) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginBottom: 14 }}>
+        {[
+          { label: 'Pending', value: tasks.length, color: '#6366f1' },
+          { label: 'Due Today', value: today, color: '#f59e0b' },
+          { label: 'Overdue', value: overdue, color: '#ef4444' },
+          { label: 'Completed', value: completedTasks.length, color: '#10b981' },
+        ].map(s => (
+          <div key={s.label} style={{ ...card, padding: '12px 14px', border: `1px solid ${s.color}18`, textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 3 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <button onClick={() => setShowNewTask(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Plus size={13} /> New Task
           </button>
         </div>
-
-        {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 14 }}>
-          {[
-            { label: 'Pending', value: tasks.length, color: '#6366f1' },
-            { label: 'Due Today', value: today, color: '#f59e0b' },
-            { label: 'Overdue', value: overdue, color: '#ef4444' },
-            { label: 'Completed', value: completedTasks.length, color: '#10b981' },
-          ].map(s => (
-            <div key={s.label} style={{ ...card, padding: '12px 14px', border: `1px solid ${s.color}18`, textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 3 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
+      )}
 
       {/* Tab bar + filter */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>

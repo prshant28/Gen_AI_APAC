@@ -106,7 +106,8 @@ function useVoiceRecorder() {
 }
 
 /* ── Main component ─────────────────────────────────────────────── */
-const CaptureView = () => {
+interface CaptureViewProps { embedded?: boolean }
+const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const [source, setSource]             = useState<string>('web');
   const [input, setInput]               = useState('');
@@ -519,23 +520,25 @@ const CaptureView = () => {
       </AnimatePresence>
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-        style={{ textAlign: 'center', paddingTop: 4 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px',
-          background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 999, marginBottom: 10 }}>
-          <Zap size={11} color="var(--primary)" />
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>
-            7-AGENT CAPTURE ENGINE
-          </span>
-        </div>
-        <h2 style={{ fontSize: 'clamp(20px,3.5vw,28px)', fontWeight: 900, color: 'var(--text-1)',
-          margin: '0 0 6px', fontFamily: "'Alegreya Sans SC',system-ui" }}>
-          Smart Capture
-        </h2>
-        <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>
-          8 input modes · 7 AI agents · Full pipeline visibility
-        </p>
-      </motion.div>
+      {!embedded && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ textAlign: 'center', paddingTop: 4 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px',
+            background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 999, marginBottom: 10 }}>
+            <Zap size={11} color="var(--primary)" />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+              7-AGENT CAPTURE ENGINE
+            </span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(20px,3.5vw,28px)', fontWeight: 900, color: 'var(--text-1)',
+            margin: '0 0 6px', fontFamily: "'Alegreya Sans SC',system-ui" }}>
+            Smart Capture
+          </h2>
+          <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>
+            8 input modes · 7 AI agents · Full pipeline visibility
+          </p>
+        </motion.div>
+      )}
 
       {/* ── Time Capture: bundle the last N hours into one workspace ──── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}

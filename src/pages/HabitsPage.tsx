@@ -26,7 +26,8 @@ const ICON_MAP: Record<string, any> = {
 const ICON_OPTIONS = ['Zap', 'Brain', 'CheckCircle2', 'Sun', 'Moon', 'Database', 'BookOpen', 'Dumbbell', 'Coffee', 'Heart', 'Target', 'Award', 'Sparkles', 'Flame'];
 const COLOR_OPTIONS = ['#10b981', '#06b6d4', '#3b82f6', '#a78bfa', '#ec4899', '#f59e0b', '#ef4444', '#22d3ee'];
 
-const HabitsPage: React.FC = () => {
+interface HabitsPageProps { embedded?: boolean }
+const HabitsPage: React.FC<HabitsPageProps> = ({ embedded = false }) => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -106,6 +107,7 @@ const HabitsPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '14px 0 28px', minHeight: 'calc(100vh - 5rem)' }}>
 
       {/* HERO HEADER */}
+      {!embedded && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -150,6 +152,15 @@ const HabitsPage: React.FC = () => {
           ))}
         </div>
       </div>
+      )}
+
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Plus size={13} /> New habit
+          </button>
+        </div>
+      )}
 
       {/* 30-day heatmap */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>

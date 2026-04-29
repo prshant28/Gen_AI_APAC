@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FlipHorizontal, Loader2, Award, X, ChevronLeft, ChevronRight, Star, Brain, CheckCircle, XCircle, RotateCcw, Zap, BookOpen, TrendingUp, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Memory, Flashcard } from '../lib/types';
+import { card } from '../lib/ui';
 
 interface StudyCard extends Flashcard { status: 'unseen' | 'known' | 'unknown'; }
 
@@ -185,7 +186,8 @@ const StudyModal = ({ memory, onClose }: { memory: Memory; onClose: (score?: num
   );
 };
 
-const FlashcardsView = () => {
+interface FlashcardsViewProps { embedded?: boolean }
+const FlashcardsView: React.FC<FlashcardsViewProps> = ({ embedded = false }) => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
@@ -221,30 +223,37 @@ const FlashcardsView = () => {
     (m.domain || '').toLowerCase().includes(filter.toLowerCase())
   );
 
-  const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 };
-
   return (
     <div style={{ color: 'var(--text-1)' }}>
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(245,158,11,0.15)' }}>
-              <FlipHorizontal size={18} color="#f59e0b" />
+        {!embedded && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(245,158,11,0.15)' }}>
+                <FlipHorizontal size={18} color="#f59e0b" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>AI Flashcards</h1>
+                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Spaced repetition learning from your knowledge base</p>
+              </div>
             </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.4px' }}>AI Flashcards</h1>
-              <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>Spaced repetition learning from your knowledge base</p>
-            </div>
-          </div>
 
-          <div style={{ display: 'relative', width: 220 }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-              <input type="text" placeholder="Filter memories..." value={filter} onChange={e => setFilter(e.target.value)}
-                style={{ width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            <div style={{ display: 'relative', width: 220 }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+                <input type="text" placeholder="Filter memories..." value={filter} onChange={e => setFilter(e.target.value)}
+                  style={{ width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              </div>
             </div>
           </div>
-        </div>
+        )}
+        {embedded && (
+          <div style={{ marginBottom: 14, position: 'relative', maxWidth: 280 }}>
+            <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+            <input type="text" placeholder="Filter memories..." value={filter} onChange={e => setFilter(e.target.value)}
+              style={{ width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          </div>
+        )}
 
         {/* Stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 18 }}>
