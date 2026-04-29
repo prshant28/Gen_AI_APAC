@@ -736,7 +736,8 @@ img { max-width: 100%; }
 .vault-row-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 @media (max-width: 600px) {
   .vault-row { gap: 9px; padding: 9px 11px; }
-  .vault-row-meta { display: none; }
+  .vault-row-meta { font-size: 9.5px; gap: 5px; }
+  .vault-row-actions button { width: 26px; height: 26px; }
 }
 
 /* ── YouTube thumbnail compact ───────────────────────────────────────────── */
