@@ -412,8 +412,24 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   };
 
   const filtered = useMemo(() => {
+    // Tokenise the filter string. `#foo` tokens are matched as exact tag
+    // membership (case-insensitive); plain tokens fall back to the existing
+    // substring search across title / tags / summary. This keeps tag-based
+    // smart collections honest when reapplied via `#tag` tokens.
+    const { plain: plainFilter, tags: tagTokens } = parseTagsFromSearch(filter);
+    const plainLc = plainFilter.toLowerCase();
     return memories
-      .filter(m => deepMode && filter ? deepResults[m.id] !== undefined : (!filter || m.title.toLowerCase().includes(filter.toLowerCase()) || m.tags.some(t => t.toLowerCase().includes(filter.toLowerCase())) || m.summary.toLowerCase().includes(filter.toLowerCase())))
+      .filter(m => {
+        if (deepMode && filter) return deepResults[m.id] !== undefined;
+        if (tagTokens.length) {
+          const memTags = (m.tags || []).map(t => t.toLowerCase());
+          if (!tagTokens.every(t => memTags.includes(t))) return false;
+        }
+        if (!plainLc) return true;
+        return m.title.toLowerCase().includes(plainLc)
+          || (m.tags || []).some(t => t.toLowerCase().includes(plainLc))
+          || (m.summary || '').toLowerCase().includes(plainLc);
+      })
       .filter(m => !sourceTypeFilter || m.source_type === sourceTypeFilter)
       .filter(m => !pinnedOnly || m.pinned)
       .sort((a, b) => {
