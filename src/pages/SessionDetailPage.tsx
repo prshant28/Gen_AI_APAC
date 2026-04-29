@@ -93,7 +93,7 @@ export default function SessionDetailPage() {
               ITEMS IN THIS SESSION
             </div>
             {data.project_id && (
-              <Link to="/workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+              <Link to={`/workspace?project=${encodeURIComponent(data.project_id)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
                 Open folder <ExternalLink size={11} />
               </Link>
             )}
