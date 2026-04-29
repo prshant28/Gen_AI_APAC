@@ -22,6 +22,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from app.db import get_db
 from app.config import settings
 from app.ai_helper import chat_json
+from app.user_context import belongs_to_current_user
 
 logger = logging.getLogger("recall-x247.workspace")
 

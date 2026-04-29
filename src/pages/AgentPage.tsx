@@ -536,37 +536,56 @@ const AgentHubView = () => {
       {/* CONVERSATION */}
       <main style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, flex: 1 }}>
 
-        {/* LIVE AGENTS STRIP — shows exactly which specialist is working right
-            now. Visible whenever any agent has been touched in this workflow
-            (running OR done). One chip per agent, color-coded by status. */}
-        {Object.keys(agentStatuses).length > 0 && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-            style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}>
-              <Cpu size={11} color="#a78bfa" /> Live agents
-            </span>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)', minWidth: 12 }} />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {Object.entries(agentStatuses).map(([agent, status]) => {
-                const label = AGENT_LABEL[agent] || agent.replace('Agent', '');
-                const dotColor = status === 'running' ? '#f59e0b' : status === 'done' ? '#10b981' : '#6b7280';
-                const borderColor = status === 'running' ? 'rgba(245,158,11,0.45)' : status === 'done' ? 'rgba(16,185,129,0.45)' : 'var(--border)';
-                const bg = status === 'running' ? 'rgba(245,158,11,0.10)' : status === 'done' ? 'rgba(16,185,129,0.10)' : 'var(--surface-2)';
-                const textColor = status === 'running' ? '#f59e0b' : status === 'done' ? '#10b981' : 'var(--text-3)';
-                const statusLabel = status === 'running' ? 'working' : status === 'done' ? 'done' : 'idle';
-                return (
-                  <span key={agent}
-                    title={`${label} — ${statusLabel}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: bg, border: `1px solid ${borderColor}`, borderRadius: 16, fontSize: 11, fontWeight: 700, color: textColor }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, boxShadow: status === 'running' ? `0 0 6px ${dotColor}` : 'none', animation: status === 'running' ? 'pulse 1.2s ease-in-out infinite' : 'none' }} />
-                    {label}
-                    <span style={{ color: 'var(--text-3)', fontWeight: 500, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{statusLabel}</span>
-                  </span>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+        {/* LIVE AGENTS STRIP — always surfaces ALL 7 specialist agents so the
+            user can see at a glance which one is working right now and where
+            their request was routed. Color/animation per agent: running =
+            pulsing amber (active right now), done = solid green (already
+            finished), idle = soft grey. A leading "Now: X" callout names the
+            currently-active specialist whenever one is running. */}
+        {(() => {
+          const ALL_AGENTS = Object.keys(AGENT_LABEL);
+          const activeAgent = ALL_AGENTS.find(a => agentStatuses[a] === 'running');
+          const anyDone = Object.values(agentStatuses).some(s => s === 'done');
+          return (
+            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+              style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}>
+                <Cpu size={11} color="#a78bfa" /> Live agents
+              </span>
+              {activeAgent ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 14, fontSize: 10.5, fontWeight: 700, color: '#f59e0b', flexShrink: 0 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', animation: 'pulse 1.2s ease-in-out infinite' }} />
+                  Now: {AGENT_LABEL[activeAgent]}
+                </span>
+              ) : (
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-3)', flexShrink: 0 }}>
+                  {anyDone ? 'All done' : 'Standing by'}
+                </span>
+              )}
+              <div style={{ flex: 1, height: 1, background: 'var(--border)', minWidth: 12 }} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {ALL_AGENTS.map(agent => {
+                  const status = agentStatuses[agent] || 'idle';
+                  const label = AGENT_LABEL[agent];
+                  const dotColor = status === 'running' ? '#f59e0b' : status === 'done' ? '#10b981' : '#6b7280';
+                  const borderColor = status === 'running' ? 'rgba(245,158,11,0.55)' : status === 'done' ? 'rgba(16,185,129,0.45)' : 'var(--border)';
+                  const bg = status === 'running' ? 'rgba(245,158,11,0.14)' : status === 'done' ? 'rgba(16,185,129,0.10)' : 'var(--surface-2)';
+                  const textColor = status === 'running' ? '#f59e0b' : status === 'done' ? '#10b981' : 'var(--text-3)';
+                  const statusLabel = status === 'running' ? 'working' : status === 'done' ? 'done' : 'idle';
+                  return (
+                    <span key={agent}
+                      title={`${label} — ${statusLabel}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: bg, border: `1px solid ${borderColor}`, borderRadius: 16, fontSize: 11, fontWeight: 700, color: textColor, opacity: status === 'idle' ? 0.6 : 1 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, boxShadow: status === 'running' ? `0 0 6px ${dotColor}` : 'none', animation: status === 'running' ? 'pulse 1.2s ease-in-out infinite' : 'none' }} />
+                      {label}
+                      <span style={{ color: 'var(--text-3)', fontWeight: 500, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{statusLabel}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Empty-state suggestion chips — visible only before the first user message */}
         {isEmpty && !isStreaming && (
