@@ -4499,3 +4499,20 @@
   .briefing-header-actions { width: 100%; justify-content: flex-start; }
   .briefing-insight-row { grid-template-columns: 1fr; }
 }
+
+/* Daily Briefing — recap delta + back-to-today link */
+.briefing-recap-delta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 6px 0 14px;
+}
+.briefing-delta-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+}
+.briefing-delta-meta { font-size: 11.5px; color: var(--text-3); }
+.briefing-link {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--primary); font: inherit; text-decoration: underline;
+}

@@ -200,13 +200,18 @@ async def _load_completed(uid: str) -> set:
 async def toggle_action_item(action_id: str, done: bool) -> Dict[str, Any]:
     """Mark an action item complete/incomplete. State is keyed by the stable
     action_id so the checkbox survives briefing regeneration."""
+    # Hardening: refuse silly-long ids so a malicious caller can't grow the
+    # `completed` array unboundedly. Real ids are short hashes (~24 chars).
+    aid = (action_id or "").strip()[:128]
+    if not aid:
+        return {"id": action_id, "completed": done, "ignored": True}
     uid = get_uid()
     db = await get_db()
     completed = await _load_completed(uid)
     if done:
-        completed.add(action_id)
+        completed.add(aid)
     else:
-        completed.discard(action_id)
+        completed.discard(aid)
     try:
         await db.collection("briefing_action_state").document(uid).set({
             "user_id": uid,
@@ -323,12 +328,15 @@ async def generate_recap(period: str = "week") -> Dict[str, Any]:
     days = _period_window(period)
     uid = get_uid()
     db = await get_db()
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now - datetime.timedelta(days=days)
+    prev_cutoff = now - datetime.timedelta(days=days * 2)
     captures: List[Dict[str, Any]] = []
+    prev_count = 0  # captures in the previous comparable window
     try:
         snap = await db.collection("memories").order_by(
             "created_at", direction="DESCENDING"
-        ).limit(400).get()
+        ).limit(800).get()
         for doc in snap:
             data = doc.to_dict() or {}
             if not belongs_to_current_user(data):
@@ -336,9 +344,12 @@ async def generate_recap(period: str = "week") -> Dict[str, Any]:
             if data.get("trashed_at"):
                 continue
             ts = _parse_iso(data.get("created_at"))
-            if ts is None or ts < cutoff:
+            if ts is None:
                 continue
-            captures.append(data)
+            if ts >= cutoff:
+                captures.append(data)
+            elif ts >= prev_cutoff:
+                prev_count += 1
     except Exception as e:
         print(f"generate_recap fetch error: {e}")
 
@@ -352,8 +363,18 @@ async def generate_recap(period: str = "week") -> Dict[str, Any]:
     src_counts = Counter((m.get("source_type") or "note").lower() for m in captures)
     top_titles = [(m.get("title") or "Untitled")[:90] for m in captures[:8]]
 
+    cur_count = len(captures)
+    diff = cur_count - prev_count
+    direction = "flat"
+    if diff > 0:
+        direction = "up"
+    elif diff < 0:
+        direction = "down"
     stats = {
-        "captures": len(captures),
+        "captures": cur_count,
+        "previous_captures": prev_count,
+        "captures_delta": diff,
+        "captures_direction": direction,
         "top_domains": [{"name": d, "count": c} for d, c in domain_counts.most_common(5)],
         "top_tags": [{"tag": t, "count": c} for t, c in tag_counts.most_common(8)],
         "source_mix": [{"type": s, "count": c} for s, c in src_counts.most_common(4)],

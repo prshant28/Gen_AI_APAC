@@ -73,6 +73,9 @@ type PastBriefing = {
 
 type RecapStats = {
   captures: number;
+  previous_captures?: number;
+  captures_delta?: number;
+  captures_direction?: 'up' | 'down' | 'flat';
   top_domains: Array<{ name: string; count: number }>;
   top_tags: Array<{ tag: string; count: number }>;
   source_mix: Array<{ type: string; count: number }>;
@@ -141,6 +144,9 @@ export default function DailyBriefingPage() {
 
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(true);
+  // When the user opens a past briefing, this holds that briefing's date so
+  // the header reflects what the user is reading rather than always "today".
+  const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [past, setPast] = useState<PastBriefing[]>([]);
@@ -160,14 +166,30 @@ export default function DailyBriefingPage() {
   const [estimatedDurationMs, setEstimatedDurationMs] = useState(0);
 
   const today = useMemo(() => new Date(), []);
-  const todayLabel = useMemo(() => formatLongDate(today), [today]);
-  const greetLabel = useMemo(
-    () => advanced?.greeting?.label || greetingForHour(today.getHours()),
-    [advanced, today]
-  );
+  // Header reflects the briefing the user is currently viewing — "today" when
+  // no past briefing is open, otherwise that briefing's saved date.
+  const headerDate = useMemo(() => {
+    if (viewingDate) {
+      try {
+        const d = new Date(viewingDate + 'T00:00:00');
+        if (!Number.isNaN(d.getTime())) return d;
+      } catch { /* fall through */ }
+    }
+    return today;
+  }, [viewingDate, today]);
+  const isViewingPast = viewingDate !== null;
+  const headerDateLabel = useMemo(() => formatLongDate(headerDate), [headerDate]);
+  const greetLabel = useMemo(() => {
+    if (isViewingPast) return 'Looking back at';
+    return advanced?.greeting?.label || greetingForHour(today.getHours());
+  }, [advanced, today, isViewingPast]);
+  const headerHeadline = useMemo(() => {
+    return isViewingPast ? `${greetLabel}` : `${greetLabel}, here's today`;
+  }, [greetLabel, isViewingPast]);
 
   const loadBriefing = useCallback(async (force = false) => {
     setBriefingLoading(true);
+    setViewingDate(null);
     try {
       const r = await fetch(`/briefing${force ? '?force=true' : ''}`);
       const data = r.ok ? await r.json() : null;
@@ -448,8 +470,22 @@ export default function DailyBriefingPage() {
           <div className="briefing-eyebrow">
             <Sparkles size={14} /> AI DAILY BRIEFING
           </div>
-          <h1 className="briefing-title">{greetLabel}, here's today</h1>
-          <p className="briefing-sub">{todayLabel}</p>
+          <h1 className="briefing-title">{headerHeadline}</h1>
+          <p className="briefing-sub">
+            {headerDateLabel}
+            {isViewingPast && (
+              <>
+                {' '}·{' '}
+                <button
+                  type="button"
+                  className="briefing-link"
+                  onClick={() => loadBriefing()}
+                >
+                  Back to today
+                </button>
+              </>
+            )}
+          </p>
         </div>
         <div className="briefing-header-actions">
           <div className="briefing-audio-controls">
@@ -723,6 +759,7 @@ export default function DailyBriefingPage() {
                                 revisits_upcoming: [],
                                 revisits_due_count: 0,
                               });
+                              setViewingDate(p.date);
                               handleStop();
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             } catch {}
@@ -774,6 +811,26 @@ function RecapView({ loading, recap, period }: { loading: boolean; recap: RecapR
             <div className="briefing-card-eyebrow"><Sparkles size={12} /> {period === 'week' ? 'WEEKLY RECAP' : 'MONTHLY RECAP'}</div>
             <span className="briefing-count">{recap.stats.captures} captures</span>
           </div>
+          {typeof recap.stats.captures_delta === 'number' && (
+            <div className="briefing-recap-delta">
+              {(() => {
+                const dir = recap.stats.captures_direction || 'flat';
+                const diff = recap.stats.captures_delta || 0;
+                const prev = recap.stats.previous_captures ?? 0;
+                const sign = dir === 'up' ? '+' : dir === 'down' ? '−' : '';
+                const color = dir === 'up' ? '#10b981' : dir === 'down' ? '#ef4444' : '#94a3b8';
+                const word = period === 'week' ? 'week' : 'month';
+                return (
+                  <>
+                    <span className="briefing-delta-pill" style={{ color, borderColor: `${color}55` }}>
+                      <TrendingUp size={11} /> {sign}{Math.abs(diff)} vs last {word}
+                    </span>
+                    <span className="briefing-delta-meta">{prev} captures last {word}</span>
+                  </>
+                );
+              })()}
+            </div>
+          )}
           <p className="briefing-body-text">{recap.recap}</p>
         </section>
 
