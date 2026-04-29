@@ -137,6 +137,34 @@ async def purge_from_trash(entity: str, ids: List[str]) -> Dict[str, Any]:
     return {"purged": len(purged), "ids": purged}
 
 
+async def purge_expired_trash() -> Dict[str, Any]:
+    """Hard-delete every trashed item (across memories/notes/bookmarks for
+    the current user) whose 30-day grace window has elapsed. Safe to call
+    on demand or from a scheduled job — items still inside the window are
+    left untouched."""
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=TRASH_TTL_DAYS)
+    purged: Dict[str, int] = {"memories": 0, "notes": 0, "bookmarks": 0}
+    for entity, coll in ENTITY_COLLECTIONS.items():
+        for doc_id, data in await _scoped_docs(coll):
+            if not _is_trashed(data):
+                continue
+            ts = data.get("trashed_at")
+            t: Optional[datetime.datetime]
+            try:
+                if isinstance(ts, datetime.datetime):
+                    t = ts
+                else:
+                    t = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            except Exception:
+                t = None
+            if t is None or t > cutoff:
+                continue
+            await _hard_delete(coll, doc_id)
+            key = f"{entity}s" if entity != "memory" else "memories"
+            purged[key] = purged.get(key, 0) + 1
+    return {"purged": purged, "cutoff": cutoff.isoformat(), "ttl_days": TRASH_TTL_DAYS}
+
+
 async def list_trash() -> Dict[str, List[Dict[str, Any]]]:
     """Return trashed memories/notes/bookmarks for the current user, with
     a `days_left` countdown (purge after TRASH_TTL_DAYS)."""

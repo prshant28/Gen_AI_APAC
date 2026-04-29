@@ -665,6 +665,13 @@ async def trash_purge_endpoint(body: TrashOpRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/trash/purge-expired")
+async def trash_purge_expired_endpoint():
+    """Hard-delete trashed items past the 30-day grace window. Safe to
+    invoke on demand from the UI or from a scheduled Cloud Run job."""
+    return await library_agent.purge_expired_trash()
+
+
 class BulkDeleteRequest(BaseModel):
     entity: str
     ids: List[str]
