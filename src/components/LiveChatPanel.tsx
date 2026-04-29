@@ -19,7 +19,7 @@ import {
 import { getLiveClient, type LiveEvent } from "../lib/liveClient";
 
 type TranscriptEntry =
-  | { id: string; role: "user" | "model"; text: string }
+  | { id: string; role: "user" | "model"; text: string; interrupted?: boolean }
   | { id: string; role: "tool"; name: string; args: Record<string, unknown>; result?: Record<string, unknown> };
 
 interface PanelProps {
@@ -93,6 +93,19 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
         flushModel();
       }
       if (e.type === "turn_complete" || e.type === "interrupted") {
+        if (e.type === "interrupted") {
+          // Mark the in-progress model bubble so the user sees their
+          // barge-in landed. Idempotent — safe if both the local
+          // `interrupt()` call and the server echo arrive.
+          const id = modelIdRef.current;
+          if (id) {
+            setTranscript((cur) => cur.map((entry) =>
+              entry.role === "model" && entry.id === id && !entry.interrupted
+                ? { ...entry, interrupted: true }
+                : entry
+            ));
+          }
+        }
         userBufRef.current = "";
         modelBufRef.current = "";
         userIdRef.current = "";
@@ -293,6 +306,13 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
                     background: mine ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.05)",
                     border: mine ? "1px solid rgba(99,102,241,0.30)" : "1px solid rgba(255,255,255,0.06)" }}>
                   {entry.text}
+                  {!mine && entry.interrupted && (
+                    <span aria-label="You interrupted the assistant" style={{
+                        marginLeft: 6, opacity: 0.6, fontSize: 11, fontStyle: "italic",
+                        whiteSpace: "nowrap" }}>
+                      …interrupted
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -550,6 +570,19 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
       if (e.type === "model_transcript") { modelBufRef.current += (e.text || ""); flushModel(); }
       if (e.type === "text") { modelBufRef.current += (e.text || ""); flushModel(); }
       if (e.type === "turn_complete" || e.type === "interrupted") {
+        if (e.type === "interrupted") {
+          // Mark the in-progress model bubble so the user sees their
+          // barge-in landed. Idempotent — safe if both the local
+          // `interrupt()` call and the server echo arrive.
+          const id = modelIdRef.current;
+          if (id) {
+            setTranscript((cur) => cur.map((entry) =>
+              entry.role === "model" && entry.id === id && !entry.interrupted
+                ? { ...entry, interrupted: true }
+                : entry
+            ));
+          }
+        }
         userBufRef.current = ""; modelBufRef.current = "";
         userIdRef.current = ""; modelIdRef.current = `m-${Date.now()}`;
       }
@@ -795,6 +828,13 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
                 background: mine ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
                 border: mine ? "1px solid rgba(99,102,241,0.30)" : "1px solid rgba(255,255,255,0.06)" }}>
               {entry.text}
+              {!mine && entry.interrupted && (
+                <span aria-label="You interrupted the assistant" style={{
+                    marginLeft: 6, opacity: 0.6, fontSize: 11, fontStyle: "italic",
+                    color: "var(--text-3)", whiteSpace: "nowrap" }}>
+                  …interrupted
+                </span>
+              )}
             </div>
           );
         })}

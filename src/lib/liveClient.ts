@@ -105,12 +105,26 @@ export class LiveClient {
   private modelSpeaking = false;
   private modelWatchdog: number | null = null;
   private lastModelChunkAt = 0;
+  // Barge-in: track when the user's current speaking-burst started so we
+  // can require it to last past a small sustained window before cutting
+  // the model off. Resets to 0 the moment the user goes quiet, so brief
+  // coughs / keyboard taps never trip it. `bargedInThisTurn` makes sure
+  // we only fire one interrupt per model turn even if the user keeps
+  // talking after the cut.
+  private userSpeakingSinceMs = 0;
+  private bargedInThisTurn = false;
   // RMS thresholds for "speaking". Tuned conservatively: mic uses raw
   // amplitude after AGC, model audio is already loud so a smaller floor
   // is enough.
   private readonly USER_SPEAK_THRESHOLD = 0.025;
   private readonly MODEL_SPEAK_THRESHOLD = 0.012;
   private readonly VAD_EMIT_INTERVAL_MS = 100;
+  // Minimum continuous user-speaking duration (ms) before we treat it as
+  // a real barge-in. Sits inside the task's 150–250ms band: long enough
+  // that single-frame coughs (~85ms) and 2-frame bumps (~170ms) get
+  // filtered out, short enough that real speech yields the floor inside
+  // the ~250ms target.
+  private readonly BARGE_IN_MIN_MS = 180;
 
   on(listener: Listener) {
     this.listeners.add(listener);
@@ -232,10 +246,31 @@ export class LiveClient {
     const level = Math.min(1, Math.sqrt(rms) * 1.6);
     const speaking = rms > this.USER_SPEAK_THRESHOLD;
     const speakingChanged = speaking !== this.userSpeaking;
+    if (speakingChanged) {
+      // Edge: stamp / clear the start of the current speaking burst so
+      // the barge-in check can measure sustained duration. Brief noises
+      // that flip back to silent within BARGE_IN_MIN_MS reset to 0 here.
+      this.userSpeakingSinceMs = speaking ? now : 0;
+    }
     if (speakingChanged || now - this.lastUserVadAt >= this.VAD_EMIT_INTERVAL_MS) {
       this.userSpeaking = speaking;
       this.lastUserVadAt = now;
       this.emit({ type: "vad", source: "user", level, speaking });
+    }
+    // Barge-in: when the user has been speaking continuously for at
+    // least BARGE_IN_MIN_MS while the model is mid-turn, cut the model
+    // off so the assistant yields the floor like a real conversation.
+    // Re-checking on every frame (not just emit ticks) keeps the
+    // response time tight to the task's "within ~250ms" target.
+    if (
+      speaking &&
+      this.modelSpeaking &&
+      !this.bargedInThisTurn &&
+      this.userSpeakingSinceMs > 0 &&
+      now - this.userSpeakingSinceMs >= this.BARGE_IN_MIN_MS
+    ) {
+      this.bargedInThisTurn = true;
+      this.interrupt();
     }
   }
 
@@ -251,6 +286,11 @@ export class LiveClient {
     const level = Math.min(1, Math.sqrt(rms) * 1.4);
     const speaking = rms > this.MODEL_SPEAK_THRESHOLD;
     const speakingChanged = speaking !== this.modelSpeaking;
+    if (speakingChanged && speaking) {
+      // New model turn (or resumed audio after a gap) — re-arm barge-in
+      // so the user can interrupt this turn too.
+      this.bargedInThisTurn = false;
+    }
     if (speakingChanged || now - this.lastModelVadAt >= this.VAD_EMIT_INTERVAL_MS) {
       this.modelSpeaking = speaking;
       this.lastModelVadAt = now;
@@ -296,6 +336,12 @@ export class LiveClient {
       this.modelSpeaking = false;
       this.emit({ type: "vad", source: "model", level: 0, speaking: false });
     }
+    // Surface a local "interrupted" event right away so UI cues (e.g.
+    // marking the in-progress model bubble as cut off) don't have to
+    // wait for the server to round-trip its echo. The server-side
+    // event is idempotent with our local one — the listeners that act
+    // on it are safe to run twice.
+    this.emit({ type: "interrupted" });
   }
 
   /** Start streaming mic at 16 kHz mono PCM. */
@@ -345,6 +391,7 @@ export class LiveClient {
     this.workletNode = null;
     this.audioCtx = null;
     this.micStream = null;
+    this.userSpeakingSinceMs = 0;
     if (this.userSpeaking) {
       this.userSpeaking = false;
       this.emit({ type: "vad", source: "user", level: 0, speaking: false });
@@ -428,6 +475,8 @@ export class LiveClient {
       this.modelSpeaking = false;
       this.emit({ type: "vad", source: "model", level: 0, speaking: false });
     }
+    this.userSpeakingSinceMs = 0;
+    this.bargedInThisTurn = false;
     this.setState("closed");
   }
 
