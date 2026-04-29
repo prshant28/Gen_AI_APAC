@@ -322,6 +322,22 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       setBundleLoading(false);
     }
   };
+  // Auto-trigger bundle preview the first time the tray reaches 2+ items
+  // (debounced 800ms so adding several items in quick succession only fires
+  // one request). Manual Refresh still works any time after.
+  const autoBundleFiredRef = useRef(false);
+  useEffect(() => {
+    if (sessionItems.length < 2) return;
+    if (autoBundleFiredRef.current) return;
+    if (bundlePreview || bundleLoading) { autoBundleFiredRef.current = true; return; }
+    const t = window.setTimeout(() => {
+      if (autoBundleFiredRef.current) return;
+      autoBundleFiredRef.current = true;
+      fetchBundlePreview();
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [sessionItems.length, bundlePreview, bundleLoading]);
+
   const applyBundleFolder = (name: string) => {
     setSessionFolderMode('create');
     setSessionFolderName(name);
@@ -585,10 +601,13 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     setBatchProgress(null);
   };
 
-  // ── Pre-save dedup check (content-hash) on preview arrival ───────────
-  // Only fires for note-like captures where there's no URL to do an exact
-  // URL match against — fuzzy content-hash matches on web/youtube/pdf would
-  // produce false positives because their summaries can rhyme thematically.
+  // ── Pre-save dedup check on preview arrival ──────────────────────────
+  // Single source of truth: every preview goes through /capture/dedup-check.
+  // - URL-bearing previews (web / youtube / pdf / etc.) check by normalized URL.
+  // - Note-like previews (note / voice / clipboard / code) check by content-hash
+  //   of (title + summary), since they have no canonical URL to match on.
+  // We skip content-hash on web/youtube/pdf to avoid false positives where two
+  // different articles share thematically similar AI-written summaries.
   const NOTE_LIKE_SOURCES = new Set(['note', 'voice', 'clipboard', 'code']);
   const [preSaveDup, setPreSaveDup] = useState<null | { id: string; title: string; by: string }>(null);
   // User chose "Save anyway" on the duplicate banner — let the next save go
@@ -596,19 +615,26 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const [dupOverride, setDupOverride] = useState(false);
   useEffect(() => {
     if (!preview) { setPreSaveDup(null); return; }
-    if ((preview as any).duplicate_of) return; // URL match already surfaced
+    if ((preview as any).duplicate_of) return; // URL match already surfaced by /capture
     const previewSource = String((preview as any).source_type || '').toLowerCase();
     const isNoteLike = NOTE_LIKE_SOURCES.has(previewSource) || NOTE_LIKE_SOURCES.has(source);
-    if (!isNoteLike) { setPreSaveDup(null); return; }
+    const url = (preview.source_url || previewUrl || '').trim();
     const title = preview.title || '';
     const summary = preview.summary || '';
-    if (!title && !summary) return;
+    // Build the request: always include the URL when we have one (cheap exact
+    // match), and include title/summary only for note-like sources where the
+    // content-hash check is appropriate.
+    const body: { url: string; title?: string; summary?: string } = { url };
+    if (isNoteLike) {
+      body.title = title;
+      body.summary = summary;
+    }
+    if (!body.url && !body.title) return; // nothing to check
     let cancelled = false;
     fetch('/capture/dedup-check', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      // Send no URL — restricts the check to content-hash on the backend.
-      body: JSON.stringify({ url: '', title, summary }),
+      body: JSON.stringify(body),
     })
       .then(r => r.json())
       .then(d => {
@@ -621,7 +647,7 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [preview, source]);
+  }, [preview, previewUrl, source]);
 
   // ── Preview metadata (word count + read time + tag count + language + guardian) ─
   const previewMeta = useMemo(() => {
