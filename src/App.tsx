@@ -240,9 +240,9 @@ const Sidebar = ({
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                    <GroupIcon size={12} strokeWidth={1.75} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
+                    <GroupIcon size={16} strokeWidth={1.75} color={containsActive ? 'var(--primary)' : 'var(--text-3)'} />
                     <span style={{ flex: 1, textAlign: 'left', color: containsActive ? 'var(--text-2)' : 'var(--text-3)' }}>{group.label}</span>
-                    {open ? <ChevronDown size={12} strokeWidth={1.75} /> : <ChevronRight size={12} strokeWidth={1.75} />}
+                    {open ? <ChevronDown size={16} strokeWidth={1.75} /> : <ChevronRight size={16} strokeWidth={1.75} />}
                   </button>
                 ) : (
                   <div style={{ height: 8, borderTop: '1px solid var(--border)', margin: '6px 8px 4px' }} />
