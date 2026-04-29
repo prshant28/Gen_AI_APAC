@@ -10,6 +10,7 @@ import {
   Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
+import { LiveGate } from './components/LiveChatPanel';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   auth,
@@ -860,6 +861,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRouter />
+      {/* Live (real-time voice/video) is mounted globally so it's available
+          on every route — landing, login, dashboard — for any visitor. The
+          gate inside still respects /api/live/status. */}
+      <LiveGate />
     </BrowserRouter>
   );
 }

@@ -27,6 +27,10 @@ export default defineConfig(({mode}) => {
         ignored: ['**/.local/**', '**/node_modules/**', '**/.git/**'],
       },
       proxy: {
+        // WebSocket bridge for the Live (Gemini Live) feature. Vite needs
+        // `ws: true` to upgrade the connection — otherwise the browser sees
+        // a plain HTTP request that hangs.
+        '/ws': { target: 'ws://127.0.0.1:8000', ws: true, changeOrigin: true },
         '/api': 'http://127.0.0.1:8000',
         '/chat': 'http://127.0.0.1:8000',
         '/agent': {

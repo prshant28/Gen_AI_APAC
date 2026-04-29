@@ -7,7 +7,7 @@ import datetime
 import logging
 import asyncio
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException, Request, Body, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, Body, Query, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +59,7 @@ from app.extras_agent import (
     seed_extras,
 )
 from app.user_context import UserContextMiddleware, get_uid, GUEST_UID
+from app.live_agent import relay_live_session, is_live_configured, GEMINI_LIVE_MODEL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recall-x247")
@@ -147,6 +148,33 @@ def _looks_like_api_or_static(path: str) -> bool:
         if ext in _STATIC_EXTS:
             return True
     return False
+
+# ─── Live API (Gemini Live: real-time voice/video/image) ─────────────────────
+import re as _re
+_UID_OK = _re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+
+@app.websocket("/ws/live")
+async def ws_live(websocket: WebSocket, uid: str = Query("guest")):
+    """Bidirectional WebSocket bridge to Gemini Live. The browser connects with
+    `?uid=<firebase-uid-or-guest>` so per-user scoping works for any tool calls
+    the Live model emits (capture, recall, tasks, calendar, etc.).
+
+    NOTE: This follows the same trust-on-client-claim auth pattern as the rest
+    of the app (X-User-Id header on HTTP). We sanitize the uid to the same
+    character set Firebase uses (alnum + `_-`, ≤64 chars) and fall back to the
+    GUEST_UID otherwise so a malformed query string can never escape into our
+    Firestore queries.
+    """
+    await websocket.accept()
+    safe_uid = uid if (uid and _UID_OK.match(uid)) else GUEST_UID
+    await relay_live_session(websocket, safe_uid)
+
+
+@app.get("/api/live/status")
+async def live_status():
+    """Lightweight check the frontend uses to enable/disable the Live button."""
+    return {"enabled": is_live_configured(), "model": GEMINI_LIVE_MODEL}
+
 
 @app.middleware("http")
 async def spa_navigation_guard(request: Request, call_next):
