@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StickyNote, Plus, Search, Pin, PinOff, Trash2, Save, Edit3, X,
   Eye, Code, Tag as TagIcon, FileText, Sparkles, Calendar as CalendarIcon,
-  Hash, Filter, Type, ChevronRight, Clock, CheckSquare, Square, Download
+  Hash, Filter, Type, ChevronRight, Clock, CheckSquare, Square, Download, Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { showToast } from '../App';
@@ -151,6 +151,12 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
     bulkApi('/library/bulk-delete', { entity: 'note', ids: Array.from(selectedIds) }, 'Moved to Trash');
   };
 
+  const bulkArchive = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Archive ${selectedIds.size} notes? They get hidden from the main list but stay searchable.`)) return;
+    bulkApi('/library/bulk-archive', { entity: 'note', ids: Array.from(selectedIds), archived: true }, 'Archived');
+  };
+
   const bulkTagAdd = () => {
     const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
     if (!tags.length || selectedIds.size === 0) return;
@@ -268,6 +274,10 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                 <button onClick={() => { setTagPrompt('remove'); setTagPromptInput(''); }} disabled={bulkBusy}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
                   <X size={10} /> Remove tag
+                </button>
+                <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
+                  style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 7, color: '#a855f7', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <Archive size={10} /> Archive
                 </button>
               </div>
               {tagPrompt && (

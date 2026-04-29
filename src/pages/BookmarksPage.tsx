@@ -128,6 +128,12 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
     bulkApi('/library/bulk-delete', { entity: 'bookmark', ids: Array.from(selectedIds) }, 'Moved to Trash');
   };
 
+  const bulkArchive = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Archive ${selectedIds.size} bookmarks? They get hidden from the main list but stay searchable.`)) return;
+    bulkApi('/library/bulk-archive', { entity: 'bookmark', ids: Array.from(selectedIds), archived: true }, 'Archived');
+  };
+
   const bulkTagAdd = () => {
     const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
     if (!tags.length || selectedIds.size === 0) return;
@@ -262,6 +268,10 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
             <button onClick={() => { setTagPrompt('remove'); setTagPromptInput(''); }} disabled={bulkBusy}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
               <X size={11} /> Remove tags
+            </button>
+            <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 8, color: '#a855f7', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <Archive size={11} /> Archive
             </button>
             <button onClick={bulkExport} disabled={bulkBusy}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>

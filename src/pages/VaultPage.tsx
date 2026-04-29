@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus } from 'lucide-react';
+import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus, Edit2, FolderInput } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
 import type { Memory, Flashcard, SmartCollection } from '../lib/types';
@@ -150,6 +150,10 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   const [bulkBusy, setBulkBusy] = useState(false);
   const [tagPromptOpen, setTagPromptOpen] = useState<null | 'add' | 'remove'>(null);
   const [tagInput, setTagInput] = useState('');
+  const [movePromptOpen, setMovePromptOpen] = useState(false);
+  const [projectInput, setProjectInput] = useState('');
+  const [renamingCollId, setRenamingCollId] = useState<string | null>(null);
+  const [renameCollName, setRenameCollName] = useState('');
   const [saveCollOpen, setSaveCollOpen] = useState(false);
   const [collName, setCollName] = useState('');
 
@@ -259,7 +263,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
         throw new Error(txt || `HTTP ${r.status}`);
       }
       const j = await r.json().catch(() => ({}));
-      const n = j.deleted ?? j.trashed ?? j.archived ?? j.updated ?? selectedIds.size;
+      const n = j.deleted ?? j.trashed ?? j.updated ?? (Array.isArray(j.ids) ? j.ids.length : undefined) ?? selectedIds.size;
       showToast(`${successLabel} ${n} memor${n === 1 ? 'y' : 'ies'}`);
       exitSelect();
       fetchMemories();
@@ -274,6 +278,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   };
 
   const bulkArchive = (archived: boolean) => {
+    if (archived && !confirm(`Archive ${selectedIds.size} memor${selectedIds.size === 1 ? 'y' : 'ies'}? They get hidden from the main view but stay searchable.`)) return;
     runBulk('/library/bulk-archive', { archived }, archived ? 'Archived' : 'Unarchived');
   };
 
@@ -284,6 +289,19 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
     const label = tagPromptOpen === 'add' ? 'Tagged' : 'Untagged';
     runBulk(path, { tags }, label);
     setTagPromptOpen(null); setTagInput('');
+  };
+
+  const submitMoveProject = () => {
+    const pid = projectInput.trim();
+    if (!pid || !selectedIds.size) { setMovePromptOpen(false); setProjectInput(''); return; }
+    runBulk('/library/bulk-move-project', { project_id: pid }, 'Moved to project');
+    setMovePromptOpen(false); setProjectInput('');
+  };
+
+  const submitMoveClear = () => {
+    if (!confirm(`Remove ${selectedIds.size} memor${selectedIds.size === 1 ? 'y' : 'ies'} from any project?`)) return;
+    runBulk('/library/bulk-move-project', { project_id: null }, 'Cleared project');
+    setMovePromptOpen(false); setProjectInput('');
   };
 
   const exportSelection = () => {
@@ -336,6 +354,25 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
       setSaveCollOpen(false); setCollName('');
       loadCollections();
     } catch { showToast('Could not save collection', 'error'); }
+  };
+
+  const startRenameCollection = (id: string, currentName: string) => {
+    setRenamingCollId(id);
+    setRenameCollName(currentName);
+  };
+
+  const submitRenameCollection = async () => {
+    if (!renamingCollId || !renameCollName.trim()) { setRenamingCollId(null); return; }
+    try {
+      const r = await fetch(`/smart-collections/${renamingCollId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameCollName.trim() }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      showToast(`Renamed to "${renameCollName.trim()}"`);
+      setRenamingCollId(null); setRenameCollName('');
+      loadCollections();
+    } catch { showToast('Could not rename collection', 'error'); }
   };
 
   const deleteCollection = async (id: string) => {
@@ -407,14 +444,32 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
               <span className="vault-coll-empty">None yet — set filters and save one.</span>
             )}
             {collections.map(c => (
-              <button key={c.id}
-                onClick={() => activeCollectionId === c.id ? clearCollection() : applyCollection(c)}
-                className={cn('vault-coll-chip', activeCollectionId === c.id && 'is-active')}
-                title="Apply this collection">
-                {c.name}
-                <span onClick={e => { e.stopPropagation(); deleteCollection(c.id); }}
-                  className="vault-coll-x" title="Delete collection"><X size={10} /></span>
-              </button>
+              renamingCollId === c.id ? (
+                <span key={c.id} className="vault-coll-chip is-active" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <input autoFocus value={renameCollName} onChange={e => setRenameCollName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitRenameCollection(); if (e.key === 'Escape') { setRenamingCollId(null); setRenameCollName(''); } }}
+                    style={{ width: 110, padding: '1px 6px', background: 'transparent', border: 'none', color: 'var(--text-1)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', outline: 'none' }} />
+                  <button onClick={submitRenameCollection} title="Save name"
+                    style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                    <CheckCircle2 size={11} />
+                  </button>
+                  <button onClick={() => { setRenamingCollId(null); setRenameCollName(''); }} title="Cancel"
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                    <X size={11} />
+                  </button>
+                </span>
+              ) : (
+                <button key={c.id}
+                  onClick={() => activeCollectionId === c.id ? clearCollection() : applyCollection(c)}
+                  className={cn('vault-coll-chip', activeCollectionId === c.id && 'is-active')}
+                  title="Apply this collection">
+                  {c.name}
+                  <span onClick={e => { e.stopPropagation(); startRenameCollection(c.id, c.name); }}
+                    className="vault-coll-x" title="Rename collection"><Edit2 size={10} /></span>
+                  <span onClick={e => { e.stopPropagation(); deleteCollection(c.id); }}
+                    className="vault-coll-x" title="Delete collection"><X size={10} /></span>
+                </button>
+              )
             ))}
             {(filter || domainFilter || sourceTypeFilter || pinnedOnly || showArchived || deepMode) && (
               <button onClick={() => setSaveCollOpen(true)} className="vault-coll-save" title="Save current filters as a collection">
@@ -515,6 +570,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             <span style={{ flex: 1 }} />
             <button onClick={() => setTagPromptOpen('add')} disabled={bulkBusy} className="vault-action-btn"><Tag size={12} /> Add tags</button>
             <button onClick={() => setTagPromptOpen('remove')} disabled={bulkBusy} className="vault-action-btn"><Tag size={12} /> Remove tags</button>
+            <button onClick={() => setMovePromptOpen(true)} disabled={bulkBusy} className="vault-action-btn"><FolderInput size={12} /> Move to project</button>
             <button onClick={() => bulkArchive(true)} disabled={bulkBusy} className="vault-action-btn"><Archive size={12} /> Archive</button>
             {showArchived && (
               <button onClick={() => bulkArchive(false)} disabled={bulkBusy} className="vault-action-btn"><ArchiveRestore size={12} /> Unarchive</button>
@@ -536,6 +592,20 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             onKeyDown={e => { if (e.key === 'Enter') submitTagBulk(); if (e.key === 'Escape') { setTagPromptOpen(null); setTagInput(''); } }} />
           <button onClick={submitTagBulk} disabled={!tagInput.trim() || bulkBusy} className="primary">Apply</button>
           <button onClick={() => { setTagPromptOpen(null); setTagInput(''); }}>Cancel</button>
+        </div>
+      )}
+
+      {/* Inline move-to-project prompt */}
+      {movePromptOpen && (
+        <div className="vault-tag-prompt">
+          <FolderInput size={13} color="#a78bfa" />
+          <span className="lbl">Move {selectedIds.size} memor{selectedIds.size === 1 ? 'y' : 'ies'} to project</span>
+          <input value={projectInput} onChange={e => setProjectInput(e.target.value)} autoFocus
+            placeholder="project id (or leave blank to clear)"
+            onKeyDown={e => { if (e.key === 'Enter') submitMoveProject(); if (e.key === 'Escape') { setMovePromptOpen(false); setProjectInput(''); } }} />
+          <button onClick={submitMoveProject} disabled={!projectInput.trim() || bulkBusy} className="primary">Move</button>
+          <button onClick={submitMoveClear} disabled={bulkBusy}>Clear project</button>
+          <button onClick={() => { setMovePromptOpen(false); setProjectInput(''); }}>Cancel</button>
         </div>
       )}
 

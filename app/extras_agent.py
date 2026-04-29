@@ -21,7 +21,7 @@ def _today_iso() -> str:
 
 # ─── Notes ─────────────────────────────────────────────────────────────────────
 
-async def list_notes(tag: str = "", limit: int = 50, include_trashed: bool = False) -> List[dict]:
+async def list_notes(tag: str = "", limit: int = 50, include_trashed: bool = False, include_archived: bool = False) -> List[dict]:
     db = await get_db()
     snapshot = await db.collection("notes").get()
     notes = []
@@ -30,6 +30,8 @@ async def list_notes(tag: str = "", limit: int = 50, include_trashed: bool = Fal
         if not belongs_to_current_user(d):
             continue
         if not include_trashed and d.get("trashed_at"):
+            continue
+        if not include_archived and d.get("archived"):
             continue
         if tag and tag not in (d.get("tags") or []):
             continue
@@ -88,7 +90,7 @@ async def delete_note(note_id: str, hard: bool = False) -> dict:
 
 # ─── Bookmarks ────────────────────────────────────────────────────────────────
 
-async def list_bookmarks(status: str = "", limit: int = 100, include_trashed: bool = False) -> List[dict]:
+async def list_bookmarks(status: str = "", limit: int = 100, include_trashed: bool = False, include_archived: bool = False) -> List[dict]:
     db = await get_db()
     snapshot = await db.collection("bookmarks").get()
     items = []
@@ -97,6 +99,8 @@ async def list_bookmarks(status: str = "", limit: int = 100, include_trashed: bo
         if not belongs_to_current_user(d):
             continue
         if not include_trashed and d.get("trashed_at"):
+            continue
+        if not include_archived and d.get("archived"):
             continue
         if status and d.get("status") != status:
             continue

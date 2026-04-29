@@ -681,11 +681,22 @@ async def bulk_delete_endpoint(body: BulkDeleteRequest):
 class BulkArchiveRequest(BaseModel):
     ids: List[str]
     archived: bool = True
+    entity: Optional[str] = "memory"
 
 
 @app.post("/library/bulk-archive")
 async def bulk_archive_endpoint(body: BulkArchiveRequest):
-    return await library_agent.set_archived(body.ids, body.archived)
+    return await library_agent.set_archived(body.ids, body.archived, body.entity or "memory")
+
+
+class BulkMoveProjectRequest(BaseModel):
+    ids: List[str]
+    project_id: Optional[str] = None
+
+
+@app.post("/library/bulk-move-project")
+async def bulk_move_project_endpoint(body: BulkMoveProjectRequest):
+    return await library_agent.bulk_move_project(body.ids, body.project_id)
 
 
 class BulkTagRequest(BaseModel):
@@ -2129,8 +2140,8 @@ class NoteUpdateRequest(BaseModel):
     pinned: Optional[bool] = None
 
 @app.get("/notes")
-async def list_notes_endpoint(tag: str = "", limit: int = 50):
-    return await list_notes(tag=tag, limit=limit)
+async def list_notes_endpoint(tag: str = "", limit: int = 50, include_archived: bool = False):
+    return await list_notes(tag=tag, limit=limit, include_archived=include_archived)
 
 @app.post("/notes")
 async def create_note_endpoint(req: NoteCreateRequest):
@@ -2166,8 +2177,8 @@ class BookmarkUpdateRequest(BaseModel):
     status: Optional[str] = None
 
 @app.get("/bookmarks")
-async def list_bookmarks_endpoint(status: str = "", limit: int = 100):
-    return await list_bookmarks(status=status, limit=limit)
+async def list_bookmarks_endpoint(status: str = "", limit: int = 100, include_archived: bool = False):
+    return await list_bookmarks(status=status, limit=limit, include_archived=include_archived)
 
 @app.post("/bookmarks")
 async def create_bookmark_endpoint(req: BookmarkCreateRequest):

@@ -172,15 +172,29 @@ def _days_until_purge(trashed_at: Any) -> int:
 
 # ─── Archive + Pin (memories only — notes already have pin) ──────────────────
 
-async def set_archived(ids: List[str], archived: bool) -> Dict[str, Any]:
+_ENTITY_TO_COLLECTION = {
+    "memory": "memories",
+    "memories": "memories",
+    "note": "notes",
+    "notes": "notes",
+    "bookmark": "bookmarks",
+    "bookmarks": "bookmarks",
+}
+
+
+async def set_archived(ids: List[str], archived: bool, entity: str = "memory") -> Dict[str, Any]:
+    coll = _ENTITY_TO_COLLECTION.get((entity or "memory").lower(), "memories")
     changed: List[str] = []
     for doc_id in ids:
-        d = await _doc("memories", doc_id)
+        d = await _doc(coll, doc_id)
         if d is None:
             continue
-        await _update("memories", doc_id, {"archived": bool(archived), "reviewed": True})
+        patch: Dict[str, Any] = {"archived": bool(archived)}
+        if coll == "memories":
+            patch["reviewed"] = True
+        await _update(coll, doc_id, patch)
         changed.append(doc_id)
-    return {"updated": len(changed), "archived": archived, "ids": changed}
+    return {"updated": len(changed), "archived": archived, "entity": entity, "ids": changed}
 
 
 async def set_pinned(memory_id: str, pinned: bool) -> Dict[str, Any]:
@@ -189,6 +203,18 @@ async def set_pinned(memory_id: str, pinned: bool) -> Dict[str, Any]:
         raise ValueError(f"Memory {memory_id} not found")
     await _update("memories", memory_id, {"pinned": bool(pinned)})
     return {"id": memory_id, "pinned": bool(pinned)}
+
+
+async def bulk_move_project(ids: List[str], project_id: Optional[str]) -> Dict[str, Any]:
+    pid = (project_id or "").strip() or None
+    changed: List[str] = []
+    for doc_id in ids:
+        d = await _doc("memories", doc_id)
+        if d is None:
+            continue
+        await _update("memories", doc_id, {"project_id": pid})
+        changed.append(doc_id)
+    return {"updated": len(changed), "project_id": pid, "ids": changed}
 
 
 # ─── Bulk tag operations on memories ─────────────────────────────────────────
@@ -457,14 +483,26 @@ async def deep_search(query: str, limit: int = 30) -> Dict[str, List[Dict[str, A
     for doc_id, data in await _scoped_docs("memories"):
         if _is_trashed(data):
             continue
+        # Defensive: include any extracted body, transcript, or full-text fields
+        # the document may carry (PDF extraction, audio transcript, page content, etc.).
         haystack_parts = [
             data.get("title", ""),
             data.get("summary", ""),
             data.get("executive_summary", ""),
             data.get("notes", ""),
+            data.get("transcript", ""),
+            data.get("extracted_text", ""),
+            data.get("body", ""),
+            data.get("content", ""),
+            data.get("raw_content", ""),
+            data.get("full_text", ""),
+            data.get("page_text", ""),
+            data.get("description", ""),
+            data.get("source_url", ""),
             " ".join(data.get("key_points") or []),
             " ".join(data.get("tags") or []),
             " ".join(data.get("action_items") or []),
+            " ".join(data.get("quotes") or []),
         ]
         haystack = "\n".join(p for p in haystack_parts if p)
         if not _matches(haystack):
