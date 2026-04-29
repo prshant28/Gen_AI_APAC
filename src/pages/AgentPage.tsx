@@ -15,6 +15,7 @@ import type { AgentMsg } from '../lib/types';
 import MarkdownMessage from '../components/MarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards from '../components/ActionResultCards';
+import { LiveInlineGate } from '../components/LiveChatPanel';
 
 // ─── Persisted chat storage (cleared on sign-out by App.handleSignOut) ────
 const STORAGE_KEY_CURRENT = 'agent-hub-current-chat-v1';
@@ -135,6 +136,9 @@ const AgentHubView = () => {
     if (typeof window === 'undefined') return true;
     return window.innerWidth >= SIDEBAR_COLLAPSE_BREAKPOINT;
   });
+  // Live Voice section — closed by default; opens the Gemini Live session
+  // only when the user expands it (saves bandwidth + mic permission prompt).
+  const [liveOpen, setLiveOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const thinkingIdRef = useRef<string>('');
@@ -639,6 +643,52 @@ const AgentHubView = () => {
               )}
             </div>
           )}
+
+          {/* ─── LIVE VOICE & VIDEO (collapsible inline section) ───
+              Replaces the old floating Live button. Lives inside Agent Hub
+              so the user has ONE place for AI conversation (text + voice). */}
+          <div className="view-card" style={{ padding: liveOpen ? '14px 16px 14px' : '12px 16px',
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(6,182,212,0.04))',
+              border: '1px solid rgba(99,102,241,0.25)', borderRadius: 14 }}>
+            <button onClick={() => setLiveOpen(o => !o)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: liveOpen ? 12 : 0,
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+              aria-expanded={liveOpen}
+              title={liveOpen ? 'Collapse Live Voice' : 'Open Live Voice'}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                    background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
+                    display: 'grid', placeItems: 'center',
+                    boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+                  <Radio size={15} color="#fff" />
+                </div>
+                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                  <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Live Voice & Video
+                    <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 7px',
+                        background: 'rgba(34,197,94,0.12)', color: '#10b981',
+                        border: '1px solid rgba(34,197,94,0.3)', borderRadius: 20, letterSpacing: '0.5px' }}>
+                      REAL-TIME
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2 }}>
+                    {liveOpen
+                      ? 'Speak, share screen, or show camera — your Brain responds and runs the same agent tools.'
+                      : 'Talk to your Brain in real time — same tools as text chat above.'}
+                  </div>
+                </div>
+              </div>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 11, flexShrink: 0 }}>
+                {liveOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </span>
+            </button>
+            {liveOpen && (
+              <div style={{ marginTop: 4 }}>
+                <LiveInlineGate active={liveOpen} />
+              </div>
+            )}
+          </div>
 
           {/* MESSAGES — grows with content; the page scrolls, not this box.
               This way every message (and its action result cards) stays

@@ -1073,3 +1073,31 @@ h6.md-h { font-size: 12.5px; color: var(--text-2); }
   .recall-kb-stat-num                  { font-size: 24px !important; }
   .recall-cap-text                     { font-size: 12.5px !important; }
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   GLOBAL MOBILE SAFETY NET — additive, small overrides only.
+   These plug the gaps left after page-specific @media rules so the
+   site never has horizontal scroll or cramped overlap on phones.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Safety: prevent any image / pre / svg from forcing horizontal scroll. */
+@media (max-width: 640px) {
+  body, html { overflow-x: hidden !important; }
+  img, video, svg, canvas, iframe { max-width: 100%; height: auto; }
+  pre, code { word-break: break-word; white-space: pre-wrap; }
+  table { display: block; overflow-x: auto; max-width: 100%; }
+  .responsive-content { padding: 12px !important; }
+}
+
+/* Page header rows: stack title + actions vertically on small phones
+   so action buttons don't get pushed off the side. */
+@media (max-width: 600px) {
+  .page-header { flex-direction: column; align-items: stretch; gap: 10px; }
+  .page-header > * { width: 100%; }
+}
+
+/* Generic .view-card mild padding shrink on small screens to claw
+   back ~16px of horizontal real estate without breaking layout. */
+@media (max-width: 480px) {
+  .view-card { padding: 12px !important; border-radius: 12px !important; }
+}

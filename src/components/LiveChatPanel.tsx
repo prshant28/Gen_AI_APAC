@@ -455,3 +455,341 @@ export const LiveGate: React.FC = () => {
 };
 
 export default LiveButton;
+
+/* ================================================================== */
+/*  LiveInline — embeddable card variant (no floating, fits in layout) */
+/* ================================================================== */
+
+/**
+ * LiveInline renders the same Live voice/video chat surface as the floating
+ * panel, but as a plain block element that fits inside any parent card.
+ * Used inside the Agent Hub page so the user has ONE place for AI chat
+ * (text + voice) instead of a confusing 3rd floating button.
+ *
+ * Props:
+ *   active   — when false the upstream Gemini Live session is torn down
+ *              and mic/camera are released (privacy + cost). Pass `true`
+ *              while the section is visible to the user.
+ *   compact  — slightly tighter padding for sidebars / narrow widths.
+ */
+interface LiveInlineProps {
+  active: boolean;
+  compact?: boolean;
+}
+
+export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false }) => {
+  const client = useMemo(() => getLiveClient(), []);
+  const [state, setState] = useState<string>(client.getState());
+  const [micOn, setMicOn] = useState(false);
+  const [camOn, setCamOn] = useState(false);
+  const [screenOn, setScreenOn] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [textInput, setTextInput] = useState("");
+  const [model, setModel] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const userBufRef = useRef<string>("");
+  const modelBufRef = useRef<string>("");
+  const userIdRef = useRef<string>("");
+  const modelIdRef = useRef<string>("");
+
+  const flushUser = useCallback(() => {
+    const t = userBufRef.current.trim();
+    if (!t) return;
+    setTranscript((cur) => {
+      const next = [...cur];
+      const id = userIdRef.current || `u-${Date.now()}`;
+      const last = next[next.length - 1];
+      if (last && last.role === "user" && last.id === id) {
+        (last as any).text = t;
+      } else {
+        next.push({ id, role: "user", text: t });
+        userIdRef.current = id;
+      }
+      return next;
+    });
+  }, []);
+
+  const flushModel = useCallback(() => {
+    const t = modelBufRef.current.trim();
+    if (!t) return;
+    setTranscript((cur) => {
+      const next = [...cur];
+      const id = modelIdRef.current || `m-${Date.now()}`;
+      const last = next[next.length - 1];
+      if (last && last.role === "model" && last.id === id) {
+        (last as any).text = t;
+      } else {
+        next.push({ id, role: "model", text: t });
+        modelIdRef.current = id;
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const off = client.on((e: LiveEvent) => {
+      if (e.type === "state") setState(e.state || "");
+      if (e.type === "ready" && e.model) setModel(e.model);
+      if (e.type === "error") setError(e.error || "Unknown error");
+      if (e.type === "user_transcript") { userBufRef.current += (e.text || ""); flushUser(); }
+      if (e.type === "model_transcript") { modelBufRef.current += (e.text || ""); flushModel(); }
+      if (e.type === "text") { modelBufRef.current += (e.text || ""); flushModel(); }
+      if (e.type === "turn_complete" || e.type === "interrupted") {
+        userBufRef.current = ""; modelBufRef.current = "";
+        userIdRef.current = ""; modelIdRef.current = `m-${Date.now()}`;
+      }
+      if (e.type === "tool_call_done") {
+        setTranscript((cur) => [
+          ...cur,
+          {
+            id: `t-${Date.now()}-${Math.random()}`,
+            role: "tool",
+            name: e.name || "",
+            args: (e.args as Record<string, unknown>) || {},
+            result: (e.result as Record<string, unknown>) || {},
+          },
+        ]);
+      }
+    });
+    return () => { off(); };
+  }, [client, flushUser, flushModel]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [transcript.length]);
+
+  // Privacy: when section is hidden/inactive, tear down session immediately.
+  useEffect(() => {
+    if (!active) {
+      try { client.disconnect(); } catch {}
+      setMicOn(false); setCamOn(false); setScreenOn(false);
+    }
+  }, [active, client]);
+
+  const connect = useCallback(async () => {
+    setError("");
+    try { await client.connect(); }
+    catch (e: any) { setError(e?.message || "Couldn't start Live session."); return; }
+    try { await client.startMic(); setMicOn(true); } catch { setMicOn(false); }
+  }, [client]);
+
+  const disconnect = useCallback(() => {
+    client.disconnect();
+    setMicOn(false); setCamOn(false); setScreenOn(false);
+  }, [client]);
+
+  const toggleMic = useCallback(async () => {
+    if (micOn) { client.stopMic(); setMicOn(false); }
+    else { await client.startMic(); setMicOn(true); }
+  }, [client, micOn]);
+
+  const toggleCam = useCallback(async () => {
+    try {
+      if (camOn) { client.stopVideo(); setCamOn(false); return; }
+      if (screenOn) { client.stopVideo(); setScreenOn(false); }
+      await client.startVideo("camera", 1500);
+      setCamOn(true);
+    } catch (e: any) { setError(e?.message || "Camera permission denied."); }
+  }, [client, camOn, screenOn]);
+
+  const toggleScreen = useCallback(async () => {
+    try {
+      if (screenOn) { client.stopVideo(); setScreenOn(false); return; }
+      if (camOn) { client.stopVideo(); setCamOn(false); }
+      await client.startVideo("screen", 2000);
+      setScreenOn(true);
+    } catch (e: any) { setError(e?.message || "Screen-share cancelled."); }
+  }, [client, camOn, screenOn]);
+
+  const send = useCallback(() => {
+    const text = textInput.trim();
+    if (!text) return;
+    client.sendText(text);
+    setTranscript((cur) => [...cur, { id: `u-${Date.now()}`, role: "user", text }]);
+    setTextInput("");
+    modelIdRef.current = `m-${Date.now()}`;
+  }, [client, textInput]);
+
+  const isConnected = state === "connected";
+  const isConnecting = state === "connecting";
+  const transcriptHeight = compact ? 220 : 300;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", borderRadius: 12,
+        overflow: "hidden", background: "var(--surface-2, #0f172a)",
+        border: "1px solid var(--border, rgba(255,255,255,0.08))" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 14px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(56,189,248,0.08))" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative", width: 28, height: 28, borderRadius: 8,
+              background: "linear-gradient(135deg, #6366f1, #06b6d4)",
+              display: "grid", placeItems: "center" }}>
+            <Radio size={15} color="#fff" />
+            {isConnected && (
+              <span style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9,
+                  borderRadius: 5, background: "#22c55e", border: "2px solid var(--surface, #0f172a)",
+                  animation: "live-pulse 1.4s infinite" }} />
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Live Voice with Brain</div>
+            <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+              {isConnected ? `Connected · ${model || "Gemini Live"}`
+                : isConnecting ? "Connecting…"
+                : state === "error" ? "Error" : "Idle — tap Start to talk"}
+            </div>
+          </div>
+        </div>
+        {isConnected ? (
+          <button onClick={disconnect} style={{ ...callBtn, background: "#ef4444", padding: "6px 12px" }} title="End">
+            <PhoneOff size={14} /><span style={{ fontSize: 11.5, fontWeight: 700 }}>End</span>
+          </button>
+        ) : (
+          <button onClick={connect} disabled={isConnecting}
+            style={{ ...callBtn, background: "#22c55e", padding: "6px 12px", opacity: isConnecting ? 0.7 : 1 }} title="Start">
+            {isConnecting ? <Loader2 size={14} className="spin" /> : <Phone size={14} />}
+            <span style={{ fontSize: 11.5, fontWeight: 700 }}>{isConnecting ? "Connecting" : "Start"}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Transcript */}
+      <div ref={scrollRef} style={{ height: transcriptHeight, overflowY: "auto",
+          padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        {transcript.length === 0 && (
+          <div style={{ opacity: 0.55, fontSize: 12, textAlign: "center", marginTop: 24,
+              color: "var(--text-3)" }}>
+            Start a Live session to talk to your Brain in real time.
+            <div style={{ fontSize: 11, marginTop: 8, opacity: 0.85 }}>
+              Try: <em>"Save this thought…"</em>, <em>"What did I save about RAG?"</em>,
+              <em> "Schedule revision tomorrow at 7"</em>
+            </div>
+          </div>
+        )}
+        {transcript.map((entry) => {
+          if (entry.role === "tool") {
+            return (
+              <div key={entry.id} style={{ alignSelf: "stretch", padding: "8px 10px", borderRadius: 10,
+                  background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.25)",
+                  fontSize: 11, color: "var(--text-2)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <Wand2 size={12} /><strong>{entry.name}</strong>
+                </div>
+                <div style={{ opacity: 0.8 }}>
+                  {summariseToolResult(entry.name, entry.result || {}, entry.args)}
+                </div>
+              </div>
+            );
+          }
+          const mine = entry.role === "user";
+          return (
+            <div key={entry.id} style={{ alignSelf: mine ? "flex-end" : "flex-start",
+                maxWidth: "88%", padding: "8px 12px", borderRadius: 12, fontSize: 13, lineHeight: 1.4,
+                color: "var(--text-1)",
+                background: mine ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
+                border: mine ? "1px solid rgba(99,102,241,0.30)" : "1px solid rgba(255,255,255,0.06)" }}>
+              {entry.text}
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div style={{ padding: "6px 12px", fontSize: 11, color: "#fca5a5",
+            background: "rgba(239,68,68,0.10)", borderTop: "1px solid rgba(239,68,68,0.25)" }}>
+          {error}
+        </div>
+      )}
+
+      {/* Text input */}
+      <div style={{ display: "flex", gap: 6, padding: "8px 10px",
+          borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <input
+          value={textInput}
+          onChange={(e) => setTextInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+          placeholder={isConnected ? "Type instead of speaking…" : "Connect first to chat"}
+          disabled={!isConnected}
+          style={{ flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 12,
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.04)", color: "var(--text-1)", outline: "none" }}
+        />
+        <button onClick={send} disabled={!isConnected || !textInput.trim()} style={btnIcon} aria-label="Send">
+          <Send size={14} />
+        </button>
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(0,0,0,0.20)" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={toggleMic} disabled={!isConnected} style={ctrlBtn(micOn)}
+            title={micOn ? "Mute" : "Unmute"}>
+            {micOn ? <Mic size={15} /> : <MicOff size={15} />}
+          </button>
+          <button onClick={toggleCam} disabled={!isConnected} style={ctrlBtn(camOn)}
+            title={camOn ? "Stop camera" : "Start camera"}>
+            {camOn ? <Video size={15} /> : <VideoOff size={15} />}
+          </button>
+          <button onClick={toggleScreen} disabled={!isConnected} style={ctrlBtn(screenOn)}
+            title={screenOn ? "Stop screen share" : "Share screen"}>
+            <MonitorUp size={15} />
+          </button>
+        </div>
+        <div style={{ fontSize: 10.5, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
+          {micOn && <span style={{ color: "#22c55e" }}>● Mic live</span>}
+          {camOn && <span style={{ color: "#06b6d4" }}>● Camera</span>}
+          {screenOn && <span style={{ color: "#a78bfa" }}>● Screen</span>}
+          {!micOn && !camOn && !screenOn && <span>Mic / camera / screen</span>}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes live-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+          50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+        }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+};
+
+/** LiveInlineGate — checks /api/live/status and renders LiveInline only if
+ *  the backend has an API key configured; otherwise renders a soft notice. */
+export const LiveInlineGate: React.FC<{ active: boolean; compact?: boolean }> = ({ active, compact }) => {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/live/status")
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((d) => { if (!cancelled) setEnabled(!!d?.enabled); })
+      .catch(() => { if (!cancelled) setEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
+  if (enabled === null) {
+    return (
+      <div style={{ padding: 14, fontSize: 12, color: "var(--text-3)",
+          background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+        Checking Live availability…
+      </div>
+    );
+  }
+  if (!enabled) {
+    return (
+      <div style={{ padding: 14, fontSize: 12, color: "var(--text-3)",
+          background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+        Live voice is unavailable in this environment (Gemini Live API key not configured). Text chat above still works.
+      </div>
+    );
+  }
+  return <LiveInline active={active} compact={compact} />;
+};

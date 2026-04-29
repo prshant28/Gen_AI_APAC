@@ -623,41 +623,132 @@ Return JSON with key "plan" containing an array of objects with:
 
 
 async def generate_daily_briefing() -> dict:
-    """Generate an AI daily briefing based on recent activity for the current user."""
+    """Generate an AI daily briefing grounded in the user's actual vault content.
+
+    Pulls real titles, summaries, key tags, and source distribution so the
+    briefing references specific topics the user has captured — never claims
+    "no data" when memories exist.
+    """
     from app.user_context import belongs_to_current_user
+    from collections import Counter
     try:
         db = await get_db()
-        memories_snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(40).get()
+        memories_snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(60).get()
         tasks_snap = await db.collection("tasks").where("status", "==", "pending").limit(40).get()
 
-        memories = [doc.to_dict() for doc in memories_snap if belongs_to_current_user(doc.to_dict())][:5]
-        tasks = [doc.to_dict() for doc in tasks_snap if belongs_to_current_user(doc.to_dict())][:5]
+        all_memories = [doc.to_dict() for doc in memories_snap if belongs_to_current_user(doc.to_dict())]
+        tasks = [doc.to_dict() for doc in tasks_snap if belongs_to_current_user(doc.to_dict())][:6]
 
-        memories_text = "\n".join([f"- {m.get('title')}" for m in memories]) or "No memories yet."
-        tasks_text = "\n".join([f"- {t.get('title')} (Priority: {t.get('priority', 'medium')})" for t in tasks]) or "No pending tasks."
+        total_memories = len(all_memories)
+        # Top 6 most recent for context — include short summary + first key point
+        recent_memories = all_memories[:6]
 
-        prompt = f"""You are a personal AI assistant. Generate a brief, motivating daily briefing for today ({datetime.date.today().strftime('%A, %B %d, %Y')}).
+        # Stats: domain spread, top tags, days since last capture
+        domain_counts = Counter(m.get("domain") or "General" for m in all_memories)
+        top_domains = [d for d, _ in domain_counts.most_common(3)]
+        all_tags = []
+        for m in all_memories:
+            for t in (m.get("tags") or [])[:5]:
+                if t:
+                    all_tags.append(str(t).lower())
+        top_tags = [t for t, _ in Counter(all_tags).most_common(5)]
 
-Recent Knowledge Captured:
-{memories_text}
+        last_capture_days = None
+        if recent_memories:
+            ts = _parse_iso(recent_memories[0].get("created_at"))
+            if ts:
+                delta = datetime.datetime.now(datetime.timezone.utc) - ts
+                last_capture_days = max(0, delta.days)
 
-Pending Tasks:
-{tasks_text}
+        # Source-type spread
+        type_counts = Counter((m.get("source_type") or "note").lower() for m in all_memories)
+        source_breakdown = ", ".join(f"{c} {k}" for k, c in type_counts.most_common(4)) or "no captures yet"
 
-Write a 2-3 sentence briefing that summarizes their knowledge state and motivates them for today. Be concise and upbeat."""
+        # Build a content-rich memory block
+        if recent_memories:
+            mem_lines = []
+            for m in recent_memories:
+                title = (m.get("title") or "Untitled").strip()
+                summary = (m.get("summary") or "").strip().replace("\n", " ")
+                if len(summary) > 180:
+                    summary = summary[:177] + "…"
+                domain = m.get("domain") or "General"
+                mem_lines.append(f"- [{domain}] {title} — {summary}")
+            memories_block = "\n".join(mem_lines)
+        else:
+            memories_block = "(empty — first-time user, no memories captured yet)"
+
+        if tasks:
+            tasks_block = "\n".join(
+                f"- {t.get('title')} (priority: {t.get('priority', 'medium')})" for t in tasks
+            )
+        else:
+            tasks_block = "(no pending tasks)"
+
+        stats_block = (
+            f"Total memories in vault: {total_memories}\n"
+            f"Domain spread: {', '.join(top_domains) or '—'}\n"
+            f"Top tags: {', '.join(top_tags) or '—'}\n"
+            f"Source mix: {source_breakdown}\n"
+            f"Last capture: {('today' if last_capture_days == 0 else f'{last_capture_days} days ago') if last_capture_days is not None else 'never'}"
+        )
+
+        if total_memories > 0:
+            rules_block = (
+                f"1. Mention at least ONE specific topic by name from the recent list above.\n"
+                f"2. Acknowledge their dominant domain ({top_domains[0] if top_domains else 'learning'}).\n"
+                f"3. Suggest one concrete focus action for today (a task to tackle OR a memory to revisit).\n"
+                f"4. Do NOT say 'I have no data' or 'no memories' — there are {total_memories} memories above.\n"
+                f"5. Tone: warm, energetic, concise. No filler. No emojis."
+            )
+        else:
+            rules_block = (
+                "1. The vault is empty — this is a brand-new user.\n"
+                "2. Welcome them warmly and suggest capturing their first knowledge item "
+                "(YouTube video, web article, or quick note) to seed the Brain.\n"
+                "3. Tone: warm, encouraging, concise. No filler. No emojis."
+            )
+
+        prompt = f"""You are the user's personal AI Second Brain assistant. Generate a 3-4 sentence daily briefing for today ({datetime.date.today().strftime('%A, %B %d, %Y')}).
+
+USER'S VAULT STATS:
+{stats_block}
+
+RECENT KNOWLEDGE (most recent first — use SPECIFIC titles in your briefing):
+{memories_block}
+
+PENDING TASKS:
+{tasks_block}
+
+Rules:
+{rules_block}
+
+Write only the briefing text, nothing else."""
 
         content, _ = await chat_with_fallback(
             messages=[{"role": "user", "content": prompt}],
             model=settings.OPENAI_MODEL,
             temperature=0.7,
-            max_tokens=150,
+            max_tokens=240,
         )
         return {
             "briefing": content.strip(),
-            "date": datetime.date.today().isoformat()
+            "date": datetime.date.today().isoformat(),
+            "stats": {
+                "total_memories": total_memories,
+                "top_domains": top_domains,
+                "top_tags": top_tags,
+                "last_capture_days": last_capture_days,
+                "source_breakdown": dict(type_counts),
+            },
         }
     except Exception as e:
-        return {"briefing": "Ready for another great day of learning!", "date": datetime.date.today().isoformat()}
+        print(f"[briefing] generation error: {e}")
+        return {
+            "briefing": "Welcome back. Open the vault to pick up where you left off.",
+            "date": datetime.date.today().isoformat(),
+            "stats": {},
+        }
 
 
 # ─── Auto-tag & share helpers ─────────────────────────────────────────────────
