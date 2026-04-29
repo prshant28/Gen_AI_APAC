@@ -1,9 +1,13 @@
 import React from 'react';
-import { Library, Database, StickyNote, Bookmark, FileText, Inbox } from 'lucide-react';
+import { Library, Database, StickyNote, Bookmark, FileText, Inbox, CheckSquare, Flame, FlipHorizontal, Bell } from 'lucide-react';
 import TabbedPage from '../components/TabbedPage';
 import VaultPage from './VaultPage';
 import NotesPage from './NotesPage';
 import BookmarksPage from './BookmarksPage';
+import TasksPage from './TasksPage';
+import HabitsPage from './HabitsPage';
+import FlashcardsPage from './FlashcardsPage';
+import RevisitsPage from './RevisitsPage';
 import LibraryInboxTab from '../components/LibraryInboxTab';
 
 const LibraryPage: React.FC = () => {
@@ -13,15 +17,19 @@ const LibraryPage: React.FC = () => {
       iconColor="#f472b6"
       iconBg="rgba(244,114,182,0.15)"
       title="Library"
-      subtitle="Vault, notes, bookmarks, files & inbox — all your captured knowledge"
+      subtitle="Vault, notes, bookmarks, files, inbox, tasks, habits, flashcards & revisits — your full second brain in one place"
       paramKey="tab"
       defaultTab="vault"
       tabs={[
-        { id: 'vault',     label: 'Vault',     icon: Database,    render: () => <VaultPage embedded /> },
-        { id: 'notes',     label: 'Notes',     icon: StickyNote,  render: () => <NotesPage embedded /> },
-        { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark,    render: () => <BookmarksPage embedded /> },
-        { id: 'files',     label: 'Files',     icon: FileText,    render: () => <VaultPage embedded initialSourceFilter="pdf" /> },
-        { id: 'inbox',     label: 'Inbox',     icon: Inbox,       render: () => <LibraryInboxTab /> },
+        { id: 'vault',      label: 'Vault',      icon: Database,        render: () => <VaultPage embedded /> },
+        { id: 'notes',      label: 'Notes',      icon: StickyNote,      render: () => <NotesPage embedded /> },
+        { id: 'bookmarks',  label: 'Bookmarks',  icon: Bookmark,        render: () => <BookmarksPage embedded /> },
+        { id: 'files',      label: 'Files',      icon: FileText,        render: () => <VaultPage embedded initialSourceFilter="pdf" /> },
+        { id: 'inbox',      label: 'Inbox',      icon: Inbox,           render: () => <LibraryInboxTab /> },
+        { id: 'tasks',      label: 'Tasks',      icon: CheckSquare,     render: () => <TasksPage embedded /> },
+        { id: 'habits',     label: 'Habits',     icon: Flame,           render: () => <HabitsPage embedded /> },
+        { id: 'flashcards', label: 'Flashcards', icon: FlipHorizontal,  render: () => <FlashcardsPage embedded /> },
+        { id: 'revisits',   label: 'Revisits',   icon: Bell,            render: () => <RevisitsPage embedded /> },
       ]}
     />
   );
