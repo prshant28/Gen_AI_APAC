@@ -484,8 +484,6 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
   const [camOn, setCamOn] = useState(false);
   const [screenOn, setScreenOn] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [textInput, setTextInput] = useState("");
-  const [model, setModel] = useState<string>("");
   const [error, setError] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const userBufRef = useRef<string>("");
@@ -530,7 +528,6 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
   useEffect(() => {
     const off = client.on((e: LiveEvent) => {
       if (e.type === "state") setState(e.state || "");
-      if (e.type === "ready" && e.model) setModel(e.model);
       if (e.type === "error") setError(e.error || "Unknown error");
       if (e.type === "user_transcript") { userBufRef.current += (e.text || ""); flushUser(); }
       if (e.type === "model_transcript") { modelBufRef.current += (e.text || ""); flushModel(); }
@@ -561,12 +558,19 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
     }
   }, [transcript.length]);
 
-  // Privacy: when section is hidden/inactive, tear down session immediately.
+  // Privacy: when section is hidden/inactive OR the panel unmounts, tear down
+  // the session immediately so mic/camera don't keep running invisibly. The
+  // unmount cleanup matters because AgentPage gates LiveInlineGate behind
+  // {liveOpen && ...} — the component is removed straight from the tree
+  // without a chance to render with active=false first.
   useEffect(() => {
     if (!active) {
       try { client.disconnect(); } catch {}
       setMicOn(false); setCamOn(false); setScreenOn(false);
     }
+    return () => {
+      try { client.disconnect(); } catch {}
+    };
   }, [active, client]);
 
   const connect = useCallback(async () => {
@@ -604,57 +608,85 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
     } catch (e: any) { setError(e?.message || "Screen-share cancelled."); }
   }, [client, camOn, screenOn]);
 
-  const send = useCallback(() => {
-    const text = textInput.trim();
-    if (!text) return;
-    client.sendText(text);
-    setTranscript((cur) => [...cur, { id: `u-${Date.now()}`, role: "user", text }]);
-    setTextInput("");
-    modelIdRef.current = `m-${Date.now()}`;
-  }, [client, textInput]);
-
   const isConnected = state === "connected";
   const isConnecting = state === "connecting";
   const transcriptHeight = compact ? 220 : 300;
+
+  // Status dot color matches the parent Agent Hub's quiet palette: green when
+  // live, amber while connecting, red on error, otherwise muted.
+  const statusColor = isConnected ? "#22c55e"
+    : isConnecting ? "#f59e0b"
+    : state === "error" ? "#ef4444"
+    : "var(--text-3)";
+  const statusLabel = isConnected ? "Listening"
+    : isConnecting ? "Connecting…"
+    : state === "error" ? "Error"
+    : "Idle";
+
+  // Quiet, neutral control button — no purple accent, no large block.
+  const quietCtrlBtn = (on: boolean): React.CSSProperties => ({
+    width: 30, height: 30, borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: on ? "var(--surface-3, rgba(255,255,255,0.08))" : "var(--surface, rgba(255,255,255,0.02))",
+    color: on ? "var(--text-1)" : "var(--text-3)",
+    cursor: isConnected ? "pointer" : "default",
+    opacity: isConnected ? 1 : 0.55,
+    display: "grid", placeItems: "center",
+    transition: "all 0.15s",
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", borderRadius: 12,
         overflow: "hidden", background: "var(--surface-2, #0f172a)",
         border: "1px solid var(--border, rgba(255,255,255,0.08))" }}>
-      {/* Header */}
+
+      {/* Slim header — status dot + label + single Start/End button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(56,189,248,0.08))" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ position: "relative", width: 28, height: 28, borderRadius: 8,
-              background: "linear-gradient(135deg, #6366f1, #06b6d4)",
-              display: "grid", placeItems: "center" }}>
-            <Radio size={15} color="#fff" />
-            {isConnected && (
-              <span style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9,
-                  borderRadius: 5, background: "#22c55e", border: "2px solid var(--surface, #0f172a)",
-                  animation: "live-pulse 1.4s infinite" }} />
-            )}
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Live Voice with Brain</div>
-            <div style={{ fontSize: 11, color: "var(--text-3)" }}>
-              {isConnected ? `Connected · Voice ready`
-                : isConnecting ? "Connecting…"
-                : state === "error" ? "Error" : "Idle — tap Start to talk"}
-            </div>
-          </div>
+          padding: "8px 12px",
+          borderBottom: "1px solid var(--border, rgba(255,255,255,0.06))" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span aria-hidden="true" style={{
+            width: 7, height: 7, borderRadius: "50%",
+            background: statusColor,
+            boxShadow: isConnected ? `0 0 6px ${statusColor}` : "none",
+            animation: isConnecting ? "live-pulse 1.2s ease-in-out infinite" : "none",
+            flexShrink: 0,
+          }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)" }}>Voice mode</span>
+          <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 500,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            · {statusLabel}
+          </span>
         </div>
         {isConnected ? (
-          <button onClick={disconnect} style={{ ...callBtn, background: "#ef4444", padding: "6px 12px" }} title="End">
-            <PhoneOff size={14} /><span style={{ fontSize: 11.5, fontWeight: 700 }}>End</span>
+          <button onClick={disconnect}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "5px 11px", borderRadius: 8,
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.32)",
+              color: "#ef4444",
+              fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+            title="End voice session">
+            <PhoneOff size={12} /> End
           </button>
         ) : (
           <button onClick={connect} disabled={isConnecting}
-            style={{ ...callBtn, background: "#22c55e", padding: "6px 12px", opacity: isConnecting ? 0.7 : 1 }} title="Start">
-            {isConnecting ? <Loader2 size={14} className="spin" /> : <Phone size={14} />}
-            <span style={{ fontSize: 11.5, fontWeight: 700 }}>{isConnecting ? "Connecting" : "Start"}</span>
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "5px 11px", borderRadius: 8,
+              background: "rgba(99,102,241,0.14)",
+              border: "1px solid rgba(99,102,241,0.32)",
+              color: "#a78bfa",
+              fontSize: 11.5, fontWeight: 700, cursor: isConnecting ? "default" : "pointer",
+              opacity: isConnecting ? 0.7 : 1,
+              fontFamily: "inherit",
+            }}
+            title="Start voice session">
+            {isConnecting ? <Loader2 size={12} className="spin" /> : <Phone size={12} />}
+            {isConnecting ? "Connecting" : "Start"}
           </button>
         )}
       </div>
@@ -665,7 +697,7 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
         {transcript.length === 0 && (
           <div style={{ opacity: 0.55, fontSize: 12, textAlign: "center", marginTop: 24,
               color: "var(--text-3)" }}>
-            Start a Live session to talk to your Brain in real time.
+            Tap Start to talk to your assistant in real time.
             <div style={{ fontSize: 11, marginTop: 8, opacity: 0.85 }}>
               Try: <em>"Save this thought…"</em>, <em>"What did I save about RAG?"</em>,
               <em> "Schedule revision tomorrow at 7"</em>
@@ -707,54 +739,34 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
         </div>
       )}
 
-      {/* Text input */}
-      <div style={{ display: "flex", gap: 6, padding: "8px 10px",
-          borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <input
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-          placeholder={isConnected ? "Type instead of speaking…" : "Connect first to chat"}
-          disabled={!isConnected}
-          style={{ flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 12,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.04)", color: "var(--text-1)", outline: "none" }}
-        />
-        <button onClick={send} disabled={!isConnected || !textInput.trim()} style={btnIcon} aria-label="Send">
-          <Send size={14} />
-        </button>
-      </div>
-
-      {/* Controls */}
+      {/* Quiet controls — mic / camera / screen, neutral surface, smaller icons */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(0,0,0,0.20)" }}>
+          padding: "8px 12px", borderTop: "1px solid var(--border, rgba(255,255,255,0.06))" }}>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={toggleMic} disabled={!isConnected} style={ctrlBtn(micOn)}
-            title={micOn ? "Mute" : "Unmute"}>
-            {micOn ? <Mic size={15} /> : <MicOff size={15} />}
+          <button onClick={toggleMic} disabled={!isConnected} style={quietCtrlBtn(micOn)}
+            title={!isConnected ? "Start a session first" : micOn ? "Mute" : "Unmute"}>
+            {micOn ? <Mic size={13} /> : <MicOff size={13} />}
           </button>
-          <button onClick={toggleCam} disabled={!isConnected} style={ctrlBtn(camOn)}
-            title={camOn ? "Stop camera" : "Start camera"}>
-            {camOn ? <Video size={15} /> : <VideoOff size={15} />}
+          <button onClick={toggleCam} disabled={!isConnected} style={quietCtrlBtn(camOn)}
+            title={!isConnected ? "Start a session first" : camOn ? "Stop camera" : "Start camera"}>
+            {camOn ? <Video size={13} /> : <VideoOff size={13} />}
           </button>
-          <button onClick={toggleScreen} disabled={!isConnected} style={ctrlBtn(screenOn)}
-            title={screenOn ? "Stop screen share" : "Share screen"}>
-            <MonitorUp size={15} />
+          <button onClick={toggleScreen} disabled={!isConnected} style={quietCtrlBtn(screenOn)}
+            title={!isConnected ? "Start a session first" : screenOn ? "Stop screen share" : "Share screen"}>
+            <MonitorUp size={13} />
           </button>
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
-          {micOn && <span style={{ color: "#22c55e" }}>● Mic live</span>}
-          {camOn && <span style={{ color: "#06b6d4" }}>● Camera</span>}
-          {screenOn && <span style={{ color: "#a78bfa" }}>● Screen</span>}
-          {!micOn && !camOn && !screenOn && <span>Mic / camera / screen</span>}
+        <div style={{ fontSize: 10.5, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+          {micOn && <span style={{ color: "#22c55e" }}>Mic</span>}
+          {camOn && <span style={{ color: "#06b6d4" }}>Camera</span>}
+          {screenOn && <span style={{ color: "#a78bfa" }}>Screen</span>}
         </div>
       </div>
 
       <style>{`
         @keyframes live-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
-          50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.7); }
+          50% { box-shadow: 0 0 0 5px rgba(245,158,11,0); }
         }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
