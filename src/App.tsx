@@ -38,6 +38,7 @@ import GraphPage from './pages/GraphPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import WorkspacePage from './pages/WorkspacePage';
 import MemoryDetailPage from './pages/MemoryDetailPage';
+import SessionDetailPage from './pages/SessionDetailPage';
 import DeckPage from './pages/DeckPage';
 import ProfilePage from './pages/ProfilePage';
 import IntegrationsPage from './pages/IntegrationsPage';
@@ -694,6 +695,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/workspace" element={<WorkspacePage />} />
                   <Route path="/memory/:id" element={<MemoryDetailPage />} />
+                  <Route path="/session/:id" element={<SessionDetailPage />} />
                   <Route path="/deck" element={<DeckPage />} />
                   <Route path="/profile" element={<ProfilePage user={user} onSignOut={onSignOut} />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />

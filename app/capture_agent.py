@@ -487,31 +487,36 @@ async def save_memory(memory_data: dict, user_id: str = "") -> dict:
             user_id = "guest"
     try:
         source_url = memory_data.get("source_url", "")
+        # When the frontend's "Save anyway" override is set, skip BOTH dedup
+        # guards (URL + content-hash) so the user gets a fresh memory ID even
+        # if a near-duplicate already exists.
+        force_new = bool(memory_data.get("force_new", False))
 
-        # Duplicate guard #1: same URL → return existing
-        existing = await _find_duplicate_by_url(user_id, source_url) if source_url else None
-        if existing:
-            return {
-                **existing,
-                "duplicate": True,
-                "existing": existing,
-            }
-
-        # Duplicate guard #2 (anti-clutter for notes): same content hash within 90 days.
-        # Skips when there IS a URL — _find_duplicate_by_url already covers that case.
-        if not source_url:
-            content_dup = await _find_duplicate_by_content_hash(
-                user_id,
-                memory_data.get("title", ""),
-                memory_data.get("summary", ""),
-            )
-            if content_dup:
+        if not force_new:
+            # Duplicate guard #1: same URL → return existing
+            existing = await _find_duplicate_by_url(user_id, source_url) if source_url else None
+            if existing:
                 return {
-                    **content_dup,
+                    **existing,
                     "duplicate": True,
-                    "duplicate_reason": "content_hash",
-                    "existing": content_dup,
+                    "existing": existing,
                 }
+
+            # Duplicate guard #2 (anti-clutter for notes): same content hash within 90 days.
+            # Skips when there IS a URL — _find_duplicate_by_url already covers that case.
+            if not source_url:
+                content_dup = await _find_duplicate_by_content_hash(
+                    user_id,
+                    memory_data.get("title", ""),
+                    memory_data.get("summary", ""),
+                )
+                if content_dup:
+                    return {
+                        **content_dup,
+                        "duplicate": True,
+                        "duplicate_reason": "content_hash",
+                        "existing": content_dup,
+                    }
 
         memory_doc = {
             "source_type": memory_data.get("source_type", "note"),

@@ -257,6 +257,9 @@ class MemorySaveRequest(BaseModel):
     pdf_pages: Optional[int] = None
     pdf_size_kb: Optional[float] = None
     pdf_word_count: Optional[int] = None
+    # When true, bypass the backend's URL/content-hash dedup guards and save
+    # this as a fresh memory. Set by the frontend's "Save anyway" override.
+    force_new: Optional[bool] = False
 
 class RecallTurn(BaseModel):
     role: str  # "user" or "assistant"
@@ -786,6 +789,57 @@ async def capture_session_preview_endpoint(request: CaptureSessionRequest):
         raise HTTPException(status_code=400, detail="At least one item is required.")
     items = [i.model_dump() for i in request.items]
     return await preview_capture_session(items)
+
+
+@app.get("/research-sessions/{session_id}")
+async def get_research_session_endpoint(session_id: str):
+    """Fetch a saved research-session bundle (the artifact /capture/session
+    persists). Returns the session doc plus a hydrated list of the linked
+    memories so the frontend can render the bundle in one round-trip."""
+    from app.db import get_db
+    from app.user_context import belongs_to_current_user
+    db = await get_db()
+    try:
+        ref = db.collection("research_sessions").document(session_id)
+        snap = await ref.get()
+        if not snap.exists:
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        data = snap.to_dict() or {}
+        if not belongs_to_current_user(data):
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        # Hydrate linked memories (best-effort — skip any that were deleted).
+        memory_ids = data.get("memory_ids") or []
+        memories: List[Dict[str, Any]] = []
+        for mid in memory_ids[:50]:
+            try:
+                mref = db.collection("memories").document(mid)
+                ms = await mref.get()
+                if ms.exists:
+                    md = ms.to_dict() or {}
+                    if belongs_to_current_user(md):
+                        memories.append({
+                            "id": mid,
+                            "title": md.get("title", "Untitled"),
+                            "summary": md.get("summary", ""),
+                            "source_type": md.get("source_type", ""),
+                            "source_url": md.get("source_url", ""),
+                            "tags": md.get("tags", []) or [],
+                        })
+            except Exception:
+                continue
+        return {
+            "id": session_id,
+            "summary": data.get("summary", ""),
+            "folder_name": data.get("folder_name", ""),
+            "project_id": data.get("project_id", ""),
+            "memory_ids": memory_ids,
+            "created_at": data.get("created_at"),
+            "memories": memories,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- Recall ---
