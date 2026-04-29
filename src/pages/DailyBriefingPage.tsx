@@ -235,13 +235,17 @@ export default function DailyBriefingPage() {
   }, [loadBriefing, loadAuxiliary]);
 
   // When the tab/window regains focus, re-pull the action list so checkboxes
-  // ticked from another device or browser tab show up here too. Uses the
-  // existing aux loader (which fetches /briefing/actions) — keeps cost low.
+  // ticked from another device or browser tab show up here too. Both the
+  // `focus` and `visibilitychange` events can fire when a tab becomes active,
+  // so we guard with a short cooldown to avoid double-fetching.
+  const lastFocusRefreshRef = useRef(0);
   useEffect(() => {
     const handler = () => {
-      if (document.visibilityState === 'visible') {
-        loadAuxiliary();
-      }
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastFocusRefreshRef.current < 1500) return;
+      lastFocusRefreshRef.current = now;
+      loadAuxiliary();
     };
     window.addEventListener('focus', handler);
     document.addEventListener('visibilitychange', handler);
