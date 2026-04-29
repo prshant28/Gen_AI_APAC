@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="preload" as="image" href="/x247-logo.png" />
     <title>Recall X247 — Neural OS v2.0</title>
@@ -62,6 +65,24 @@
       <div class="x247-dots"><span></span><span></span><span></span></div>
     </div>
     <div id="root"></div>
+    <script>
+      // If a JS chunk 404s (stale hash after Vite rebuild), force a hard reload
+      // so the browser fetches fresh HTML and the correct chunk names.
+      (function () {
+        var _reloadScheduled = false;
+        window.addEventListener('error', function (e) {
+          var el = e.target;
+          if (!el || _reloadScheduled) return;
+          var src = el.src || el.href || '';
+          var isScript = el.tagName === 'SCRIPT' || el.tagName === 'LINK';
+          var isChunk = isScript && /\.(js|ts|tsx|jsx|css)(\?|$)/.test(src);
+          if (isChunk) {
+            _reloadScheduled = true;
+            window.location.reload();
+          }
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       window.hideSplash = function () {
