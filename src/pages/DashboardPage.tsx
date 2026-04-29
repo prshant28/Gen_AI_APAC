@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Plus, Bot, FlipHorizontal, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, Pin, ChevronRight, Cpu, Compass, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Bot, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, ChevronRight, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy } from 'lucide-react';
 import { showToast } from '../App';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
@@ -57,11 +57,7 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [revisits, setRevisits] = useState<any[]>([]);
   const [revisitsUpcoming, setRevisitsUpcoming] = useState<any[]>([]);
   const [habits, setHabits] = useState<any[]>([]);
-  const [notes, setNotes] = useState<any[]>([]);
   const [adv, setAdv] = useState<DashAdvanced | null>(null);
-  const [checklistDismissed, setChecklistDismissed] = useState<boolean>(() => {
-    try { return localStorage.getItem('recall-x247-checklist-dismissed') === '1'; } catch { return false; }
-  });
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const rawName = (user?.displayName ?? '').trim();
@@ -83,7 +79,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
       .catch(() => setBriefing('Ready for another great day of learning!'))
       .finally(() => setBriefingLoading(false));
     fetch('/habits').then(r => r.ok ? r.json() : []).then(setHabits).catch(() => setHabits([]));
-    fetch('/notes?limit=4').then(r => r.ok ? r.json() : []).then(setNotes).catch(() => setNotes([]));
     fetch('/dashboard/advanced')
       .then(r => r.ok ? r.json() : null)
       .then((d: DashAdvanced | null) => { if (d) setAdv(d); })
@@ -158,15 +153,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const handleRevisitPause = async (rv: any) => {
     try { await fetch(`/revisits/${rv.id}/pause`, { method: 'POST' }); showToast('Paused'); } catch {}
     refreshRevisits();
-  };
-
-  const toggleHabit = async (h: any) => {
-    const today = new Date().toISOString().slice(0, 10);
-    try {
-      const r = await fetch(`/habits/${h.id}/toggle?date=${today}`, { method: 'POST' });
-      const updated = await r.json();
-      setHabits(habits.map(x => x.id === h.id ? updated : x));
-    } catch {}
   };
 
   const totalMem = stats?.total_memories ?? 0;
@@ -331,20 +317,54 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             {smartInsights.map((ins, i) => (
               <motion.button key={ins.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
                 onClick={ins.onClick}
+                className="dash-insight-card"
                 style={{
-                  ...S.card, padding: '14px 16px', cursor: ins.onClick ? 'pointer' : 'default',
-                  textAlign: 'left', fontFamily: 'inherit', borderLeft: `3px solid ${ins.color}`,
+                  ...S.card,
+                  padding: '14px 16px',
+                  cursor: ins.onClick ? 'pointer' : 'default',
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  borderLeft: `3px solid ${ins.color}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 118,
+                  width: '100%',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 22px ${ins.color}1f`; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = ''; }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 24, height: 24, borderRadius: 7, background: `${ins.color}1a`, color: ins.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <ins.icon size={12} />
                   </span>
-                  <span style={{ fontSize: 9.5, color: ins.color, letterSpacing: '0.16em', fontWeight: 700 }}>{ins.eyebrow}</span>
+                  <span style={{ fontSize: 9.5, color: ins.color, letterSpacing: '0.16em', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ins.eyebrow}</span>
                 </div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.3px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ins.headline}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4 }}>{ins.sub}</div>
+                <div
+                  title={ins.headline}
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 800,
+                    color: 'var(--text-1)',
+                    letterSpacing: '-0.3px',
+                    lineHeight: 1.25,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical' as const,
+                    overflow: 'hidden',
+                    wordBreak: 'break-word',
+                  }}>{ins.headline}</div>
+                <div
+                  title={ins.sub}
+                  style={{
+                    fontSize: 11.5,
+                    color: 'var(--text-3)',
+                    marginTop: 'auto',
+                    paddingTop: 8,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical' as const,
+                    overflow: 'hidden',
+                    lineHeight: 1.4,
+                  }}>{ins.sub}</div>
               </motion.button>
             ))}
           </div>
@@ -410,106 +430,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
           </div>
         </motion.div>
       )}
-
-      {/* ── 4b. GET FAMILIAR CHECKLIST — first-time orientation ────────────── */}
-      {stats && totalMem > 0 && !checklistDismissed && (() => {
-        const recallTried = (() => { try { return localStorage.getItem('recall-x247-tried-recall') === '1'; } catch { return false; } })();
-        const checklist = [
-          { id: 'capture', done: totalMem > 0,           label: 'Capture your first item',  desc: 'Done — keep going',                  icon: Plus,            color: '#22d3ee', path: '/capture' },
-          { id: 'note',    done: notes.length > 0,       label: 'Save a quick note',        desc: 'Type a thought or idea',             icon: StickyNote,      color: '#f59e0b', path: '/notes' },
-          { id: 'recall',  done: recallTried,            label: 'Ask Recall AI',            desc: 'Get answers from your knowledge',    icon: Bot,             color: '#3b82f6', path: '/recall', track: 'recall-x247-tried-recall' },
-          { id: 'habit',   done: habits.length > 0,      label: 'Build a learning habit',   desc: 'Stay consistent every day',          icon: Flame,           color: '#10b981', path: '/habits' },
-        ];
-        const completed = checklist.filter(c => c.done).length;
-        const pct = Math.round((completed / checklist.length) * 100);
-        const allDone = completed === checklist.length;
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            style={{
-              position: 'relative',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(34,211,238,0.05) 100%)',
-              border: '1px solid rgba(99,102,241,0.22)',
-              borderRadius: 16, padding: '18px 20px', marginBottom: 18,
-              overflow: 'hidden',
-            }}>
-            <button
-              onClick={() => { try { localStorage.setItem('recall-x247-checklist-dismissed', '1'); } catch {} setChecklistDismissed(true); }}
-              title="Hide this"
-              aria-label="Dismiss checklist"
-              style={{
-                position: 'absolute', top: 10, right: 10,
-                width: 24, height: 24, borderRadius: 6,
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-3)', transition: 'all 0.15s', fontFamily: 'inherit',
-                fontSize: 16, lineHeight: 1, zIndex: 2,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-              ×
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8, paddingRight: 28 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Sparkles size={14} color="#818cf8" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 9.5, letterSpacing: '0.18em', color: '#818cf8', fontWeight: 700 }}>{allDone ? 'ALL SET' : 'GET FAMILIAR'}</div>
-                  <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', marginTop: 1 }}>{allDone ? "You've explored the basics" : 'Finish setting up your second brain'}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 110, height: 6, background: 'var(--surface-2)', borderRadius: 999, overflow: 'hidden' }}>
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }}
-                    style={{ height: '100%', background: 'linear-gradient(90deg,#818cf8,#22d3ee)', borderRadius: 999 }} />
-                </div>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)' }}>{completed}/{checklist.length}</span>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-              {checklist.map(c => {
-                const Icon = c.icon;
-                return (
-                  <button key={c.id}
-                    onClick={() => {
-                      if ((c as any).track) { try { localStorage.setItem((c as any).track, '1'); } catch {} }
-                      navigate(c.path);
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      background: c.done ? `${c.color}10` : 'var(--surface)',
-                      border: `1px solid ${c.done ? `${c.color}40` : 'var(--border)'}`,
-                      borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-                      transition: 'all 0.15s', textAlign: 'left',
-                      opacity: c.done ? 0.85 : 1,
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${c.color}66`; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = c.done ? `${c.color}40` : 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                      background: c.done ? c.color : `${c.color}15`,
-                      border: c.done ? 'none' : `1px solid ${c.color}40`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {c.done ? <Check size={13} color="#fff" strokeWidth={3} /> : <Icon size={13} color={c.color} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: c.done ? 'var(--text-3)' : 'var(--text-1)', lineHeight: 1.2, textDecoration: c.done ? 'line-through' : 'none' }}>
-                        {c.label}
-                      </div>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 2 }}>{c.desc}</div>
-                    </div>
-                    {!c.done && <ArrowUpRight size={12} color="var(--text-3)" style={{ flexShrink: 0 }} />}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        );
-      })()}
 
       {/* ── 5. REVISIT REMINDERS ───────────────────────────────────────────── */}
       {(revisits.length > 0 || revisitsUpcoming.length > 0) && (
@@ -903,80 +823,10 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
         </div>
       </div>
 
-      {/* ── 10. DAILY ROUTINE — Habits + Notes ─────────────────────────────── */}
+      {/* ── 10. WEEKLY LEARNING GOALS ──────────────────────────────────────── */}
       <div className="dash-section">
-        <SectionHeader icon={Flame} color="#10b981" title="Daily routine" eyebrow="HABITS · NOTES" />
-        <div className="dash-grid-2">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #10b981' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Flame size={13} color="#10b981" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Today's habits</div>
-                {habits.length > 0 && (
-                  <span style={{ padding: '1px 8px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, color: '#10b981', fontSize: 10, fontWeight: 700 }}>
-                    {habits.filter(h => h.completed_today).length}/{habits.length}
-                  </span>
-                )}
-              </div>
-              <button onClick={() => navigate('/habits')} className="dash-action-link" style={{ color: '#10b981' }}>
-                View all <ArrowUpRight size={11} />
-              </button>
-            </div>
-            {habits.length === 0 ? (
-              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>No habits — <button onClick={() => navigate('/habits')} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>create one</button></div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                {habits.slice(0, 4).map(h => (
-                  <button key={h.id} onClick={() => toggleHabit(h)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: h.completed_today ? `${h.color}15` : 'var(--surface-2)', border: `1px solid ${h.completed_today ? h.color + '40' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.15s' }}>
-                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: h.completed_today ? h.color : 'transparent', border: `2px solid ${h.completed_today ? h.color : 'var(--border-2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {h.completed_today && <Check size={11} color="#fff" strokeWidth={3} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</div>
-                      {h.streak > 0 && <div style={{ color: '#f59e0b', fontSize: 10, marginTop: 1, display: 'flex', alignItems: 'center', gap: 3 }}><Flame size={9} /> {h.streak}d streak</div>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #f59e0b' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <StickyNote size={13} color="#f59e0b" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Recent notes</div>
-              </div>
-              <button onClick={() => navigate('/notes')} className="dash-action-link" style={{ color: '#f59e0b' }}>
-                Open notes <ArrowUpRight size={11} />
-              </button>
-            </div>
-            {notes.length === 0 ? (
-              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>No notes yet — <button onClick={() => navigate('/notes')} style={{ color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>create one</button></div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {notes.slice(0, 3).map(n => (
-                  <button key={n.id} onClick={() => navigate('/notes')}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                    {n.pinned && <Pin size={11} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</div>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(n.content || '').replace(/[#*`]/g, '').slice(0, 60)}</div>
-                    </div>
-                    <ChevronRight size={11} color="var(--text-3)" style={{ flexShrink: 0, marginTop: 3 }} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </div>
-
-      {/* ── 11. WEEKLY GOALS + POWER HUB ───────────────────────────────────── */}
-      <div className="dash-section">
-        <SectionHeader icon={Trophy} color="#f59e0b" title="Goals & quick actions" eyebrow="THIS WEEK" />
-        <div className="dash-grid-2">
+        <SectionHeader icon={Trophy} color="#f59e0b" title="Weekly goals" eyebrow="THIS WEEK" />
+        <div>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #f59e0b' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1009,35 +859,6 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...S.card, padding: '16px 18px', borderLeft: '3px solid #6366f1' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Zap size={13} color="#6366f1" />
-                <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Power hub</div>
-              </div>
-              <span style={{ fontSize: 9, letterSpacing: '0.18em', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase' }}>One-click</span>
-            </div>
-            <div className="power-hub-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 7 }}>
-              {[
-                { label: 'Capture',     icon: Plus,           path: '/capture',    color: '#ffffff', bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', isAccent: true },
-                { label: 'Agent Hub',   icon: Cpu,            path: '/agent',      color: '#3b82f6', bg: `rgba(59,130,246,0.08)` },
-                { label: 'Recall AI',   icon: Bot,            path: '/recall',     color: '#9333ea', bg: `rgba(147,51,234,0.08)` },
-                { label: 'Discover',    icon: Compass,        path: '/discover',   color: '#06b6d4', bg: `rgba(6,182,212,0.08)` },
-                { label: 'Flashcards',  icon: FlipHorizontal, path: '/flashcards', color: '#ec4899', bg: `rgba(236,72,153,0.08)` },
-                { label: 'Tasks',       icon: CheckSquare,    path: '/tasks',      color: '#10b981', bg: `rgba(16,185,129,0.08)` },
-                { label: 'Mind Graph',  icon: Network,        path: '/graph',      color: '#06b6d4', bg: `rgba(6,182,212,0.08)` },
-                { label: 'Study Plan',  icon: GraduationCap,  path: '/plan',       color: '#7c3aed', bg: `rgba(124,58,237,0.08)` },
-              ].map((a) => (
-                <button key={a.label} onClick={() => navigate(a.path)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 9, background: a.bg, border: `1px solid ${a.isAccent ? '#4f46e5' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = a.isAccent ? '0 4px 12px rgba(99,102,241,0.35)' : `0 4px 12px ${a.color}25`; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = `${a.color}50`; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; if (!a.isAccent) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}>
-                  <a.icon size={13} color={a.isAccent ? '#ffffff' : a.color} />
-                  <span style={{ color: a.isAccent ? '#ffffff' : a.color, fontSize: 11.5, fontWeight: 600, letterSpacing: '-0.1px' }}>{a.label}</span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
         </div>
       </div>
     </div>
