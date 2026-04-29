@@ -216,6 +216,7 @@ async def get_db():
 
 
 async def log_interaction(session_id: str, user_message: str, reply: str, agents_called: List[str]):
+    from app.user_context import get_uid
     db = await get_db()
     try:
         log_data = {
@@ -223,18 +224,43 @@ async def log_interaction(session_id: str, user_message: str, reply: str, agents
             "user_message": user_message,
             "reply": reply,
             "agents_called": agents_called,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "user_id": get_uid(),
         }
         await db.collection("interaction_logs").add(log_data)
     except Exception as e:
         print(f"Error logging interaction: {e}")
 
 
-async def get_collection_count(collection_name: str) -> int:
+async def get_collection_count(collection_name: str, user_id: Optional[str] = None) -> int:
+    """Count docs in a collection. If user_id provided (or we can resolve one
+    from the request context), only count docs owned by that user."""
     db = await get_db()
+    if user_id is None:
+        try:
+            from app.user_context import get_uid
+            user_id = get_uid()
+        except Exception:
+            user_id = None
     try:
         if isinstance(db, MockFirestoreClient):
-            return len(db.collection(collection_name)._store)
+            store = db.collection(collection_name)._store
+            if user_id is None:
+                return len(store)
+            count = 0
+            for doc in store.values():
+                owner = doc.get("user_id") or doc.get("userId") or "guest"
+                if owner == user_id:
+                    count += 1
+            return count
+        # Real Firestore: scoped count via where()
+        if user_id is not None:
+            try:
+                cq = db.collection(collection_name).where("user_id", "==", user_id).count()
+                result = await cq.get()
+                return result[0][0].value
+            except Exception:
+                pass
         count_query = db.collection(collection_name).count()
         result = await count_query.get()
         return result[0][0].value

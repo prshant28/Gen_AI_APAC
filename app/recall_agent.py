@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from app.db import get_db
 from app.config import settings
 from app.ai_helper import chat_with_fallback, chat_json
+from app.user_context import get_uid, belongs_to_current_user
 
 STOPWORDS = {"the", "a", "an", "is", "are", "was", "were", "what", "how", "tell", "me", "find", "search", "recall", "about", "i", "my", "do", "know", "have", "can", "you"}
 ALLOWED_DOMAINS = ["AI", "Technology", "Science", "Business", "Health", "History", "Philosophy", "Engineering", "Productivity", "Other"]
@@ -24,8 +25,8 @@ async def recall(query: str) -> dict:
         try:
             snapshot = await db.collection("memories") \
                 .where("tags", "array_contains_any", search_kw) \
-                .limit(10).get()
-            memories = [doc.to_dict() | {"id": doc.id} for doc in snapshot]
+                .limit(40).get()
+            memories = [doc.to_dict() | {"id": doc.id} for doc in snapshot if belongs_to_current_user(doc.to_dict())][:10]
         except Exception as e:
             print(f"Tier 1 Search Error: {e}")
 
@@ -44,11 +45,12 @@ async def recall(query: str) -> dict:
             if classified_domain in ALLOWED_DOMAINS:
                 snapshot = await db.collection("memories") \
                     .where("domain", "==", classified_domain) \
-                    .limit(10).get()
+                    .limit(40).get()
                 existing_ids = {m["id"] for m in memories}
                 for doc in snapshot:
-                    if doc.id not in existing_ids:
-                        memories.append(doc.to_dict() | {"id": doc.id})
+                    data = doc.to_dict()
+                    if doc.id not in existing_ids and belongs_to_current_user(data):
+                        memories.append(data | {"id": doc.id})
         except Exception as e:
             print(f"Tier 2 Search Error: {e}")
 
@@ -56,8 +58,8 @@ async def recall(query: str) -> dict:
         try:
             snapshot = await db.collection("memories") \
                 .order_by("created_at", direction="DESCENDING") \
-                .limit(30).get()
-            recent = [doc.to_dict() | {"id": doc.id} for doc in snapshot]
+                .limit(60).get()
+            recent = [doc.to_dict() | {"id": doc.id} for doc in snapshot if belongs_to_current_user(doc.to_dict())][:30]
             if recent:
                 scan_data = [{"index": i, "title": m.get("title"), "summary": m.get("summary", "")[:100]} for i, m in enumerate(recent)]
                 raw_scan = await chat_json(
@@ -141,14 +143,19 @@ async def list_memories(domain: str = "", limit: int = 20) -> List[dict]:
     query_ref = db.collection("memories")
     if domain and domain in ALLOWED_DOMAINS:
         query_ref = query_ref.where("domain", "==", domain)
-    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(limit).get()
+    # Over-fetch then filter to current user
+    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(max(limit * 4, 80)).get()
     results = []
     for doc in snapshot:
         m = doc.to_dict()
+        if not belongs_to_current_user(m):
+            continue
         m["id"] = doc.id
         if "created_at" in m and hasattr(m["created_at"], "isoformat"):
             m["created_at"] = m["created_at"].isoformat()
         results.append(m)
+        if len(results) >= limit:
+            break
     return results
 
 
@@ -158,6 +165,8 @@ async def get_memory(memory_id: str) -> dict:
     if not doc.exists:
         raise ValueError(f"Memory '{memory_id}' not found.")
     m = doc.to_dict()
+    if not belongs_to_current_user(m):
+        raise ValueError(f"Memory '{memory_id}' not found.")
     m["id"] = doc.id
     if "created_at" in m and hasattr(m["created_at"], "isoformat"):
         m["created_at"] = m["created_at"].isoformat()
@@ -168,27 +177,33 @@ async def delete_memory(memory_id: str) -> dict:
     db = await get_db()
     doc_ref = db.collection("memories").document(memory_id)
     doc = await doc_ref.get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError(f"Memory '{memory_id}' not found.")
     await doc_ref.delete()
     return {"success": True, "message": f"Memory {memory_id} deleted."}
 
 
 async def get_stats() -> dict:
+    """Per-user stats. We iterate (rather than .count()) so we can filter by user_id."""
     db = await get_db()
     stats = {"by_source": {}, "by_domain": {}, "total": 0}
     try:
-        total_query = db.collection("memories").count()
-        total_result = await total_query.get()
-        stats["total"] = total_result[0][0].value
+        snap = await db.collection("memories").get()
         for s_type in ["youtube", "web", "pdf", "note"]:
-            cq = db.collection("memories").where("source_type", "==", s_type).count()
-            cr = await cq.get()
-            stats["by_source"][s_type] = cr[0][0].value
-        for domain in ALLOWED_DOMAINS:
-            cq = db.collection("memories").where("domain", "==", domain).count()
-            cr = await cq.get()
-            stats["by_domain"][domain] = cr[0][0].value
+            stats["by_source"][s_type] = 0
+        for d in ALLOWED_DOMAINS:
+            stats["by_domain"][d] = 0
+        for doc in snap:
+            data = doc.to_dict()
+            if not belongs_to_current_user(data):
+                continue
+            stats["total"] += 1
+            st = data.get("source_type")
+            if st in stats["by_source"]:
+                stats["by_source"][st] += 1
+            dm = data.get("domain")
+            if dm in stats["by_domain"]:
+                stats["by_domain"][dm] += 1
     except Exception as e:
         print(f"Stats error: {e}")
     return stats

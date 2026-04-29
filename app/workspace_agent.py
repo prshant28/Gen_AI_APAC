@@ -122,22 +122,29 @@ def _hydrate_project(p: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def list_projects() -> List[Dict[str, Any]]:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     snap = await db.collection("workspace_projects").get()
     out: List[Dict[str, Any]] = []
     for doc in snap:
         d = doc.to_dict() | {"id": doc.id}
+        if not belongs_to_current_user(d):
+            continue
         out.append(_hydrate_project(d))
     out.sort(key=lambda p: p.get("updated_at") or "", reverse=True)
     return out
 
 
 async def get_project(project_id: str) -> Optional[Dict[str, Any]]:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
     if not doc.exists:
         return None
-    return _hydrate_project(doc.to_dict() | {"id": doc.id})
+    data = doc.to_dict()
+    if not belongs_to_current_user(data):
+        return None
+    return _hydrate_project(data | {"id": doc.id})
 
 
 async def create_project(
@@ -147,6 +154,7 @@ async def create_project(
     goal_type: str = "general",
     folders: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
+    from app.user_context import get_uid
     db = await get_db()
     existing = await list_projects()
     pid = _short_id("ws")
@@ -164,15 +172,17 @@ async def create_project(
         "groups": [],
         "created_at": _utcnow_iso(),
         "updated_at": _utcnow_iso(),
+        "user_id": get_uid(),
     }
     await db.collection("workspace_projects").document(pid).set(project)
     return _hydrate_project(project)
 
 
 async def update_project(project_id: str, **fields) -> Dict[str, Any]:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
     for k, v in fields.items():
@@ -186,9 +196,10 @@ async def update_project(project_id: str, **fields) -> Dict[str, Any]:
 
 
 async def delete_project(project_id: str) -> bool:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         return False
     await db.collection("workspace_projects").document(project_id).delete()
     return True
@@ -204,7 +215,7 @@ async def add_items(
 ) -> Dict[str, Any]:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
     cur_items = data.get("items") or []
@@ -249,7 +260,7 @@ async def update_item(
     """Patch an existing workspace item — section, tags, group, or folder."""
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
     items = data.get("items") or []
@@ -277,7 +288,7 @@ async def update_item(
 async def remove_item(project_id: str, item_id: str) -> bool:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         return False
     data = doc.to_dict()
     before = len(data.get("items") or [])
@@ -317,7 +328,7 @@ async def add_task(
 ) -> Dict[str, Any]:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
     task = {
@@ -344,7 +355,7 @@ async def update_task(
 ) -> Optional[Dict[str, Any]]:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         return None
     data = doc.to_dict()
     tasks = data.get("tasks") or []
@@ -370,7 +381,7 @@ async def update_task(
 async def toggle_task(project_id: str, task_id: str) -> Dict[str, Any]:
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
     tasks = data.get("tasks") or []
@@ -657,7 +668,7 @@ async def apply_organization(
     """Persist an ai_organize_workspace() result onto the project."""
     db = await get_db()
     doc = await db.collection("workspace_projects").document(project_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError("Project not found")
     data = doc.to_dict()
 
@@ -1115,11 +1126,13 @@ async def export_project_markdown(project_id: str) -> Optional[str]:
 
 
 async def find_item_owner_project(item_id: str) -> Optional[Tuple[str, Dict[str, Any]]]:
-    """Return (project_id, item) for the project that owns this item."""
+    """Return (project_id, item) for the current user's project that owns this item."""
     db = await get_db()
     snap = await db.collection("workspace_projects").get()
     for doc in snap:
         data = doc.to_dict()
+        if not belongs_to_current_user(data):
+            continue
         for it in (data.get("items") or []):
             if it.get("id") == item_id:
                 return data.get("id", getattr(doc, "id", "")), it

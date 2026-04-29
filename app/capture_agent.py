@@ -87,10 +87,15 @@ def _coerce_str_list(raw, max_items: int = 8, max_len: int = 240) -> list:
     return out
 
 
-async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes: bytes = None, user_id: str = "demo_user", preview: bool = False) -> dict:
-    """
-    Capture knowledge from various sources using OpenAI for analysis.
-    """
+async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes: bytes = None, user_id: str = "", preview: bool = False) -> dict:
+    """Capture knowledge from various sources using OpenAI for analysis."""
+    # Resolve user_id from the request context if caller didn't override it.
+    if not user_id:
+        try:
+            from app.user_context import get_uid
+            user_id = get_uid()
+        except Exception:
+            user_id = "guest"
     api_key = settings.OPENAI_API_KEY
     if not api_key:
         return {"error": "OPENAI_API_KEY not found. Please set it in the Secrets panel."}
@@ -230,6 +235,7 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
             "tags": _coerce_str_list(analysis.get("tags"), max_items=8, max_len=40),
             "domain": analysis.get("domain", "Other"),
             "userId": user_id,
+            "user_id": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
         }
         memory_doc["title"] = title
@@ -468,7 +474,13 @@ async def _atomic_create_memory(memory_doc: dict, user_id: str, source_url: str)
         return memory_doc
 
 
-async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
+async def save_memory(memory_data: dict, user_id: str = "") -> dict:
+    if not user_id:
+        try:
+            from app.user_context import get_uid
+            user_id = get_uid()
+        except Exception:
+            user_id = "guest"
     try:
         source_url = memory_data.get("source_url", "")
 
@@ -513,6 +525,7 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
                 memory_data.get("title", ""), memory_data.get("summary", "")
             ),
             "userId": user_id,
+            "user_id": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
         }
         # PDF-only optional fields
@@ -532,7 +545,8 @@ async def save_memory(memory_data: dict, user_id: str = "demo_user") -> dict:
 
 
 async def generate_flashcards(memory_id: str) -> dict:
-    """Generate Q&A flashcards from a saved memory."""
+    """Generate Q&A flashcards from a saved memory (current user only)."""
+    from app.user_context import belongs_to_current_user
     if not (settings.PRIMARY_AI_KEY or settings.OPENAI_API_KEY):
         return {"error": "No AI key configured. Set OPENAI_API_KEY in Secrets."}
 
@@ -543,6 +557,8 @@ async def generate_flashcards(memory_id: str) -> dict:
             return {"error": f"Memory {memory_id} not found."}
 
         memory = doc.to_dict()
+        if not belongs_to_current_user(memory):
+            return {"error": f"Memory {memory_id} not found."}
         content = f"Title: {memory.get('title')}\nSummary: {memory.get('summary')}\nKey Points: {', '.join(memory.get('key_points', []))}"
 
         prompt = f"""Create 5 educational flashcards from this content. Return JSON with key "flashcards" containing an array of objects with "question" and "answer" fields.
@@ -570,11 +586,12 @@ Content:
 
 
 async def generate_study_plan(topic: str = "", days: int = 7) -> dict:
-    """Generate a structured study plan based on saved memories."""
+    """Generate a structured study plan based on the current user's saved memories."""
+    from app.user_context import belongs_to_current_user
     try:
         db = await get_db()
-        snapshot = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(10).get()
-        memories = [doc.to_dict() for doc in snapshot]
+        snapshot = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(60).get()
+        memories = [doc.to_dict() for doc in snapshot if belongs_to_current_user(doc.to_dict())][:10]
 
         memory_summary = "\n".join([f"- {m.get('title')}: {m.get('summary', '')[:100]}" for m in memories])
 
@@ -606,14 +623,15 @@ Return JSON with key "plan" containing an array of objects with:
 
 
 async def generate_daily_briefing() -> dict:
-    """Generate an AI daily briefing based on recent activity."""
+    """Generate an AI daily briefing based on recent activity for the current user."""
+    from app.user_context import belongs_to_current_user
     try:
         db = await get_db()
-        memories_snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(5).get()
-        tasks_snap = await db.collection("tasks").where("status", "==", "pending").limit(5).get()
+        memories_snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(40).get()
+        tasks_snap = await db.collection("tasks").where("status", "==", "pending").limit(40).get()
 
-        memories = [doc.to_dict() for doc in memories_snap]
-        tasks = [doc.to_dict() for doc in tasks_snap]
+        memories = [doc.to_dict() for doc in memories_snap if belongs_to_current_user(doc.to_dict())][:5]
+        tasks = [doc.to_dict() for doc in tasks_snap if belongs_to_current_user(doc.to_dict())][:5]
 
         memories_text = "\n".join([f"- {m.get('title')}" for m in memories]) or "No memories yet."
         tasks_text = "\n".join([f"- {t.get('title')} (Priority: {t.get('priority', 'medium')})" for t in tasks]) or "No pending tasks."
@@ -645,13 +663,16 @@ Write a 2-3 sentence briefing that summarizes their knowledge state and motivate
 # ─── Auto-tag & share helpers ─────────────────────────────────────────────────
 
 async def auto_tag_memory(memory_id: str) -> dict:
-    """Use AI to suggest 3-5 additional tags for an existing memory."""
+    """Use AI to suggest 3-5 additional tags for an existing memory (current user only)."""
     from app.db import get_db
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("memories").document(memory_id).get()
     if not doc.exists:
         return {"error": "Memory not found", "tags": []}
     mem = doc.to_dict()
+    if not belongs_to_current_user(mem):
+        return {"error": "Memory not found", "tags": []}
     existing = mem.get("tags", []) or []
     text = f"{mem.get('title','')}\n\n{mem.get('summary','')}\n\nKey points: {' | '.join(mem.get('key_points', []) or [])}"
 
@@ -723,15 +744,17 @@ def _parse_iso(ts) -> Optional[datetime.datetime]:
 
 
 async def list_memories_in_window(hours_back: int, limit: int = 200) -> list[dict]:
-    """Return memories whose created_at falls inside [now - hours_back, now].
-    Reads in DESC order from Firestore-mock and filters in Python so the
-    in-memory store doesn't need a composite index."""
+    """Return memories whose created_at falls inside [now - hours_back, now],
+    scoped to the current user."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
-    snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(limit).get()
+    snap = await db.collection("memories").order_by("created_at", direction="DESCENDING").limit(limit * 2).get()
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=max(1, hours_back))
     out: list[dict] = []
     for doc in snap:
         m = doc.to_dict() or {}
+        if not belongs_to_current_user(m):
+            continue
         m["id"] = doc.id
         ts = _parse_iso(m.get("created_at"))
         if ts is None or ts < cutoff:
@@ -739,18 +762,24 @@ async def list_memories_in_window(hours_back: int, limit: int = 200) -> list[dic
         if hasattr(m.get("created_at"), "isoformat"):
             m["created_at"] = m["created_at"].isoformat()
         out.append(m)
+        if len(out) >= limit:
+            break
     return out
 
 
 async def _already_bundled_memory_ids() -> set[str]:
     """Collect every memory id that's already been packed into a previous
-    time-capture workspace, so reruns within the same window don't duplicate."""
+    time-capture workspace for the *current user*, so reruns within the same
+    window don't duplicate. Other users' bundles must not interfere."""
+    from app.user_context import belongs_to_current_user
     try:
         db = await get_db()
         snap = await db.collection("workspace_projects").get()
         seen: set[str] = set()
         for doc in snap:
             d = doc.to_dict() or {}
+            if not belongs_to_current_user(d):
+                continue
             if (d.get("goal_type") or "") != "time_capture":
                 continue
             for it in (d.get("items") or []):
@@ -1000,7 +1029,7 @@ async def process_capture_session(
     folder_name: str = "",
     project_id: str = "",
     hint: str = "",
-    user_id: str = "demo_user",
+    user_id: str = "",
 ) -> dict:
     """Run a batch of mixed-source capture items, then route results into one
     workspace. Returns { ok, session_id, project, memories, summary, errors }."""

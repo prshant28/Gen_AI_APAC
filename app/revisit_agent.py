@@ -108,6 +108,7 @@ async def create_revisit(
     if next_due is None and frequency != "once":
         next_due = _now_utc() + datetime.timedelta(days=1)
 
+    from app.user_context import get_uid
     rid = str(uuid.uuid4())
     now = _now_utc()
     doc = {
@@ -126,6 +127,7 @@ async def create_revisit(
         "status": "active",   # active | paused | completed
         "created_at": _iso(now),
         "updated_at": _iso(now),
+        "user_id": get_uid(),
     }
     db = await get_db()
     await db.collection("revisits").document(rid).set(doc)
@@ -136,22 +138,28 @@ async def list_revisits(
     status: str = "active",
     limit: int = 100,
 ) -> List[dict]:
-    """List revisits, ordered by next_due ASC at the DB level so power users
-    with thousands of reminders still see the most urgent ones first.
-    Falls back to in-memory sort if the order_by index is missing."""
+    """List revisits scoped to current user, ordered by next_due ASC."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     coll = db.collection("revisits")
     base = coll.where("status", "==", status) if (status and status != "all") else coll
     docs: List[dict] = []
+    fetch = limit * 4 if limit else 400
     try:
-        query = base.order_by("next_due", direction="ASCENDING").limit(limit)
+        query = base.order_by("next_due", direction="ASCENDING").limit(fetch)
         async for d in query.stream():
-            docs.append(d.to_dict())
+            data = d.to_dict()
+            if belongs_to_current_user(data):
+                docs.append(data)
+                if len(docs) >= limit:
+                    break
     except Exception:
-        # Composite index missing or backend unsupported — fetch + sort in Python
-        async for d in base.limit(limit).stream():
-            docs.append(d.to_dict())
+        async for d in base.limit(fetch).stream():
+            data = d.to_dict()
+            if belongs_to_current_user(data):
+                docs.append(data)
         docs.sort(key=lambda d: (d.get("next_due") or "9999-12-31T00:00:00+00:00"))
+        docs = docs[:limit]
     return docs
 
 
@@ -178,19 +186,24 @@ async def list_due(window_days: int = 7, fetch_limit: int = 2000) -> dict:
 
 
 async def get_revisit(revisit_id: str) -> Optional[dict]:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     snap = await db.collection("revisits").document(revisit_id).get()
     if not snap.exists:
         return None
-    return snap.to_dict()
+    data = snap.to_dict()
+    if not belongs_to_current_user(data):
+        return None
+    return data
 
 
 async def mark_visited(revisit_id: str) -> dict:
     """Bumps last_visited, advances next_due based on frequency, auto-completes 'once'."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     ref = db.collection("revisits").document(revisit_id)
     snap = await ref.get()
-    if not snap.exists:
+    if not snap.exists or not belongs_to_current_user(snap.to_dict()):
         return {"error": "revisit not found"}
     doc = snap.to_dict()
     now = _now_utc()
@@ -219,10 +232,11 @@ async def mark_visited(revisit_id: str) -> dict:
 
 async def snooze_revisit(revisit_id: str, days: float = 1) -> dict:
     """Push next_due forward by N days (float, e.g. 0.5 = 12h)."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     ref = db.collection("revisits").document(revisit_id)
     snap = await ref.get()
-    if not snap.exists:
+    if not snap.exists or not belongs_to_current_user(snap.to_dict()):
         return {"error": "revisit not found"}
     doc = snap.to_dict()
     now = _now_utc()
@@ -238,10 +252,11 @@ async def snooze_revisit(revisit_id: str, days: float = 1) -> dict:
 
 async def update_revisit(revisit_id: str, **fields) -> dict:
     """Patch arbitrary fields. Recomputes next_due if frequency/interval/specific_date changed."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     ref = db.collection("revisits").document(revisit_id)
     snap = await ref.get()
-    if not snap.exists:
+    if not snap.exists or not belongs_to_current_user(snap.to_dict()):
         return {"error": "revisit not found"}
     doc = snap.to_dict()
     now = _now_utc()
@@ -270,10 +285,11 @@ async def update_revisit(revisit_id: str, **fields) -> dict:
 
 
 async def delete_revisit(revisit_id: str) -> dict:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     ref = db.collection("revisits").document(revisit_id)
     snap = await ref.get()
-    if not snap.exists:
+    if not snap.exists or not belongs_to_current_user(snap.to_dict()):
         return {"error": "revisit not found"}
     await ref.delete()
     return {"id": revisit_id, "deleted": True}

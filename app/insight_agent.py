@@ -360,9 +360,10 @@ async def extract_insights(
         import datetime as _dt
         from app.db import get_db as _get_db
         now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        from app.user_context import belongs_to_current_user
         db = await _get_db()
         pdoc = await db.collection("workspace_projects").document(project_id).get()
-        if getattr(pdoc, "exists", False):
+        if getattr(pdoc, "exists", False) and belongs_to_current_user(pdoc.to_dict()):
             pdata = pdoc.to_dict() or {}
             existing = pdata.get("recent_insights") or []
             persisted = []
@@ -417,11 +418,14 @@ async def _log_applied_action(
     try:
         import datetime as _dt
         from app.db import get_db as _get_db
+        from app.user_context import belongs_to_current_user
         db = await _get_db()
         pdoc = await db.collection("workspace_projects").document(project_id).get()
         if not getattr(pdoc, "exists", False):
             return
         pdata = pdoc.to_dict() or {}
+        if not belongs_to_current_user(pdata):
+            return
         recent = pdata.get("recent_insights") or []
         touched = False
         now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()

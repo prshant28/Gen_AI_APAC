@@ -303,7 +303,6 @@ async def run_tool(name: str, args: dict) -> Any:
             source_type=args.get("source_type", "note"),
             url=args.get("url", ""),
             content=args.get("content", ""),
-            user_id="demo_user"
         )
     elif name == "recall_knowledge":
         return await recall(query=args.get("query", ""))

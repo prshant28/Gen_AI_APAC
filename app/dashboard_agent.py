@@ -268,6 +268,7 @@ def _build_forecast(
 
 
 async def _fetch_habits() -> List[Dict[str, Any]]:
+    from app.user_context import belongs_to_current_user
     try:
         db = await get_db()
         snap = await db.collection("habits").get()
@@ -275,6 +276,8 @@ async def _fetch_habits() -> List[Dict[str, Any]]:
         today_iso = _today_ist().isoformat()
         for doc in snap:
             d = doc.to_dict()
+            if not belongs_to_current_user(d):
+                continue
             d["id"] = getattr(doc, "id", d.get("id", ""))
             history = d.get("history", []) or []
             d["completed_today"] = today_iso in history
@@ -286,6 +289,7 @@ async def _fetch_habits() -> List[Dict[str, Any]]:
 
 
 async def get_advanced_dashboard() -> Dict[str, Any]:
+    from app.user_context import belongs_to_current_user
     db = await get_db()
 
     # Memories: pull all (small dataset in mock; bounded to 2k for safety)
@@ -293,6 +297,8 @@ async def get_advanced_dashboard() -> Dict[str, Any]:
     memories = []
     for doc in mem_snap:
         m = doc.to_dict()
+        if not belongs_to_current_user(m):
+            continue
         m["id"] = getattr(doc, "id", m.get("id", ""))
         memories.append(m)
     memories.sort(
@@ -317,6 +323,8 @@ async def get_advanced_dashboard() -> Dict[str, Any]:
         log_snap = await db.collection("interaction_logs").limit(2000).get()
         for doc in log_snap:
             d = doc.to_dict()
+            if not belongs_to_current_user(d):
+                continue
             ts = d.get("timestamp")
             dt = _parse_iso_dt(ts)
             if dt:

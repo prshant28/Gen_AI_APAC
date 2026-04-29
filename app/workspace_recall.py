@@ -117,10 +117,14 @@ async def workspace_recall(
     project_name_target = ""
 
     try:
+        from app.user_context import belongs_to_current_user
         snap = await db.collection("workspace_projects").get()
         all_projects: List[Dict[str, Any]] = []
         for doc in snap:
-            d = doc.to_dict() | {"id": doc.id}
+            base = doc.to_dict()
+            if not belongs_to_current_user(base):
+                continue
+            d = base | {"id": doc.id}
             all_projects.append(d)
             if project_id and doc.id == project_id:
                 project_name_target = d.get("name", "")
@@ -172,10 +176,12 @@ async def workspace_recall(
     # ── 3. Tasks (global, with optional project filter) ──────────────────────
     task_hits: List[Dict[str, Any]] = []
     try:
-        # Check global task store first.
+        # Check global task store first (current user only).
         tdocs = db.collection("tasks").stream()
         async for doc in tdocs:
             t = doc.to_dict()
+            if not belongs_to_current_user(t):
+                continue
             score = _matches_any(t.get("title") or "", kws)
             if score == 0:
                 continue

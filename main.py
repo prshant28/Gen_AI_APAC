@@ -58,6 +58,7 @@ from app.extras_agent import (
     list_habits, create_habit, toggle_habit, delete_habit,
     seed_extras,
 )
+from app.user_context import UserContextMiddleware, get_uid, GUEST_UID
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recall-x247")
@@ -75,6 +76,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Per-request user_id from the X-User-Id header → ContextVar
+app.add_middleware(UserContextMiddleware)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -378,7 +382,6 @@ async def capture_endpoint(request: CaptureRequest):
             url=request.url,
             content=request.content,
             preview=request.preview,
-            user_id="demo_user"
         )
         if "error" in result:
             if "OPENAI_API_KEY" in str(result['error']) or "not found" in str(result['error']).lower():
@@ -400,7 +403,6 @@ async def capture_upload_endpoint(file: UploadFile = File(...), preview: bool = 
         result = await capture(
             source_type="pdf",
             pdf_bytes=pdf_bytes,
-            user_id="demo_user",
             preview=preview,
         )
         if "error" in result:
@@ -452,9 +454,10 @@ async def get_flashcards_endpoint(memory_id: str):
 @app.post("/memories/{memory_id}/share")
 async def share_memory_endpoint(memory_id: str):
     """Mark a memory as publicly shareable; returns a shareable token-style id."""
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("memories").document(memory_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise HTTPException(status_code=404, detail="Memory not found")
     mem = doc.to_dict()
     share_token = mem.get("share_token") or uuid.uuid4().hex[:14]
@@ -468,9 +471,10 @@ async def share_memory_endpoint(memory_id: str):
 
 @app.post("/memories/{memory_id}/unshare")
 async def unshare_memory_endpoint(memory_id: str):
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     doc = await db.collection("memories").document(memory_id).get()
-    if not doc.exists:
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise HTTPException(status_code=404, detail="Memory not found")
     await db.collection("memories").document(memory_id).update({"public": False})
     return {"id": memory_id, "public": False}
@@ -1468,16 +1472,18 @@ async def task_breakdown_endpoint(req: TaskBreakdownRequest):
     title = (req.task_title or "").strip()
     parent_title = ""
 
-    # If only parent_task_id was given, look up its title for context.
+    # If only parent_task_id was given, look up its title for context (current user only).
     if req.parent_task_id:
         try:
+            from app.user_context import belongs_to_current_user
             db = await get_db()
             doc = await db.collection("tasks").document(req.parent_task_id).get()
             if getattr(doc, "exists", False):
                 parent_data = doc.to_dict() or {}
-                parent_title = parent_data.get("title", "")
-                if not title:
-                    title = parent_title
+                if belongs_to_current_user(parent_data):
+                    parent_title = parent_data.get("title", "")
+                    if not title:
+                        title = parent_title
         except Exception as e:
             logger.warning(f"task lookup failed in breakdown: {e}")
 
@@ -1619,20 +1625,22 @@ async def calendar_ics():
         "Cache-Control": "no-cache",
     })
 
-_BRIEFING_CACHE: Dict[str, Any] = {"data": None, "expires_at": 0.0}
+_BRIEFING_CACHE: Dict[str, Dict[str, Any]] = {}  # keyed by user_id
 
 @app.get("/briefing")
 async def briefing_endpoint(force: bool = False):
-    """Daily AI briefing — cached for 5 minutes to avoid hammering AI provider.
+    """Daily AI briefing — cached for 5 minutes per user to avoid hammering AI provider.
     Always merges fresh revisits_due (not cached) so reminders feel live."""
+    from app.user_context import get_uid
+    uid = get_uid()
     now_ts = time.time()
-    cached = _BRIEFING_CACHE.get("data")
-    if not force and cached and now_ts < _BRIEFING_CACHE.get("expires_at", 0):
+    entry = _BRIEFING_CACHE.get(uid) or {}
+    cached = entry.get("data")
+    if not force and cached and now_ts < entry.get("expires_at", 0):
         result = dict(cached)
     else:
         result = await generate_daily_briefing()
-        _BRIEFING_CACHE["data"] = result
-        _BRIEFING_CACHE["expires_at"] = now_ts + 300  # 5 minutes
+        _BRIEFING_CACHE[uid] = {"data": result, "expires_at": now_ts + 300}  # 5 minutes per user
     # Live revisit overlay — never cache reminders, they change as user marks visits
     try:
         rv = await list_due(window_days=7)
@@ -1755,11 +1763,12 @@ async def delete_habit_endpoint(h_id: str):
 
 @app.get("/export/vault")
 async def export_vault():
-    """Export entire knowledge vault as a Markdown file for download."""
+    """Export the current user's knowledge vault as a Markdown file for download."""
+    from app.user_context import belongs_to_current_user
     try:
         db = await get_db()
         memories_snapshot = await db.collection("memories").get()
-        memories = [doc.to_dict() | {"id": doc.id} for doc in memories_snapshot]
+        memories = [doc.to_dict() | {"id": doc.id} for doc in memories_snapshot if belongs_to_current_user(doc.to_dict())]
 
         lines = [
             "# 🧠 Recall X247 — Knowledge Vault Export",
@@ -1838,22 +1847,26 @@ async def dashboard_advanced_endpoint():
 async def stats_endpoint():
     try:
         from datetime import date
+        from app.user_context import belongs_to_current_user
         total_interactions = await get_collection_count("interaction_logs")
         db = await get_db()
 
-        # Memories: count + domains + captured today
+        # Memories: count + domains + captured today (current user only)
         memories_snapshot = await db.collection("memories").get()
         domains = {}
         captured_today = 0
+        total_memories = 0
         today_str = date.today().isoformat()
         for doc in memories_snapshot:
             data = doc.to_dict()
+            if not belongs_to_current_user(data):
+                continue
+            total_memories += 1
             domain = data.get("domain", "Other")
             domains[domain] = domains.get(domain, 0) + 1
             created = data.get("created_at", "")
             if created and str(created)[:10] == today_str:
                 captured_today += 1
-        total_memories = len(memories_snapshot)
         domain_list = [{"name": k, "value": v} for k, v in domains.items()]
 
         # Tasks: count only pending ones
@@ -1886,14 +1899,20 @@ async def stats_endpoint():
 @app.get("/logs")
 async def list_logs_endpoint(limit: int = 10):
     try:
+        from app.user_context import belongs_to_current_user
         db = await get_db()
-        snapshot = await db.collection("interaction_logs").order_by("timestamp", direction="DESCENDING").limit(limit).get()
+        snapshot = await db.collection("interaction_logs").order_by("timestamp", direction="DESCENDING").limit(limit * 5).get()
         results = []
         for doc in snapshot:
-            d = doc.to_dict() | {"id": doc.id}
+            base = doc.to_dict()
+            if not belongs_to_current_user(base):
+                continue
+            d = base | {"id": doc.id}
             if "timestamp" in d and hasattr(d["timestamp"], "isoformat"):
                 d["timestamp"] = d["timestamp"].isoformat()
             results.append(d)
+            if len(results) >= limit:
+                break
         return results
     except Exception as e:
         return []

@@ -49,6 +49,7 @@ class CalendarAgent:
         start_dt = datetime.datetime.fromisoformat(start_dt_str)
         end_dt = start_dt + datetime.timedelta(minutes=duration_minutes)
         
+        from app.user_context import get_uid
         event_data = {
             "title": title,
             "date": date,
@@ -59,7 +60,8 @@ class CalendarAgent:
             "linked_memory_id": linked_memory_id,
             "topic": topic or "Other",
             "source": source or "manual",
-            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "user_id": get_uid(),
         }
 
         if self.is_real:
@@ -139,17 +141,23 @@ class CalendarAgent:
                 return []
         else:
             # Mock Mode: Query Firestore
+            from app.user_context import belongs_to_current_user
             db = await get_db()
             today_str = datetime.date.today().isoformat()
             query = db.collection("schedules") \
                       .where("date", ">=", today_str) \
                       .order_by("date") \
-                      .limit(10)
+                      .limit(40)
             
             docs = query.stream()
             events = []
             async for doc in docs:
-                events.append(doc.to_dict())
+                data = doc.to_dict()
+                if not belongs_to_current_user(data):
+                    continue
+                events.append(data)
+                if len(events) >= 10:
+                    break
             return events
 
     async def delete_event(self, event_id: str) -> str:
@@ -167,10 +175,11 @@ class CalendarAgent:
             except Exception as e:
                 return f"Error deleting GCal event: {e}"
         else:
+            from app.user_context import belongs_to_current_user
             db = await get_db()
             doc_ref = db.collection("schedules").document(event_id)
             doc = await doc_ref.get()
-            if not doc.exists:
+            if not doc.exists or not belongs_to_current_user(doc.to_dict()):
                 return f"Error: Event {event_id} not found."
             await doc_ref.delete()
             return f"Event {event_id} deleted"
@@ -213,12 +222,16 @@ class CalendarAgent:
                 print(f"GCal Today List Error: {e}")
                 return []
         else:
+            from app.user_context import belongs_to_current_user
             db = await get_db()
             query = db.collection("schedules").where("date", "==", today_str)
             docs = query.stream()
             events = []
             async for doc in docs:
-                events.append(doc.to_dict())
+                data = doc.to_dict()
+                if not belongs_to_current_user(data):
+                    continue
+                events.append(data)
             return events
 
 # Singleton instance
@@ -243,15 +256,17 @@ async def get_todays_schedule():
 
 
 async def get_event(event_id: str) -> Optional[dict]:
-    """Fetch a single stored event by id (mock/Firestore mode)."""
+    """Fetch a single stored event by id (mock/Firestore mode), scoped to current user."""
+    from app.user_context import belongs_to_current_user
     if calendar_agent.is_real:
-        # In live mode we don't expose lookup yet; fall back to None.
         return None
     db = await get_db()
     doc = await db.collection("schedules").document(event_id).get()
     if not doc.exists:
         return None
     data = doc.to_dict() or {}
+    if not belongs_to_current_user(data):
+        return None
     data.setdefault("id", event_id)
     return data
 

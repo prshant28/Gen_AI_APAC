@@ -78,11 +78,14 @@ async def get_folder_timeline(
         edges:  count of cross-event links
       }
     """
+    from app.user_context import belongs_to_current_user
     db = await get_db()
     pdoc = await db.collection("workspace_projects").document(project_id).get()
     if not getattr(pdoc, "exists", False):
         return {"ok": False, "error": "project not found"}
     project = pdoc.to_dict() or {}
+    if not belongs_to_current_user(project):
+        return {"ok": False, "error": "project not found"}
 
     # Resolve folder name (cosmetic only)
     folder_name = ""
@@ -243,11 +246,14 @@ async def get_folder_timeline(
 
     if referenced_global_task_ids:
         try:
+            from app.user_context import belongs_to_current_user
             for tid in referenced_global_task_ids[:50]:
                 tdoc = await db.collection("tasks").document(tid).get()
                 if not getattr(tdoc, "exists", False):
                     continue
                 t = tdoc.to_dict() or {}
+                if not belongs_to_current_user(t):
+                    continue
                 ev_id = f"task:{tid}"
                 task_id_to_event[tid] = ev_id
                 events.append({
