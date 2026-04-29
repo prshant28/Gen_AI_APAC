@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react";
 import {
   Mic, MicOff, Video, VideoOff, MonitorUp, Phone, PhoneOff,
-  Radio, Wand2, X, Send, Loader2,
+  Radio, Wand2, X, Loader2,
 } from "lucide-react";
 import { getLiveClient, type LiveEvent } from "../lib/liveClient";
 
@@ -34,8 +34,6 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
   const [camOn, setCamOn] = useState(false);
   const [screenOn, setScreenOn] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [textInput, setTextInput] = useState("");
-  const [model, setModel] = useState<string>("");
   const [error, setError] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Buffer streaming text fragments into a single transcript line per turn.
@@ -81,7 +79,6 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
   useEffect(() => {
     const off = client.on((e: LiveEvent) => {
       if (e.type === "state") setState(e.state || "");
-      if (e.type === "ready" && e.model) setModel(e.model);
       if (e.type === "error") setError(e.error || "Unknown error");
       if (e.type === "user_transcript") {
         userBufRef.current += (e.text || "");
@@ -149,13 +146,18 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
     setScreenOn(false);
   }, [client]);
 
-  // Privacy: when the panel closes, immediately stop mic/camera/screen and
-  // tear down the upstream session — never silently keep recording.
+  // Privacy: when the panel closes (or unmounts), immediately stop mic /
+  // camera / screen and tear down the upstream session — never silently
+  // keep recording. The unmount cleanup matters because callers may yank
+  // the panel out of the tree without first toggling `open` to false.
   useEffect(() => {
     if (!open) {
       try { client.disconnect(); } catch {}
       setMicOn(false); setCamOn(false); setScreenOn(false);
     }
+    return () => {
+      try { client.disconnect(); } catch {}
+    };
   }, [open, client]);
 
   const toggleMic = useCallback(async () => {
@@ -185,17 +187,19 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
     }
   }, [client, camOn, screenOn]);
 
-  const send = useCallback(() => {
-    const text = textInput.trim();
-    if (!text) return;
-    client.sendText(text);
-    setTranscript((cur) => [...cur, { id: `u-${Date.now()}`, role: "user", text }]);
-    setTextInput("");
-    modelIdRef.current = `m-${Date.now()}`;
-  }, [client, textInput]);
-
   const isConnected = state === "connected";
   const isConnecting = state === "connecting";
+
+  // Mirror the slim Voice mode header from LiveInline so the floating panel
+  // stops feeling like a different product.
+  const statusColor = isConnected ? "#22c55e"
+    : isConnecting ? "#f59e0b"
+    : state === "error" ? "#ef4444"
+    : "rgba(148,163,184,0.7)";
+  const statusLabel = isConnected ? "Listening"
+    : isConnecting ? "Connecting…"
+    : state === "error" ? "Error"
+    : "Idle";
 
   return (
     <AnimatePresence>
@@ -207,7 +211,7 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
           transition={{ duration: 0.18, ease: "easeOut" }}
           style={{
             position: "fixed", right: 20, bottom: 92, width: 380, maxWidth: "calc(100vw - 32px)",
-            height: 540, maxHeight: "calc(100vh - 120px)", zIndex: 9999,
+            height: 480, maxHeight: "calc(100vh - 120px)", zIndex: 9999,
             background: "var(--card-bg, #0f172a)",
             color: "var(--text, #e2e8f0)",
             borderRadius: 16,
@@ -215,31 +219,43 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
             display: "flex", flexDirection: "column", overflow: "hidden",
           }}
         >
+          {/* Slim header — status dot + "Voice mode" + status word | Start/End + close */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)",
-              background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(56,189,248,0.10))" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ position: "relative", width: 28, height: 28, borderRadius: 8,
-                  background: "linear-gradient(135deg, #6366f1, #06b6d4)", display: "grid", placeItems: "center" }}>
-                <Radio size={16} color="#fff" />
-                {isConnected && (
-                  <span style={{ position: "absolute", top: -2, right: -2, width: 10, height: 10,
-                      borderRadius: 5, background: "#22c55e", border: "2px solid #0f172a",
-                      animation: "live-pulse 1.4s infinite" }} />
-                )}
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>Live with Brain</div>
-                <div style={{ fontSize: 11, opacity: 0.65 }}>
-                  {isConnected ? `Connected · Voice ready`
-                    : isConnecting ? "Connecting…"
-                    : state === "error" ? "Error" : "Idle"}
-                </div>
-              </div>
+              padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span aria-hidden="true" style={{
+                width: 7, height: 7, borderRadius: "50%",
+                background: statusColor,
+                boxShadow: isConnected ? `0 0 6px ${statusColor}` : "none",
+                animation: isConnecting ? "live-pulse 1.2s ease-in-out infinite" : "none",
+                flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Voice mode</span>
+              <span style={{ fontSize: 11, opacity: 0.6, fontWeight: 500,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                · {statusLabel}
+              </span>
             </div>
-            <button onClick={onClose} style={btnIcon} aria-label="Close">
-              <X size={16} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {isConnected ? (
+                <button onClick={disconnect}
+                  style={slimActionBtn("end")}
+                  title="End voice session">
+                  <PhoneOff size={12} /> End
+                </button>
+              ) : (
+                <button onClick={connect} disabled={isConnecting}
+                  style={{ ...slimActionBtn("start"), opacity: isConnecting ? 0.7 : 1,
+                      cursor: isConnecting ? "default" : "pointer" }}
+                  title="Start voice session">
+                  {isConnecting ? <Loader2 size={12} className="spin" /> : <Phone size={12} />}
+                  {isConnecting ? "Connecting" : "Start"}
+                </button>
+              )}
+              <button onClick={onClose} style={btnIcon} aria-label="Close panel" title="Close">
+                <X size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Transcript */}
@@ -247,7 +263,7 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
               flexDirection: "column", gap: 8 }}>
             {transcript.length === 0 && (
               <div style={{ opacity: 0.55, fontSize: 12, textAlign: "center", marginTop: 50 }}>
-                Tap the green call button to start. Speak naturally — your brain is listening.
+                Tap Start to talk to your assistant in real time.
                 <div style={{ fontSize: 11, marginTop: 12, opacity: 0.7 }}>
                   Try: <em>"Save this thought: …"</em>, <em>"What did I save about React?"</em>,
                   <em> "Schedule revision tomorrow at 7"</em>
@@ -289,56 +305,28 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
             </div>
           )}
 
-          {/* Text input */}
-          <div style={{ display: "flex", gap: 6, padding: "8px 10px",
-              borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <input
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-              placeholder={isConnected ? "Type instead of speaking…" : "Connect first to chat"}
-              disabled={!isConnected}
-              style={{ flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 12,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.04)", color: "inherit", outline: "none" }}
-            />
-            <button onClick={send} disabled={!isConnected || !textInput.trim()} style={btnIcon} aria-label="Send">
-              <Send size={14} />
-            </button>
-          </div>
-
-          {/* Controls */}
+          {/* Quiet controls — mic / camera / screen, neutral surface, smaller icons */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(0,0,0,0.20)" }}>
+              padding: "8px 12px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={toggleMic} disabled={!isConnected} style={ctrlBtn(micOn)}
-                title={micOn ? "Mute" : "Unmute"}>
-                {micOn ? <Mic size={16} /> : <MicOff size={16} />}
+              <button onClick={toggleMic} disabled={!isConnected} style={quietCtrlBtn(micOn, isConnected)}
+                title={!isConnected ? "Start a session first" : micOn ? "Mute" : "Unmute"}>
+                {micOn ? <Mic size={13} /> : <MicOff size={13} />}
               </button>
-              <button onClick={toggleCam} disabled={!isConnected} style={ctrlBtn(camOn)}
-                title={camOn ? "Stop camera" : "Start camera"}>
-                {camOn ? <Video size={16} /> : <VideoOff size={16} />}
+              <button onClick={toggleCam} disabled={!isConnected} style={quietCtrlBtn(camOn, isConnected)}
+                title={!isConnected ? "Start a session first" : camOn ? "Stop camera" : "Start camera"}>
+                {camOn ? <Video size={13} /> : <VideoOff size={13} />}
               </button>
-              <button onClick={toggleScreen} disabled={!isConnected} style={ctrlBtn(screenOn)}
-                title={screenOn ? "Stop screen share" : "Share screen"}>
-                <MonitorUp size={16} />
+              <button onClick={toggleScreen} disabled={!isConnected} style={quietCtrlBtn(screenOn, isConnected)}
+                title={!isConnected ? "Start a session first" : screenOn ? "Stop screen share" : "Share screen"}>
+                <MonitorUp size={13} />
               </button>
             </div>
-            {isConnected ? (
-              <button onClick={disconnect} style={{ ...callBtn, background: "#ef4444" }} title="End">
-                <PhoneOff size={16} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>End</span>
-              </button>
-            ) : (
-              <button onClick={connect} disabled={isConnecting}
-                style={{ ...callBtn, background: "#22c55e", opacity: isConnecting ? 0.7 : 1 }} title="Start">
-                {isConnecting ? <Loader2 size={16} className="spin" /> : <Phone size={16} />}
-                <span style={{ fontSize: 12, fontWeight: 600 }}>
-                  {isConnecting ? "Connecting" : "Start"}
-                </span>
-              </button>
-            )}
+            <div style={{ fontSize: 10.5, opacity: 0.7, display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+              {micOn && <span style={{ color: "#22c55e" }}>Mic</span>}
+              {camOn && <span style={{ color: "#06b6d4" }}>Camera</span>}
+              {screenOn && <span style={{ color: "#a78bfa" }}>Screen</span>}
+            </div>
           </div>
         </motion.div>
       )}
@@ -383,22 +371,41 @@ function summariseToolResult(name: string, result: Record<string, unknown>, args
 }
 
 const btnIcon: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)",
+  width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.04)", color: "inherit", cursor: "pointer",
   display: "grid", placeItems: "center",
 };
 
-const ctrlBtn = (active: boolean): React.CSSProperties => ({
-  ...btnIcon,
-  width: 36, height: 36,
-  background: active ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.04)",
-  borderColor: active ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.08)",
+// Quiet, neutral mic / camera / screen control. Reused by both the floating
+// LivePanel and the inline LiveInline so the two surfaces stay visually in
+// sync. `enabled` reflects whether the live session is currently active.
+const quietCtrlBtn = (on: boolean, enabled: boolean): React.CSSProperties => ({
+  width: 30, height: 30, borderRadius: 8,
+  border: "1px solid var(--border, rgba(255,255,255,0.08))",
+  background: on
+    ? "var(--surface-3, rgba(255,255,255,0.08))"
+    : "var(--surface, rgba(255,255,255,0.02))",
+  color: on ? "var(--text-1, inherit)" : "var(--text-3, rgba(148,163,184,0.7))",
+  cursor: enabled ? "pointer" : "default",
+  opacity: enabled ? 1 : 0.55,
+  display: "grid", placeItems: "center",
+  transition: "all 0.15s",
+  fontFamily: "inherit",
 });
 
-const callBtn: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-  borderRadius: 999, border: "none", color: "#fff", cursor: "pointer",
-};
+// Compact pill action button used in the slim header — variant "start" uses
+// the indigo accent, "end" uses red. Both stay calm next to the small dot.
+const slimActionBtn = (variant: "start" | "end"): React.CSSProperties => ({
+  display: "flex", alignItems: "center", gap: 5,
+  padding: "5px 11px", borderRadius: 8,
+  background: variant === "end" ? "rgba(239,68,68,0.12)" : "rgba(99,102,241,0.14)",
+  border: variant === "end"
+    ? "1px solid rgba(239,68,68,0.32)"
+    : "1px solid rgba(99,102,241,0.32)",
+  color: variant === "end" ? "#ef4444" : "#a78bfa",
+  fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+  fontFamily: "inherit",
+});
 
 interface ButtonProps {
   enabled: boolean;
@@ -623,18 +630,6 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
     : state === "error" ? "Error"
     : "Idle";
 
-  // Quiet, neutral control button — no purple accent, no large block.
-  const quietCtrlBtn = (on: boolean): React.CSSProperties => ({
-    width: 30, height: 30, borderRadius: 8,
-    border: "1px solid var(--border)",
-    background: on ? "var(--surface-3, rgba(255,255,255,0.08))" : "var(--surface, rgba(255,255,255,0.02))",
-    color: on ? "var(--text-1)" : "var(--text-3)",
-    cursor: isConnected ? "pointer" : "default",
-    opacity: isConnected ? 1 : 0.55,
-    display: "grid", placeItems: "center",
-    transition: "all 0.15s",
-  });
-
   return (
     <div style={{ display: "flex", flexDirection: "column", borderRadius: 12,
         overflow: "hidden", background: "var(--surface-2, #0f172a)",
@@ -660,30 +655,14 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
         </div>
         {isConnected ? (
           <button onClick={disconnect}
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "5px 11px", borderRadius: 8,
-              background: "rgba(239,68,68,0.12)",
-              border: "1px solid rgba(239,68,68,0.32)",
-              color: "#ef4444",
-              fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-              fontFamily: "inherit",
-            }}
+            style={slimActionBtn("end")}
             title="End voice session">
             <PhoneOff size={12} /> End
           </button>
         ) : (
           <button onClick={connect} disabled={isConnecting}
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "5px 11px", borderRadius: 8,
-              background: "rgba(99,102,241,0.14)",
-              border: "1px solid rgba(99,102,241,0.32)",
-              color: "#a78bfa",
-              fontSize: 11.5, fontWeight: 700, cursor: isConnecting ? "default" : "pointer",
-              opacity: isConnecting ? 0.7 : 1,
-              fontFamily: "inherit",
-            }}
+            style={{ ...slimActionBtn("start"), opacity: isConnecting ? 0.7 : 1,
+                cursor: isConnecting ? "default" : "pointer" }}
             title="Start voice session">
             {isConnecting ? <Loader2 size={12} className="spin" /> : <Phone size={12} />}
             {isConnecting ? "Connecting" : "Start"}
@@ -743,15 +722,15 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "8px 12px", borderTop: "1px solid var(--border, rgba(255,255,255,0.06))" }}>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={toggleMic} disabled={!isConnected} style={quietCtrlBtn(micOn)}
+          <button onClick={toggleMic} disabled={!isConnected} style={quietCtrlBtn(micOn, isConnected)}
             title={!isConnected ? "Start a session first" : micOn ? "Mute" : "Unmute"}>
             {micOn ? <Mic size={13} /> : <MicOff size={13} />}
           </button>
-          <button onClick={toggleCam} disabled={!isConnected} style={quietCtrlBtn(camOn)}
+          <button onClick={toggleCam} disabled={!isConnected} style={quietCtrlBtn(camOn, isConnected)}
             title={!isConnected ? "Start a session first" : camOn ? "Stop camera" : "Start camera"}>
             {camOn ? <Video size={13} /> : <VideoOff size={13} />}
           </button>
-          <button onClick={toggleScreen} disabled={!isConnected} style={quietCtrlBtn(screenOn)}
+          <button onClick={toggleScreen} disabled={!isConnected} style={quietCtrlBtn(screenOn, isConnected)}
             title={!isConnected ? "Start a session first" : screenOn ? "Stop screen share" : "Share screen"}>
             <MonitorUp size={13} />
           </button>
