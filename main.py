@@ -258,8 +258,13 @@ class MemorySaveRequest(BaseModel):
     pdf_size_kb: Optional[float] = None
     pdf_word_count: Optional[int] = None
 
+class RecallTurn(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
 class RecallRequest(BaseModel):
     query: str
+    history: Optional[List[RecallTurn]] = None
 
 class TaskCreateRequest(BaseModel):
     title: str
@@ -714,7 +719,8 @@ async def capture_session_endpoint(request: CaptureSessionRequest):
 
 @app.post("/recall")
 async def recall_endpoint(request: RecallRequest):
-    result = await recall(request.query)
+    history = [{"role": t.role, "content": t.content} for t in (request.history or [])]
+    result = await recall(request.query, history=history)
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
