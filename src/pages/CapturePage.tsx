@@ -6,7 +6,7 @@ import {
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
   AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
   Clock, FolderOpen, Star, ArrowRight, GitBranch, ChevronUp, ChevronDown,
-  Pencil, Trash2, BookmarkPlus, Wand2,
+  Pencil, Trash2, BookmarkPlus, Wand2, ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -427,26 +427,36 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   };
 
   // ── Capture templates (starter scaffolds + user-saved) ───────────────
-  type Template = { id: string; label: string; source: string; body: string };
+  type Template = { id: string; label: string; source: string; body: string; tags?: string[] };
   const TEMPLATES_LS_KEY = 'recall:capture:templates:v1';
   const STARTER_TEMPLATES: Template[] = [
     {
-      id: 'starter:research',
-      label: 'Research note',
-      source: 'note',
-      body: 'Topic:\n\nKey question:\n\nWhat I found:\n- \n- \n\nNext step:\n',
-    },
-    {
       id: 'starter:meeting',
-      label: 'Meeting summary',
+      label: 'Meeting Note',
       source: 'note',
       body: 'Meeting:\nDate:\nAttendees:\n\nDecisions:\n- \n\nAction items:\n- \n\nOpen questions:\n- \n',
+      tags: ['meeting', 'notes'],
+    },
+    {
+      id: 'starter:article',
+      label: 'Article + My Take',
+      source: 'note',
+      body: 'Article:\nLink:\n\nWhat the article says:\n- \n- \n\nMy take:\n\nWhy it matters to me:\n',
+      tags: ['article', 'reading'],
     },
     {
       id: 'starter:code',
-      label: 'Code snippet',
+      label: 'Code Snippet + Why-it-matters',
       source: 'code',
-      body: '// What this does:\n//\n// Why it matters:\n//\n// Code:\n',
+      body: '// What this does:\n//\n// Why it matters:\n//\n// When to reach for it:\n//\n// Code:\n',
+      tags: ['code', 'snippet'],
+    },
+    {
+      id: 'starter:book',
+      label: 'Book Quote + Reflection',
+      source: 'note',
+      body: 'Book:\nAuthor:\nPage:\n\nQuote:\n"\n"\n\nReflection:\n\nHow I want to use this:\n',
+      tags: ['book', 'quote'],
     },
   ];
   const [userTemplates, setUserTemplates] = useState<Template[]>([]);
@@ -466,7 +476,13 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   };
   const applyTemplate = (t: Template) => {
     setSource(t.source);
-    setInput(t.body);
+    // Tag prefill: append template tags as hashtags at the end of the body so
+    // the backend tagger picks them up alongside its auto-generated tags. They
+    // stay editable in the input — the user can delete or rewrite freely.
+    const hashtagLine = (t.tags && t.tags.length > 0)
+      ? `\n\nTags: ${t.tags.map(tg => '#' + tg.replace(/\s+/g, '-')).join(' ')}\n`
+      : '';
+    setInput(t.body + hashtagLine);
     setTemplatesOpen(false);
     showToast(`Loaded template: ${t.label}`);
   };
@@ -604,7 +620,7 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     return () => { cancelled = true; };
   }, [preview, source]);
 
-  // ── Preview metadata (word count + read time + tag count) ────────────
+  // ── Preview metadata (word count + read time + tag count + language + guardian) ─
   const previewMeta = useMemo(() => {
     if (!preview) return null;
     const parts = [
@@ -615,11 +631,39 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     const text = parts.join(' ').trim();
     const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
     const readMinutes = words > 0 ? Math.max(1, Math.round(words / 200)) : 0;
+    // Lightweight script-based language detection — covers the common scripts
+    // Recall users actually paste (Latin / Devanagari / CJK / Cyrillic / Arabic).
+    // The backend can override by setting preview.language directly later.
+    const detectLang = (s: string): string => {
+      if (!s) return '';
+      if (/[\u0900-\u097F]/.test(s)) return 'Hindi';
+      if (/[\u4E00-\u9FFF]/.test(s)) return 'Chinese';
+      if (/[\u3040-\u30FF]/.test(s)) return 'Japanese';
+      if (/[\uAC00-\uD7AF]/.test(s)) return 'Korean';
+      if (/[\u0600-\u06FF]/.test(s)) return 'Arabic';
+      if (/[\u0400-\u04FF]/.test(s)) return 'Russian';
+      if (/[a-zA-Z]/.test(s)) return 'English';
+      return '';
+    };
+    const language = String((preview as any).language || detectLang(text) || '');
+    // Guardian agent confidence — surfaced if the backend included it in the
+    // preview payload (any of: guardian_confidence, guardian_score, quality_score).
+    const rawGuardian = (preview as any).guardian_confidence
+      ?? (preview as any).guardian_score
+      ?? (preview as any).quality_score;
+    let guardianPct: number | null = null;
+    if (typeof rawGuardian === 'number' && isFinite(rawGuardian)) {
+      guardianPct = rawGuardian > 1 ? Math.round(rawGuardian) : Math.round(rawGuardian * 100);
+      if (guardianPct < 0) guardianPct = 0;
+      if (guardianPct > 100) guardianPct = 100;
+    }
     return {
       words,
       readMinutes,
       tagCount: Array.isArray(preview.tags) ? preview.tags.length : 0,
       keyPoints: Array.isArray(preview.key_points) ? preview.key_points.length : 0,
+      language,
+      guardianPct,
     };
   }, [preview]);
 
@@ -1317,11 +1361,43 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                   </div>
 
                   {sessionFolderMode === 'auto' && (
-                    <input type="text" value={sessionHint}
-                      onChange={e => setSessionHint(e.target.value)}
-                      placeholder="Optional hint to steer the AI naming (e.g. 'morning research')"
-                      style={{ marginTop: 4, padding: '7px 10px', fontSize: 12, borderRadius: 6,
-                        border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)' }} />
+                    <>
+                      <input type="text" value={sessionHint}
+                        onChange={e => setSessionHint(e.target.value)}
+                        placeholder="Optional hint to steer the AI naming (e.g. 'morning research')"
+                        style={{ marginTop: 4, padding: '7px 10px', fontSize: 12, borderRadius: 6,
+                          border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)' }} />
+                      {/* 3 AI-suggested folder names — pick one now or rename later from the saved folder */}
+                      {sessionItems.length >= 2 && (
+                        <div style={{ marginTop: 6, padding: '8px 10px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px' }}>
+                              SUGGESTED FOLDER NAMES
+                            </div>
+                            <button type="button" onClick={fetchBundlePreview} disabled={bundleLoading}
+                              title="Ask the AI for 3 folder name options"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)', cursor: bundleLoading ? 'wait' : 'pointer' }}>
+                              {bundleLoading ? <Loader2 size={10} className="spin" /> : <Wand2 size={10} />}
+                              {bundlePreview?.folder_names?.length ? 'Refresh' : 'Suggest'}
+                            </button>
+                          </div>
+                          {bundlePreview?.folder_names && bundlePreview.folder_names.length > 0 ? (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {bundlePreview.folder_names.slice(0, 3).map((name, i) => (
+                                <button key={i} type="button" onClick={() => applyBundleFolder(name)}
+                                  style={{ padding: '5px 10px', fontSize: 11.5, fontWeight: 700, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', cursor: 'pointer' }}>
+                                  {name}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                              {bundleLoading ? 'Asking the AI…' : 'Click Suggest to see 3 folder name ideas. You can also rename the folder later from the workspace view.'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {sessionFolderMode === 'create' && (
@@ -1908,7 +1984,7 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
           </div>
 
           {/* Preview metadata strip — at-a-glance signal density */}
-          {previewMeta && (previewMeta.words > 0 || previewMeta.tagCount > 0 || previewMeta.keyPoints > 0) && (
+          {previewMeta && (previewMeta.words > 0 || previewMeta.tagCount > 0 || previewMeta.keyPoints > 0 || previewMeta.language || previewMeta.guardianPct !== null) && (
             <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', background: 'var(--surface-2)' }}>
               {previewMeta.readMinutes > 0 && (
                 <span title="Estimated read time at 200 wpm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
@@ -1918,6 +1994,25 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
               {previewMeta.words > 0 && (
                 <span title="Approximate word count of summary + key points" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
                   <FileDigit size={11} /> {previewMeta.words.toLocaleString()} words
+                </span>
+              )}
+              {previewMeta.language && (
+                <span title="Detected language of the captured content" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
+                  <Globe size={11} /> {previewMeta.language}
+                </span>
+              )}
+              {previewMeta.guardianPct !== null && (
+                <span
+                  title="Guardian agent confidence in this capture's quality and trustworthiness"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 10.5, fontWeight: 700, padding: '3px 8px',
+                    background: previewMeta.guardianPct >= 80 ? 'color-mix(in srgb, #16a34a 12%, transparent)' : previewMeta.guardianPct >= 50 ? 'color-mix(in srgb, #f59e0b 12%, transparent)' : 'color-mix(in srgb, #dc2626 12%, transparent)',
+                    color: previewMeta.guardianPct >= 80 ? '#16a34a' : previewMeta.guardianPct >= 50 ? '#b45309' : '#dc2626',
+                    border: previewMeta.guardianPct >= 80 ? '1px solid color-mix(in srgb, #16a34a 30%, transparent)' : previewMeta.guardianPct >= 50 ? '1px solid color-mix(in srgb, #f59e0b 30%, transparent)' : '1px solid color-mix(in srgb, #dc2626 30%, transparent)',
+                    borderRadius: 999,
+                  }}>
+                  <ShieldCheck size={11} /> Guardian {previewMeta.guardianPct}%
                 </span>
               )}
               {previewMeta.keyPoints > 0 && (
