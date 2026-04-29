@@ -4,7 +4,7 @@ import TabbedPage from '../components/TabbedPage';
 import VaultPage from './VaultPage';
 import NotesPage from './NotesPage';
 import BookmarksPage from './BookmarksPage';
-import CapturePage from './CapturePage';
+import LibraryInboxTab from '../components/LibraryInboxTab';
 
 const LibraryPage: React.FC = () => {
   return (
@@ -21,7 +21,7 @@ const LibraryPage: React.FC = () => {
         { id: 'notes',     label: 'Notes',     icon: StickyNote,  render: () => <NotesPage embedded /> },
         { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark,    render: () => <BookmarksPage embedded /> },
         { id: 'files',     label: 'Files',     icon: FileText,    render: () => <VaultPage embedded initialSourceFilter="pdf" /> },
-        { id: 'inbox',     label: 'Inbox',     icon: Inbox,       render: () => <CapturePage embedded /> },
+        { id: 'inbox',     label: 'Inbox',     icon: Inbox,       render: () => <LibraryInboxTab /> },
       ]}
     />
   );

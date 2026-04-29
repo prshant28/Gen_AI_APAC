@@ -35,6 +35,9 @@ export interface Memory {
   pdf_pages?: number;
   pdf_size_kb?: number;
   pdf_word_count?: number;
+  // Inbox triage flags
+  reviewed?: boolean;
+  archived?: boolean;
 }
 
 export interface Flashcard {

@@ -385,17 +385,27 @@ Write a SHORT, direct answer:
     }
 
 
-async def list_memories(domain: str = "", limit: int = 20) -> List[dict]:
+async def list_memories(domain: str = "", limit: int = 20, unreviewed: bool = False) -> List[dict]:
+    """List the current user's memories, newest first.
+
+    `unreviewed=True` returns only items that have not yet been reviewed
+    or archived from the Inbox — a memory is considered "in the inbox"
+    when neither `reviewed` nor `archived` is true on the document.
+    Older docs created before these fields existed are treated as
+    unreviewed (the field is missing) so legacy captures still show up.
+    """
     db = await get_db()
     query_ref = db.collection("memories")
     if domain and domain in ALLOWED_DOMAINS:
         query_ref = query_ref.where("domain", "==", domain)
-    # Over-fetch then filter to current user
+    # Over-fetch then filter to current user (and optionally unreviewed)
     snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(max(limit * 4, 80)).get()
     results = []
     for doc in snapshot:
         m = doc.to_dict()
         if not belongs_to_current_user(m):
+            continue
+        if unreviewed and (m.get("reviewed") is True or m.get("archived") is True):
             continue
         m["id"] = doc.id
         if "created_at" in m and hasattr(m["created_at"], "isoformat"):

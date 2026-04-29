@@ -554,8 +554,8 @@ async def save_memory_endpoint(request: MemorySaveRequest):
     return result
 
 @app.get("/memories")
-async def list_memories_endpoint(domain: str = "", limit: int = 20):
-    return await list_memories(domain=domain, limit=limit)
+async def list_memories_endpoint(domain: str = "", limit: int = 20, unreviewed: bool = False):
+    return await list_memories(domain=domain, limit=limit, unreviewed=unreviewed)
 
 @app.get("/memories/{memory_id}")
 async def get_memory_endpoint(memory_id: str):
@@ -563,6 +563,46 @@ async def get_memory_endpoint(memory_id: str):
         return await get_memory(memory_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+class MemoryPatchRequest(BaseModel):
+    reviewed: Optional[bool] = None
+    archived: Optional[bool] = None
+    tags: Optional[List[str]] = None
+
+@app.patch("/memories/{memory_id}")
+async def patch_memory_endpoint(memory_id: str, body: MemoryPatchRequest):
+    """Update Inbox-triage flags (reviewed / archived) or replace tags."""
+    from app.user_context import belongs_to_current_user
+    db = await get_db()
+    doc_ref = db.collection("memories").document(memory_id)
+    doc = await doc_ref.get()
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
+        raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found.")
+    updates: Dict[str, Any] = {}
+    if body.reviewed is not None:
+        updates["reviewed"] = bool(body.reviewed)
+    if body.archived is not None:
+        updates["archived"] = bool(body.archived)
+        # Archiving implies it has been triaged — force reviewed=true even
+        # if the caller passed reviewed=false in the same request.
+        if body.archived:
+            updates["reviewed"] = True
+    if body.tags is not None:
+        # Normalise: strip + dedupe (preserve order), cap at 24 tags
+        seen = set()
+        clean: List[str] = []
+        for t in body.tags:
+            tt = (t or "").strip()
+            if tt and tt.lower() not in seen:
+                seen.add(tt.lower())
+                clean.append(tt)
+            if len(clean) >= 24:
+                break
+        updates["tags"] = clean
+    if not updates:
+        return {"id": memory_id, "updated": False}
+    await doc_ref.update(updates)
+    return {"id": memory_id, "updated": True, **updates}
 
 @app.delete("/memories/{memory_id}")
 async def delete_memory_endpoint(memory_id: str):

@@ -237,6 +237,10 @@ async def capture(source_type: str, url: str = "", content: str = "", pdf_bytes:
             "userId": user_id,
             "user_id": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
+            # Inbox-triage flags — newly captured items land in the Inbox
+            # until the user reviews or archives them.
+            "reviewed": False,
+            "archived": False,
         }
         memory_doc["title"] = title
         # Attach PDF metadata (page count, size, embedded bytes) when available
@@ -527,6 +531,10 @@ async def save_memory(memory_data: dict, user_id: str = "") -> dict:
             "userId": user_id,
             "user_id": user_id,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
+            # Inbox-triage flags — newly captured items land in the Inbox
+            # until the user reviews or archives them.
+            "reviewed": False,
+            "archived": False,
         }
         # PDF-only optional fields
         for k in ("pdf_data", "pdf_pages", "pdf_size_kb", "pdf_word_count"):
