@@ -144,8 +144,8 @@ const SourceCard: React.FC<{
         </div>
       )}
 
-      {/* Body */}
-      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+      {/* Body — compact spacing so cards stay small */}
+      <div style={{ padding: 11, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
         {/* Header row: type + date */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -166,13 +166,13 @@ const SourceCard: React.FC<{
         </div>
 
         {/* Title */}
-        <div style={{ color: 'var(--text-1)', fontSize: 14, fontWeight: 700, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <div style={{ color: 'var(--text-1)', fontSize: 13, fontWeight: 700, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {src.title || 'Untitled'}
         </div>
 
         {/* Summary */}
         {src.summary && (
-          <div style={{ color: 'var(--text-2)', fontSize: 12.5, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <div style={{ color: 'var(--text-2)', fontSize: 11.5, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {src.summary}
           </div>
         )}
@@ -427,11 +427,9 @@ const RecallView = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Flex-1 content area: expands to fill space so the input bar is
-          always anchored to the bottom of the viewport even when the
-          conversation is empty. paddingBottom reserves space so the last
-          row of content is never hidden behind the sticky input bar. */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 108 }}>
+      {/* Content area — flows naturally with the page. Input bar below is
+          NOT sticky any more; user asked for it to scroll with the content. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* Empty state hero, prompt chips and recent questions now live INSIDE
           the upper card above. Only the message thread renders down here. */}
@@ -470,16 +468,16 @@ const RecallView = () => {
                     </div>
                   </div>
 
-                  {/* Source cards grid */}
+                  {/* Source cards grid — compact: smaller minmax, tighter gap */}
                   {msg.sources && msg.sources.length > 0 && (
                     <div style={{ paddingLeft: 40 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-                        <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                        <span style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
                           {msg.sources.length} {msg.sources.length === 1 ? 'memory' : 'memories'} from your vault
                         </span>
                         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 9 }}>
                         {msg.sources.map((src) => {
                           const playKey = `${msg.id}:${src.id}`;
                           return (
@@ -537,19 +535,12 @@ const RecallView = () => {
 
       </div>{/* end flex-1 content area */}
 
-      {/* Input — always anchored at the bottom of the viewport */}
+      {/* Input — flows with the page (no sticky). Sits below the message
+          thread so the whole page scrolls naturally. */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         style={{
           ...card,
-          padding: '12px 14px 16px',
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 10,
-          background: 'var(--surface)',
-          boxShadow: '0 -6px 24px rgba(0,0,0,0.10)',
-          borderRadius: '12px 12px 0 0',
-          borderBottom: 'none',
-          marginTop: 'auto',
+          padding: '12px 14px 14px',
         }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--surface-2)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 12, padding: '9px 11px', transition: 'border-color 0.2s' }}>
           <Search size={14} color="#818cf8" style={{ alignSelf: 'center', flexShrink: 0 }} />
