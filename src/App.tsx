@@ -139,9 +139,13 @@ interface SidebarNavItemProps {
   color: string; shortcut?: string; desc?: string;
   isCollapsed: boolean; active: boolean;
   navigate: (to: string) => void;
+  badgeCount?: number;
+  badgeCapped?: boolean;
+  badgeTitle?: string;
 }
 const SidebarNavItem = React.memo(({
   id, label, path, icon: Icon, color, shortcut, desc, isCollapsed, active, navigate,
+  badgeCount, badgeCapped, badgeTitle,
 }: SidebarNavItemProps) => {
   const [hovered, setHovered] = useState(false);
   const bg = active ? `${color}18` : hovered ? 'var(--surface-2)' : 'transparent';
@@ -175,8 +179,22 @@ const SidebarNavItem = React.memo(({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: active ? `${color}22` : 'transparent',
         transition: 'background 0.14s ease',
+        position: 'relative',
       }}>
         <Icon size={15} color={active ? color : hovered ? 'var(--text-2)' : 'var(--text-3)'} strokeWidth={active ? 2 : 1.75} />
+        {/* Collapsed-mode badge: a small red dot pinned to the icon */}
+        {isCollapsed && badgeCount !== undefined && badgeCount > 0 && (
+          <span
+            data-testid={`sidebar-badge-${id}-dot`}
+            title={badgeTitle ?? `${badgeCount}${badgeCapped ? '+' : ''} waiting`}
+            style={{
+              position: 'absolute', top: -2, right: -2,
+              minWidth: 8, height: 8, borderRadius: 999,
+              background: '#ef4444',
+              boxShadow: '0 0 0 2px var(--surface)',
+            }}
+          />
+        )}
       </div>
       {!isCollapsed && (
         <>
@@ -195,6 +213,22 @@ const SidebarNavItem = React.memo(({
               }}>{desc}</div>
             )}
           </div>
+          {/* Expanded-mode numeric badge — small unread-style pill */}
+          {badgeCount !== undefined && badgeCount > 0 && (
+            <span
+              data-testid={`sidebar-badge-${id}`}
+              title={badgeTitle ?? `${badgeCount}${badgeCapped ? '+' : ''} waiting`}
+              style={{
+                fontSize: 10, fontWeight: 700, color: '#fff',
+                background: '#ef4444',
+                borderRadius: 999, padding: '1px 6px', flexShrink: 0,
+                letterSpacing: '0.2px', minWidth: 16, textAlign: 'center',
+                lineHeight: '14px',
+              }}
+            >
+              {badgeCount > 99 ? '99+' : `${badgeCount}${badgeCapped ? '+' : ''}`}
+            </span>
+          )}
           {shortcut && (
             <span style={{
               fontSize: 9.5, fontWeight: 600, color: active ? color : 'var(--text-3)',
@@ -235,6 +269,8 @@ const Sidebar = ({
   const navigate = useNavigate();
   const navRef = useRef<HTMLElement>(null);
   const [canScrollDown, setCanScrollDown] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
+  const [inboxCapped, setInboxCapped] = useState(false);
 
   const checkScroll = useCallback(() => {
     const el = navRef.current;
@@ -251,8 +287,59 @@ const Sidebar = ({
     return () => { el.removeEventListener('scroll', checkScroll); window.removeEventListener('resize', checkScroll); };
   }, [checkScroll, isCollapsed]);
 
+  // ── Inbox-count badge ────────────────────────────────────────────────
+  // Cheap counts-only fetch. Refreshes on:
+  //   1. Mount
+  //   2. Window/tab focus (covers returning from another tab)
+  //   3. A custom 'inbox-count-refresh' event (fired after capture / review /
+  //      archive in LibraryInboxTab and other capture entry points)
+  // No long-lived connections, no polling timer.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch('/memories/inbox-count');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const n = Number(data?.count) || 0;
+        setInboxCount(n);
+        setInboxCapped(Boolean(data?.capped));
+      } catch {
+        // Silent — the badge is non-critical, keep the previous value.
+      }
+    };
+    fetchCount();
+    const onFocus = () => { fetchCount(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchCount(); };
+    const onRefresh = () => { fetchCount(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('inbox-count-refresh', onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('inbox-count-refresh', onRefresh);
+    };
+  }, []);
+
   const isActive = (path: string) =>
     location.pathname === path || (path === '/dashboard' && location.pathname === '/');
+
+  // Per-nav badge map. Today only Library carries the Inbox-waiting count,
+  // but the SidebarNavItem already accepts badgeCount/badgeCapped so adding
+  // future badges (e.g. Briefing unread) is a one-line change here.
+  const badgeFor = (id: string): { count?: number; capped?: boolean; title?: string } => {
+    if (id === 'library' && inboxCount > 0) {
+      return {
+        count: inboxCount,
+        capped: inboxCapped,
+        title: `${inboxCount}${inboxCapped ? '+' : ''} item${inboxCount === 1 ? '' : 's'} waiting in your Inbox`,
+      };
+    }
+    return {};
+  };
 
   return (
     <div style={{ width: '100%', minWidth: 0, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -314,9 +401,21 @@ const Sidebar = ({
 
           {/* Core destinations */}
           <div style={{ height: 4 }} />
-          {CORE_NAV.map(item => (
-            <SidebarNavItem key={item.id} {...item} isCollapsed={isCollapsed} navigate={navigate} active={isActive(item.path)} />
-          ))}
+          {CORE_NAV.map(item => {
+            const badge = badgeFor(item.id);
+            return (
+              <SidebarNavItem
+                key={item.id}
+                {...item}
+                isCollapsed={isCollapsed}
+                navigate={navigate}
+                active={isActive(item.path)}
+                badgeCount={badge.count}
+                badgeCapped={badge.capped}
+                badgeTitle={badge.title}
+              />
+            );
+          })}
 
           {/* Tools section */}
           <SidebarSectionLabel label="Tools" isCollapsed={isCollapsed} />

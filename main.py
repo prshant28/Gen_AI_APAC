@@ -607,6 +607,59 @@ async def list_memories_endpoint(
         print(f"list_memories_endpoint error: {e}")
         return []
 
+@app.get("/memories/inbox-count")
+async def inbox_count_endpoint():
+    """Tiny counts-only endpoint that powers the sidebar Inbox badge.
+
+    A memory counts as "in the inbox" when it is owned by the current user
+    AND not trashed AND not archived AND not yet reviewed.
+
+    We narrow the read on the server side first by filtering on the
+    current user_id so we don't drag the entire `memories` collection
+    across the wire, then apply the in-app inbox predicate (which can't
+    be expressed as a single Firestore index because legacy docs are
+    missing the `reviewed` / `archived` fields entirely and we treat
+    "missing" as "still in the inbox"). Capped at 500 — the badge just
+    needs to say "you've got stuff to triage", not give an exact
+    accounting beyond a few hundred unread items.
+    """
+    from app.user_context import get_uid
+    CAP = 500
+    FETCH_LIMIT = CAP * 2  # leave headroom in case some docs fail the
+                           # in-app predicate (already-reviewed / archived)
+    try:
+        db = await get_db()
+        uid = get_uid()
+        # Narrow on the server: only the current user's memories.
+        # `belongs_to_current_user` accepts both `user_id` and the legacy
+        # `userId`, but every doc the app writes today uses `user_id`,
+        # so a single-field where() is the right cost trade-off.
+        query_ref = (
+            db.collection("memories")
+            .where("user_id", "==", uid)
+            .limit(FETCH_LIMIT)
+        )
+        snapshot = await query_ref.get()
+        count = 0
+        capped = False
+        for doc in snapshot:
+            m = doc.to_dict()
+            if m.get("trashed_at"):
+                continue
+            if m.get("archived") is True:
+                continue
+            if m.get("reviewed") is True:
+                continue
+            count += 1
+            if count >= CAP:
+                capped = True
+                break
+        return {"count": count, "capped": capped}
+    except Exception as e:
+        print(f"inbox_count_endpoint error: {e}")
+        return {"count": 0, "capped": False}
+
+
 @app.get("/memories/{memory_id}")
 async def get_memory_endpoint(memory_id: str):
     try:

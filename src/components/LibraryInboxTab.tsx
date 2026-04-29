@@ -192,6 +192,8 @@ const LibraryInboxTab: React.FC = () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
+      // Keep the sidebar Inbox badge in sync with what we just rendered.
+      window.dispatchEvent(new CustomEvent('inbox-count-refresh'));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load inbox';
       setError(msg);
@@ -220,6 +222,9 @@ const LibraryInboxTab: React.FC = () => {
     }
   };
 
+  // Note: the sidebar Inbox badge auto-refreshes after Review / Archive because
+  // the global apiFetch hook broadcasts `inbox-count-refresh` on every
+  // successful non-GET /memories call — no explicit dispatch needed here.
   const handleReview = async (m: Memory) => {
     setBusyId(m.id);
     const ok = await patchMemory(m.id, { reviewed: true });
