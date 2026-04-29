@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bookmark, Plus, Search, Trash2, ExternalLink, Globe, Tag as TagIcon,
   CheckCircle2, Clock, BookOpen, Filter, Hash, X, Link as LinkIcon,
-  Star, Eye, Archive, Youtube, Play
+  Star, Eye, Archive, Youtube, Play, CheckSquare, Square, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
+import { showToast } from '../App';
 
 interface BM {
   id: string;
@@ -36,6 +37,11 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   const [newUrl, setNewUrl] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newTags, setNewTags] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [tagPrompt, setTagPrompt] = useState<null | 'add' | 'remove'>(null);
+  const [tagPromptInput, setTagPromptInput] = useState('');
 
   const load = () => {
     fetch('/bookmarks').then(r => r.json()).then((data: BM[]) => {
@@ -88,9 +94,65 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   };
 
   const deleteBM = async (id: string) => {
-    if (!confirm('Delete this bookmark?')) return;
+    if (!confirm('Move this bookmark to Trash?')) return;
     await fetch(`/bookmarks/${id}`, { method: 'DELETE' });
     setItems(items.filter(i => i.id !== id));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); };
+
+  const bulkApi = async (path: string, body: any, okMsg: string) => {
+    setBulkBusy(true);
+    try {
+      const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error('bulk failed');
+      showToast(okMsg);
+      load();
+      exitSelect();
+    } catch {
+      showToast('Bulk action failed');
+    } finally { setBulkBusy(false); }
+  };
+
+  const bulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} bookmarks to Trash?`)) return;
+    bulkApi('/library/bulk-delete', { entity: 'bookmark', ids: Array.from(selectedIds) }, 'Moved to Trash');
+  };
+
+  const bulkTagAdd = () => {
+    const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (!tags.length || selectedIds.size === 0) return;
+    bulkApi('/library/bulk-tag-add', { entity: 'bookmark', ids: Array.from(selectedIds), tags }, 'Tags added');
+    setTagPromptInput('');
+  };
+
+  const bulkTagRemove = () => {
+    const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (!tags.length || selectedIds.size === 0) return;
+    bulkApi('/library/bulk-tag-remove', { entity: 'bookmark', ids: Array.from(selectedIds), tags }, 'Tags removed');
+    setTagPromptInput('');
+  };
+
+  const bulkExport = () => {
+    if (selectedIds.size === 0) return;
+    const chosen = items.filter(i => selectedIds.has(i.id));
+    const text = chosen.map(b => `- [${b.title}](${b.url})${b.tags.length ? '  ' + b.tags.map(t => '#' + t).join(' ') : ''}`).join('\n');
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `bookmarks-export-${Date.now()}.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${chosen.length} bookmarks`);
   };
 
   return (
@@ -170,7 +232,53 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
               </button>
             );
           })}
+          <button onClick={() => { if (selectMode) exitSelect(); else setSelectMode(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: selectMode ? 'var(--primary-bg)' : 'transparent', border: `1px solid ${selectMode ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 9, color: selectMode ? 'var(--primary)' : 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            {selectMode ? <CheckSquare size={11} /> : <Square size={11} />}
+            {selectMode ? `Selected: ${selectedIds.size}` : 'Select'}
+          </button>
+          {selectMode && filtered.length > 0 && (
+            <button onClick={() => {
+              const allIds = new Set(filtered.map(i => i.id));
+              setSelectedIds(selectedIds.size === filtered.length ? new Set() : allIds);
+            }}
+              style={{ padding: '7px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {selectedIds.size === filtered.length ? 'Clear' : 'Select all'}
+            </button>
+          )}
         </div>
+
+        {selectMode && selectedIds.size > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, padding: 10, background: 'var(--surface-2)', border: '1px solid var(--primary-border)', borderRadius: 10 }}>
+            <span style={{ color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, marginRight: 4 }}>{selectedIds.size} selected:</span>
+            <button onClick={bulkDelete} disabled={bulkBusy}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <Trash2 size={11} /> Trash
+            </button>
+            <button onClick={() => { setTagPrompt('add'); setTagPromptInput(''); }} disabled={bulkBusy}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <TagIcon size={11} /> Add tags
+            </button>
+            <button onClick={() => { setTagPrompt('remove'); setTagPromptInput(''); }} disabled={bulkBusy}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <X size={11} /> Remove tags
+            </button>
+            <button onClick={bulkExport} disabled={bulkBusy}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <Download size={11} /> Export
+            </button>
+            {tagPrompt && (
+              <div style={{ display: 'flex', gap: 4, marginLeft: 6 }}>
+                <input autoFocus value={tagPromptInput} onChange={e => setTagPromptInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { tagPrompt === 'add' ? bulkTagAdd() : bulkTagRemove(); } }}
+                  placeholder="tag1, tag2"
+                  style={{ width: 140, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
+                <button onClick={tagPrompt === 'add' ? bulkTagAdd : bulkTagRemove} disabled={!tagPromptInput.trim()}
+                  style={{ padding: '5px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: tagPromptInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: tagPromptInput.trim() ? 1 : 0.5 }}>OK</button>
+              </div>
+            )}
+          </div>
+        )}
         {domains.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Domain:</span>
@@ -197,9 +305,17 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
           const meta = STATUS_META[bm.status] || STATUS_META.unread;
           const StatusIcon = meta.icon;
           const ytId = getYouTubeId(bm.url);
+          const isSel = selectedIds.has(bm.id);
           return (
             <motion.div key={bm.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -1 }}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface)', border: `1px solid ${ytId ? 'rgba(239,68,68,0.22)' : 'var(--border)'}`, borderRadius: 12, transition: 'all 0.15s' }}>
+              onClick={() => { if (selectMode) toggleSelect(bm.id); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: selectMode && isSel ? 'rgba(99,102,241,0.08)' : 'var(--surface)', border: `1px solid ${selectMode && isSel ? 'var(--primary)' : ytId ? 'rgba(239,68,68,0.22)' : 'var(--border)'}`, borderRadius: 12, transition: 'all 0.15s', cursor: selectMode ? 'pointer' : 'default' }}>
+              {selectMode && (
+                <button onClick={e => { e.stopPropagation(); toggleSelect(bm.id); }}
+                  style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}>
+                  {isSel ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-3)" />}
+                </button>
+              )}
               {ytId ? (
                 <a href={bm.url} target="_blank" rel="noreferrer" title={`Play "${bm.title}" on YouTube`}
                   style={{ position: 'relative', width: 96, height: 54, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#000', display: 'block', textDecoration: 'none' }}>

@@ -557,8 +557,20 @@ async def save_memory_endpoint(request: MemorySaveRequest):
     return result
 
 @app.get("/memories")
-async def list_memories_endpoint(domain: str = "", limit: int = 20, unreviewed: bool = False):
-    return await list_memories(domain=domain, limit=limit, unreviewed=unreviewed)
+async def list_memories_endpoint(
+    domain: str = "",
+    limit: int = 20,
+    unreviewed: bool = False,
+    include_archived: bool = False,
+    include_trashed: bool = False,
+):
+    return await list_memories(
+        domain=domain,
+        limit=limit,
+        unreviewed=unreviewed,
+        include_archived=include_archived,
+        include_trashed=include_trashed,
+    )
 
 @app.get("/memories/{memory_id}")
 async def get_memory_endpoint(memory_id: str):
@@ -571,6 +583,8 @@ class MemoryPatchRequest(BaseModel):
     reviewed: Optional[bool] = None
     archived: Optional[bool] = None
     tags: Optional[List[str]] = None
+    pinned: Optional[bool] = None
+    project_id: Optional[str] = None
 
 @app.patch("/memories/{memory_id}")
 async def patch_memory_endpoint(memory_id: str, body: MemoryPatchRequest):
@@ -602,17 +616,202 @@ async def patch_memory_endpoint(memory_id: str, body: MemoryPatchRequest):
             if len(clean) >= 24:
                 break
         updates["tags"] = clean
+    if body.pinned is not None:
+        updates["pinned"] = bool(body.pinned)
+    if body.project_id is not None:
+        # Allow clearing by passing empty string; otherwise set to project ref
+        updates["project_id"] = body.project_id or ""
     if not updates:
         return {"id": memory_id, "updated": False}
     await doc_ref.update(updates)
     return {"id": memory_id, "updated": True, **updates}
 
 @app.delete("/memories/{memory_id}")
-async def delete_memory_endpoint(memory_id: str):
+async def delete_memory_endpoint(memory_id: str, hard: bool = False):
+    """Soft-delete (move to Trash) by default; pass `?hard=true` to remove."""
     try:
-        return await delete_memory(memory_id)
+        return await delete_memory(memory_id, hard=hard)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ─── Library power-ups (Task #18): Trash, Bulk, Smart Collections, Tags, Search ──
+from app import library_agent  # noqa: E402
+
+
+class TrashOpRequest(BaseModel):
+    entity: str  # "memory" | "note" | "bookmark"
+    ids: List[str]
+
+
+@app.get("/trash")
+async def trash_list_endpoint():
+    return await library_agent.list_trash()
+
+
+@app.post("/trash/restore")
+async def trash_restore_endpoint(body: TrashOpRequest):
+    try:
+        return await library_agent.restore_from_trash(body.entity, body.ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/trash/purge")
+async def trash_purge_endpoint(body: TrashOpRequest):
+    try:
+        return await library_agent.purge_from_trash(body.entity, body.ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class BulkDeleteRequest(BaseModel):
+    entity: str
+    ids: List[str]
+
+
+@app.post("/library/bulk-delete")
+async def bulk_delete_endpoint(body: BulkDeleteRequest):
+    try:
+        return await library_agent.soft_delete(body.entity, body.ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class BulkArchiveRequest(BaseModel):
+    ids: List[str]
+    archived: bool = True
+
+
+@app.post("/library/bulk-archive")
+async def bulk_archive_endpoint(body: BulkArchiveRequest):
+    return await library_agent.set_archived(body.ids, body.archived)
+
+
+class BulkTagRequest(BaseModel):
+    entity: str
+    ids: List[str]
+    tags: List[str]
+
+
+@app.post("/library/bulk-tag-add")
+async def bulk_tag_add_endpoint(body: BulkTagRequest):
+    try:
+        return await library_agent.bulk_tag_add(body.entity, body.ids, body.tags)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/library/bulk-tag-remove")
+async def bulk_tag_remove_endpoint(body: BulkTagRequest):
+    try:
+        return await library_agent.bulk_tag_remove(body.entity, body.ids, body.tags)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class PinRequest(BaseModel):
+    pinned: bool
+
+
+@app.post("/memories/{memory_id}/pin")
+async def pin_memory_endpoint(memory_id: str, body: PinRequest):
+    try:
+        return await library_agent.set_pinned(memory_id, body.pinned)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# Smart Collections
+class SmartCollectionRequest(BaseModel):
+    name: str
+    filters: Dict[str, Any] = {}
+
+
+class SmartCollectionUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
+
+
+@app.get("/smart-collections")
+async def smart_collections_list_endpoint():
+    return await library_agent.list_smart_collections()
+
+
+@app.post("/smart-collections")
+async def smart_collections_create_endpoint(body: SmartCollectionRequest):
+    try:
+        return await library_agent.create_smart_collection(body.name, body.filters)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/smart-collections/{cid}")
+async def smart_collections_update_endpoint(cid: str, body: SmartCollectionUpdateRequest):
+    try:
+        return await library_agent.update_smart_collection(cid, body.name, body.filters)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/smart-collections/{cid}")
+async def smart_collections_delete_endpoint(cid: str):
+    try:
+        return await library_agent.delete_smart_collection(cid)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# Tag Manager
+class TagRenameRequest(BaseModel):
+    old: str
+    new: str
+
+
+class TagMergeRequest(BaseModel):
+    sources: List[str]
+    target: str
+
+
+@app.get("/tags-index")
+async def tags_index_endpoint():
+    return await library_agent.tags_index()
+
+
+@app.post("/tags/rename")
+async def tag_rename_endpoint(body: TagRenameRequest):
+    try:
+        return await library_agent.tag_rename(body.old, body.new)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/tags/merge")
+async def tag_merge_endpoint(body: TagMergeRequest):
+    try:
+        return await library_agent.tag_merge(body.sources, body.target)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/tags/{name}")
+async def tag_delete_endpoint(name: str):
+    try:
+        return await library_agent.tag_delete(name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# Deep search + related
+@app.get("/search/deep")
+async def deep_search_endpoint(q: str = "", limit: int = 30):
+    return await library_agent.deep_search(q, limit=limit)
+
+
+@app.get("/memories/{memory_id}/related")
+async def related_memories_endpoint(memory_id: str, limit: int = 5):
+    return await library_agent.related_memories(memory_id, limit=limit)
+
 
 @app.get("/memories/{memory_id}/flashcards")
 async def get_flashcards_endpoint(memory_id: str):
@@ -1945,9 +2144,9 @@ async def update_note_endpoint(note_id: str, req: NoteUpdateRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.delete("/notes/{note_id}")
-async def delete_note_endpoint(note_id: str):
+async def delete_note_endpoint(note_id: str, hard: bool = False):
     try:
-        return await delete_note(note_id)
+        return await delete_note(note_id, hard=hard)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -1982,9 +2181,9 @@ async def update_bookmark_endpoint(bm_id: str, req: BookmarkUpdateRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.delete("/bookmarks/{bm_id}")
-async def delete_bookmark_endpoint(bm_id: str):
+async def delete_bookmark_endpoint(bm_id: str, hard: bool = False):
     try:
-        return await delete_bookmark(bm_id)
+        return await delete_bookmark(bm_id, hard=hard)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

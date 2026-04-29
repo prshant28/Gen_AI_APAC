@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle } from 'lucide-react';
+import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
-import type { Memory, Flashcard } from '../lib/types';
+import type { Memory, Flashcard, SmartCollection } from '../lib/types';
 import { card } from '../lib/ui';
 import ViewModeToggle, { type ViewMode, type Density } from '../components/ViewModeToggle';
+import { showToast } from '../App';
 
 const VIEW_KEY = 'recall:vault:viewMode';
 const DENSITY_KEY = 'recall:vault:density';
@@ -137,37 +138,243 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
   const [density, setDensity] = useState<Density>(loadDensity);
 
+  // Library power-ups
+  const [showArchived, setShowArchived] = useState(false);
+  const [pinnedOnly, setPinnedOnly] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [collections, setCollections] = useState<SmartCollection[]>([]);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
+  const [deepMode, setDeepMode] = useState(false);
+  const [deepResults, setDeepResults] = useState<Record<string, string>>({});
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [tagPromptOpen, setTagPromptOpen] = useState<null | 'add' | 'remove'>(null);
+  const [tagInput, setTagInput] = useState('');
+  const [saveCollOpen, setSaveCollOpen] = useState(false);
+  const [collName, setCollName] = useState('');
+
   useEffect(() => { try { localStorage.setItem(VIEW_KEY, viewMode); } catch { /* ignore */ } }, [viewMode]);
   useEffect(() => { try { localStorage.setItem(DENSITY_KEY, density); } catch { /* ignore */ } }, [density]);
 
   const fetchMemories = useCallback(() => {
     setIsLoading(true);
-    const url = domainFilter ? `/memories?domain=${domainFilter}&limit=50` : '/memories?limit=50';
-    fetch(url).then(r => r.ok ? r.json() : []).then(data => { setMemories(data); setIsLoading(false); }).catch(() => setIsLoading(false));
-  }, [domainFilter]);
+    const params = new URLSearchParams();
+    params.set('limit', '100');
+    if (domainFilter) params.set('domain', domainFilter);
+    if (showArchived) params.set('include_archived', '1');
+    fetch(`/memories?${params.toString()}`).then(r => r.ok ? r.json() : []).then(data => { setMemories(data); setIsLoading(false); }).catch(() => setIsLoading(false));
+  }, [domainFilter, showArchived]);
 
   useEffect(() => { fetchMemories(); }, [fetchMemories]);
 
+  // Load smart collections
+  const loadCollections = useCallback(() => {
+    fetch('/smart-collections').then(r => r.ok ? r.json() : []).then((data: SmartCollection[]) => {
+      setCollections(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { loadCollections(); }, [loadCollections]);
+
+  // Deep search — debounced
+  useEffect(() => {
+    if (!deepMode || !filter.trim()) { setDeepResults({}); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/search/deep?q=${encodeURIComponent(filter)}&entities=memory&limit=50`);
+        if (!r.ok) { setDeepResults({}); return; }
+        const j = await r.json();
+        const map: Record<string, string> = {};
+        const ids: string[] = [];
+        // Backend returns { memories: [...], notes: [...], bookmarks: [...] } — Vault only consumes memories
+        const rows: any[] = Array.isArray(j?.memories) ? j.memories
+          : Array.isArray(j?.results) ? j.results
+          : Array.isArray(j) ? j : [];
+        rows.forEach((row: any) => {
+          map[row.id] = row.snippet || '';
+          ids.push(row.id);
+        });
+        setDeepResults(map);
+        if (ids.length) {
+          // Fetch full memory docs for any IDs not already loaded
+          const missing = ids.filter(id => !memories.some(m => m.id === id));
+          if (missing.length) {
+            const fetched = await Promise.all(missing.map(id => fetch(`/memories/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)));
+            const valid = fetched.filter(Boolean);
+            if (valid.length) setMemories(prev => [...valid, ...prev]);
+          }
+        }
+      } catch { setDeepResults({}); }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [deepMode, filter]);
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Delete this memory? This cannot be undone.')) return;
+    if (!confirm('Move this memory to Trash? You can restore it within 30 days.')) return;
     setDeletingId(id);
     try {
       await fetch(`/memories/${id}`, { method: 'DELETE' });
       setMemories(prev => prev.filter(m => m.id !== id));
       if (selectedMemory?.id === id) setSelectedMemory(null);
+      showToast('Moved to Trash');
     } catch (err) { console.error(err); }
     finally { setDeletingId(null); }
   };
 
-  const filtered = memories
-    .filter(m => !filter || m.title.toLowerCase().includes(filter.toLowerCase()) || m.tags.some(t => t.toLowerCase().includes(filter.toLowerCase())) || m.summary.toLowerCase().includes(filter.toLowerCase()))
-    .filter(m => !sourceTypeFilter || m.source_type === sourceTypeFilter)
-    .sort((a, b) => {
-      if (sort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      return a.title.localeCompare(b.title);
+  const togglePin = async (m: Memory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !m.pinned;
+    setMemories(prev => prev.map(x => x.id === m.id ? { ...x, pinned: next } : x));
+    try {
+      await fetch(`/memories/${m.id}/pin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned: next }),
+      });
+    } catch {
+      setMemories(prev => prev.map(x => x.id === m.id ? { ...x, pinned: !next } : x));
+    }
+  };
+
+  const toggleSelect = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
+  };
+
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
+
+  const runBulk = async (path: string, body: any, successLabel: string) => {
+    if (!selectedIds.size) return;
+    setBulkBusy(true);
+    try {
+      const r = await fetch(path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'memory', ids: Array.from(selectedIds), ...body }),
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        throw new Error(txt || `HTTP ${r.status}`);
+      }
+      const j = await r.json().catch(() => ({}));
+      const n = j.deleted ?? j.trashed ?? j.archived ?? j.updated ?? selectedIds.size;
+      showToast(`${successLabel} ${n} memor${n === 1 ? 'y' : 'ies'}`);
+      exitSelect();
+      fetchMemories();
+    } catch (err: any) {
+      showToast(err?.message ? `Action failed — ${String(err.message).slice(0, 80)}` : 'Action failed', 'error');
+    } finally { setBulkBusy(false); }
+  };
+
+  const bulkDelete = () => {
+    if (!confirm(`Move ${selectedIds.size} memor${selectedIds.size === 1 ? 'y' : 'ies'} to Trash?`)) return;
+    runBulk('/library/bulk-delete', {}, 'Moved');
+  };
+
+  const bulkArchive = (archived: boolean) => {
+    runBulk('/library/bulk-archive', { archived }, archived ? 'Archived' : 'Unarchived');
+  };
+
+  const submitTagBulk = () => {
+    const tags = tagInput.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+    if (!tags.length || !tagPromptOpen) { setTagPromptOpen(null); setTagInput(''); return; }
+    const path = tagPromptOpen === 'add' ? '/library/bulk-tag-add' : '/library/bulk-tag-remove';
+    const label = tagPromptOpen === 'add' ? 'Tagged' : 'Untagged';
+    runBulk(path, { tags }, label);
+    setTagPromptOpen(null); setTagInput('');
+  };
+
+  const exportSelection = () => {
+    const rows = memories.filter(m => selectedIds.has(m.id));
+    const md = rows.map(m => `# ${m.title}\n\n**Domain:** ${m.domain}  \n**Source:** ${m.source_type}  \n${m.source_url ? `**URL:** ${m.source_url}  \n` : ''}**Tags:** ${m.tags.map(t => '#' + t).join(' ')}\n\n## Summary\n${m.summary}\n\n## Key Points\n${(m.key_points || []).map(p => `- ${p}`).join('\n')}\n\n---\n`).join('\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `vault-selection-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${rows.length} memor${rows.length === 1 ? 'y' : 'ies'}`);
+  };
+
+  // Smart collections
+  const applyCollection = (c: SmartCollection) => {
+    setActiveCollectionId(c.id);
+    const f = c.filters || {};
+    setFilter(f.search || '');
+    setDomainFilter(f.domain || '');
+    setSourceTypeFilter(f.source || '');
+    setPinnedOnly(!!f.pinned_only);
+    setShowArchived(!!f.archived);
+    setDeepMode(!!f.deep);
+  };
+
+  const clearCollection = () => {
+    setActiveCollectionId(null);
+    setFilter(''); setDomainFilter(''); setSourceTypeFilter(initialSourceFilter);
+    setPinnedOnly(false); setShowArchived(false); setDeepMode(false);
+  };
+
+  const saveCollection = async () => {
+    if (!collName.trim()) return;
+    const filters = {
+      search: filter || undefined,
+      domain: domainFilter || undefined,
+      source: sourceTypeFilter || undefined,
+      pinned_only: pinnedOnly || undefined,
+      archived: showArchived || undefined,
+      deep: deepMode || undefined,
+    };
+    try {
+      const r = await fetch('/smart-collections', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: collName.trim(), filters }),
+      });
+      const j = await r.json();
+      if (j.id) setActiveCollectionId(j.id);
+      showToast(`Saved "${collName.trim()}"`);
+      setSaveCollOpen(false); setCollName('');
+      loadCollections();
+    } catch { showToast('Could not save collection', 'error'); }
+  };
+
+  const deleteCollection = async (id: string) => {
+    if (!confirm('Delete this collection? Items inside stay safe.')) return;
+    await fetch(`/smart-collections/${id}`, { method: 'DELETE' }).catch(() => {});
+    if (activeCollectionId === id) setActiveCollectionId(null);
+    loadCollections();
+  };
+
+  const filtered = useMemo(() => {
+    return memories
+      .filter(m => deepMode && filter ? deepResults[m.id] !== undefined : (!filter || m.title.toLowerCase().includes(filter.toLowerCase()) || m.tags.some(t => t.toLowerCase().includes(filter.toLowerCase())) || m.summary.toLowerCase().includes(filter.toLowerCase())))
+      .filter(m => !sourceTypeFilter || m.source_type === sourceTypeFilter)
+      .filter(m => !pinnedOnly || m.pinned)
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        if (sort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (sort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return a.title.localeCompare(b.title);
+      });
+  }, [memories, filter, sourceTypeFilter, sort, pinnedOnly, deepMode, deepResults]);
+
+  const renderSnippet = (id: string) => {
+    const raw = deepResults[id];
+    if (!raw) return null;
+    const parts: React.ReactNode[] = [];
+    let i = 0; let key = 0;
+    while (i < raw.length) {
+      const open = raw.indexOf('<<HL>>', i);
+      if (open < 0) { parts.push(raw.slice(i)); break; }
+      if (open > i) parts.push(raw.slice(i, open));
+      const close = raw.indexOf('<</HL>>', open + 6);
+      if (close < 0) { parts.push(raw.slice(open + 6)); break; }
+      parts.push(<mark key={key++} className="vault-deep-hit">{raw.slice(open + 6, close)}</mark>);
+      i = close + 7;
+    }
+    return <div className="vault-deep-snippet">{parts}</div>;
+  };
 
   return (
     <div style={{ color: 'var(--text-1)' }}>
@@ -191,14 +398,55 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
           </div>
         )}
 
+        {/* Smart collections strip */}
+        {(collections.length > 0 || true) && (
+          <div className="vault-coll-strip">
+            <Sparkles size={12} color="#a78bfa" />
+            <span className="vault-coll-label">Collections:</span>
+            {collections.length === 0 && (
+              <span className="vault-coll-empty">None yet — set filters and save one.</span>
+            )}
+            {collections.map(c => (
+              <button key={c.id}
+                onClick={() => activeCollectionId === c.id ? clearCollection() : applyCollection(c)}
+                className={cn('vault-coll-chip', activeCollectionId === c.id && 'is-active')}
+                title="Apply this collection">
+                {c.name}
+                <span onClick={e => { e.stopPropagation(); deleteCollection(c.id); }}
+                  className="vault-coll-x" title="Delete collection"><X size={10} /></span>
+              </button>
+            ))}
+            {(filter || domainFilter || sourceTypeFilter || pinnedOnly || showArchived || deepMode) && (
+              <button onClick={() => setSaveCollOpen(true)} className="vault-coll-save" title="Save current filters as a collection">
+                <Save size={11} /> Save view
+              </button>
+            )}
+            {activeCollectionId && (
+              <button onClick={clearCollection} className="vault-coll-clear">Clear</button>
+            )}
+          </div>
+        )}
+
+        {/* Save collection inline */}
+        {saveCollOpen && (
+          <div className="vault-coll-save-row">
+            <Sparkles size={13} color="#a78bfa" />
+            <input value={collName} onChange={e => setCollName(e.target.value)} autoFocus
+              placeholder="Collection name (e.g. AI papers, Reading queue)"
+              onKeyDown={e => { if (e.key === 'Enter') saveCollection(); if (e.key === 'Escape') setSaveCollOpen(false); }} />
+            <button onClick={saveCollection} disabled={!collName.trim()} className="primary">Save</button>
+            <button onClick={() => { setSaveCollOpen(false); setCollName(''); }}>Cancel</button>
+          </div>
+        )}
+
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 300 }}>
+          <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 320 }}>
             <Search size={13} color="var(--text-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-            <input type="text" placeholder="Search memories..." value={filter} onChange={e => setFilter(e.target.value)}
-              style={{ width: '100%', paddingLeft: 30, paddingRight: filter ? 28 : 12, paddingTop: 9, paddingBottom: 9, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 12.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
-              onFocus={e => { e.target.style.borderColor = 'rgba(244,114,182,0.4)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)'; }}
+            <input type="text" placeholder={deepMode ? 'Deep search across summaries, key points, notes...' : 'Search memories...'} value={filter} onChange={e => setFilter(e.target.value)}
+              style={{ width: '100%', paddingLeft: 30, paddingRight: filter ? 28 : 12, paddingTop: 9, paddingBottom: 9, background: 'var(--surface)', border: `1px solid ${deepMode ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`, borderRadius: 10, color: 'var(--text-1)', fontSize: 12.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+              onFocus={e => { e.target.style.borderColor = deepMode ? 'rgba(168,85,247,0.55)' : 'rgba(244,114,182,0.4)'; }}
+              onBlur={e => { e.target.style.borderColor = deepMode ? 'rgba(168,85,247,0.4)' : 'var(--border)'; }}
             />
             {filter && (
               <button onClick={() => setFilter('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2 }}>
@@ -206,6 +454,27 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
               </button>
             )}
           </div>
+
+          <button onClick={() => setDeepMode(d => !d)}
+            title={deepMode ? 'Deep search on — searches inside summaries and notes' : 'Turn on deep search'}
+            className={cn('vault-toggle', deepMode && 'is-on')}>
+            <Sparkles size={11} /> Deep
+          </button>
+
+          <button onClick={() => setPinnedOnly(p => !p)} title="Show only pinned"
+            className={cn('vault-toggle', pinnedOnly && 'is-on pinned')}>
+            <Pin size={11} /> Pinned
+          </button>
+
+          <button onClick={() => setShowArchived(a => !a)} title="Include archived items"
+            className={cn('vault-toggle', showArchived && 'is-on')}>
+            <Archive size={11} /> Archived
+          </button>
+
+          <button onClick={() => { setSelectMode(m => !m); if (selectMode) setSelectedIds(new Set()); }}
+            className={cn('vault-toggle', selectMode && 'is-on select')}>
+            {selectMode ? <CheckSquare size={11} /> : <Square size={11} />} Select
+          </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <Filter size={11} color="var(--text-3)" />
@@ -236,6 +505,40 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
         </div>
       </motion.div>
 
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selectMode && selectedIds.size > 0 && (
+          <motion.div initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }}
+            className="vault-action-bar">
+            <span className="vault-action-count">{selectedIds.size} selected</span>
+            <button onClick={() => setSelectedIds(new Set(filtered.map(m => m.id)))} className="vault-action-link">Select all on page</button>
+            <span style={{ flex: 1 }} />
+            <button onClick={() => setTagPromptOpen('add')} disabled={bulkBusy} className="vault-action-btn"><Tag size={12} /> Add tags</button>
+            <button onClick={() => setTagPromptOpen('remove')} disabled={bulkBusy} className="vault-action-btn"><Tag size={12} /> Remove tags</button>
+            <button onClick={() => bulkArchive(true)} disabled={bulkBusy} className="vault-action-btn"><Archive size={12} /> Archive</button>
+            {showArchived && (
+              <button onClick={() => bulkArchive(false)} disabled={bulkBusy} className="vault-action-btn"><ArchiveRestore size={12} /> Unarchive</button>
+            )}
+            <button onClick={exportSelection} disabled={bulkBusy} className="vault-action-btn"><Download size={12} /> Export</button>
+            <button onClick={bulkDelete} disabled={bulkBusy} className="vault-action-btn danger"><Trash2 size={12} /> Delete</button>
+            <button onClick={exitSelect} title="Exit select mode" className="vault-action-x"><X size={12} /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Inline tag prompt for bulk */}
+      {tagPromptOpen && (
+        <div className="vault-tag-prompt">
+          <Tag size={13} color={tagPromptOpen === 'add' ? '#22d3ee' : '#ef4444'} />
+          <span className="lbl">{tagPromptOpen === 'add' ? 'Add tags to' : 'Remove tags from'} {selectedIds.size} memor{selectedIds.size === 1 ? 'y' : 'ies'}</span>
+          <input value={tagInput} onChange={e => setTagInput(e.target.value)} autoFocus
+            placeholder="comma, separated, tags"
+            onKeyDown={e => { if (e.key === 'Enter') submitTagBulk(); if (e.key === 'Escape') { setTagPromptOpen(null); setTagInput(''); } }} />
+          <button onClick={submitTagBulk} disabled={!tagInput.trim() || bulkBusy} className="primary">Apply</button>
+          <button onClick={() => { setTagPromptOpen(null); setTagInput(''); }}>Cancel</button>
+        </div>
+      )}
+
       {/* Memories — grid (comfortable / compact) or list */}
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
@@ -256,12 +559,21 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             const SrcIcon = src.icon;
             return (
               <motion.div key={memory.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.015, 0.3) }}
-                className="vault-row" onClick={() => navigate(`/memory/${memory.id}`)}>
+                className={cn('vault-row', selectedIds.has(memory.id) && 'is-selected', memory.pinned && 'is-pinned', memory.archived && 'is-archived')}
+                onClick={() => selectMode ? toggleSelect(memory.id) : navigate(`/memory/${memory.id}`)}>
+                {selectMode && (
+                  <input type="checkbox" checked={selectedIds.has(memory.id)} onChange={() => toggleSelect(memory.id)} onClick={e => e.stopPropagation()}
+                    className="vault-row-check" />
+                )}
                 <div className="vault-row-icon" style={{ background: `${src.color}12`, border: `1px solid ${src.color}20` }}>
                   <SrcIcon size={14} color={src.color} />
                 </div>
                 <div className="vault-row-main">
-                  <div className="vault-row-title">{memory.title}</div>
+                  <div className="vault-row-title">
+                    {memory.pinned && <Pin size={11} className="vault-pin-mark" />}
+                    {memory.title}
+                    {memory.archived && <span className="vault-archived-tag">Archived</span>}
+                  </div>
                   <div className="vault-row-meta">
                     <span style={{ padding: '1px 6px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{memory.domain}</span>
                     {memory.tags.slice(0, 2).map(tag => (
@@ -272,8 +584,13 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                       <Clock size={10} />{new Date(memory.created_at).toLocaleDateString()}
                     </span>
                   </div>
+                  {deepMode && deepResults[memory.id] && renderSnippet(memory.id)}
                 </div>
                 <div className="vault-row-actions">
+                  <button onClick={e => togglePin(memory, e)} title={memory.pinned ? 'Unpin' : 'Pin to top'}
+                    className={cn('vault-row-pin', memory.pinned && 'is-on')}>
+                    {memory.pinned ? <Pin size={13} /> : <PinOff size={13} />}
+                  </button>
                   <button onClick={e => { e.stopPropagation(); setFlashcardsMemory(memory); }} title="Generate Flashcards"
                     style={{ width: 28, height: 28, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.25)'; }}
@@ -313,11 +630,20 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             const tagLimit = compact ? 2 : 3;
             const actionBtn = compact ? 22 : 26;
             const actionIcon = compact ? 11 : 12;
+            const sel = selectedIds.has(memory.id);
             return (
               <motion.div key={memory.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.4) }}
-                style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${src.color}12`; e.currentTarget.style.borderColor = `${src.color}25`; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                onClick={() => { if (selectMode) toggleSelect(memory.id); }}
+                className={cn(memory.pinned && 'vault-card-pinned', sel && 'vault-card-selected')}
+                style={{ ...card, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer', borderColor: sel ? 'var(--primary-border)' : 'var(--border)', background: sel ? 'var(--primary-bg)' : (card as any).background }}
+                onMouseEnter={e => { if (!sel) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${src.color}12`; e.currentTarget.style.borderColor = `${src.color}25`; } }}
+                onMouseLeave={e => { if (!sel) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; } }}>
+
+                {selectMode && (
+                  <input type="checkbox" checked={sel} onChange={() => toggleSelect(memory.id)} onClick={e => e.stopPropagation()}
+                    className="vault-card-check" />
+                )}
+                {memory.pinned && !selectMode && <div className="vault-card-pin-mark"><Pin size={10} /></div>}
 
                 {memory.source_type === 'youtube' && memory.source_url && getYouTubeId(memory.source_url) && (
                   <YouTubeThumbnail url={memory.source_url} onClick={() => setSelectedMemory(memory)} />
@@ -338,7 +664,13 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
                         <FlipHorizontal size={actionIcon} />
                       </button>
-                      <button onClick={e => handleDelete(memory.id, e)} disabled={deletingId === memory.id} title="Delete"
+                      <button onClick={e => togglePin(memory, e)} title={memory.pinned ? 'Unpin' : 'Pin to top'}
+                        style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: memory.pinned ? 'rgba(244,114,182,0.18)' : 'transparent', border: `1px solid ${memory.pinned ? 'rgba(244,114,182,0.35)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: memory.pinned ? '#f472b6' : 'var(--text-3)', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { if (!memory.pinned) { e.currentTarget.style.background = 'rgba(244,114,182,0.1)'; e.currentTarget.style.color = '#f472b6'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.25)'; } }}
+                        onMouseLeave={e => { if (!memory.pinned) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; } }}>
+                        {memory.pinned ? <Pin size={actionIcon} /> : <PinOff size={actionIcon} />}
+                      </button>
+                      <button onClick={e => handleDelete(memory.id, e)} disabled={deletingId === memory.id} title="Move to Trash"
                         style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
@@ -362,6 +694,8 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                     ))}
                     {memory.tags.length > tagLimit && <span style={{ color: 'var(--text-3)', fontSize: tagFs, fontWeight: 700, alignSelf: 'center' }}>+{memory.tags.length - tagLimit}</span>}
                   </div>
+
+                  {deepMode && deepResults[memory.id] && renderSnippet(memory.id)}
 
                   <div style={{ paddingTop: compact ? 8 : 10, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)', fontSize: 10 }}>

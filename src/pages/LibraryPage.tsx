@@ -1,5 +1,5 @@
 import React from 'react';
-import { Library, Database, StickyNote, Bookmark, FileText, Inbox, CheckSquare, Flame, FlipHorizontal, Bell } from 'lucide-react';
+import { Library, Database, StickyNote, Bookmark, FileText, Inbox, CheckSquare, Flame, FlipHorizontal, Bell, Tag, Trash2 } from 'lucide-react';
 import TabbedPage from '../components/TabbedPage';
 import VaultPage from './VaultPage';
 import NotesPage from './NotesPage';
@@ -9,6 +9,8 @@ import HabitsPage from './HabitsPage';
 import FlashcardsPage from './FlashcardsPage';
 import RevisitsPage from './RevisitsPage';
 import LibraryInboxTab from '../components/LibraryInboxTab';
+import TrashPage from './TrashPage';
+import TagsManagerPage from './TagsManagerPage';
 
 const LibraryPage: React.FC = () => {
   return (
@@ -27,10 +29,12 @@ const LibraryPage: React.FC = () => {
         { id: 'bookmarks',  label: 'Bookmarks',  icon: Bookmark,        render: () => <BookmarksPage embedded /> },
         { id: 'files',      label: 'Files',      icon: FileText,        render: () => <VaultPage embedded initialSourceFilter="pdf" /> },
         { id: 'inbox',      label: 'Inbox',      icon: Inbox,           render: () => <LibraryInboxTab /> },
+        { id: 'tags',       label: 'Tags',       icon: Tag,             render: () => <TagsManagerPage /> },
         { id: 'tasks',      label: 'Tasks',      icon: CheckSquare,     render: () => <TasksPage embedded /> },
         { id: 'habits',     label: 'Habits',     icon: Flame,           render: () => <HabitsPage embedded /> },
         { id: 'flashcards', label: 'Flashcards', icon: FlipHorizontal,  render: () => <FlashcardsPage embedded /> },
         { id: 'revisits',   label: 'Revisits',   icon: Bell,            render: () => <RevisitsPage embedded /> },
+        { id: 'trash',      label: 'Trash',      icon: Trash2,          render: () => <TrashPage /> },
       ]}
     />
   );

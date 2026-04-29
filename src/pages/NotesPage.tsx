@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StickyNote, Plus, Search, Pin, PinOff, Trash2, Save, Edit3, X,
   Eye, Code, Tag as TagIcon, FileText, Sparkles, Calendar as CalendarIcon,
-  Hash, Filter, Type, ChevronRight, Clock
+  Hash, Filter, Type, ChevronRight, Clock, CheckSquare, Square, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { showToast } from '../App';
 
 interface Note {
   id: string;
@@ -46,6 +47,11 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [tagPrompt, setTagPrompt] = useState<null | 'add' | 'remove'>(null);
+  const [tagPromptInput, setTagPromptInput] = useState('');
 
   const loadNotes = useCallback(() => {
     fetch('/notes').then(r => r.json()).then((data: Note[]) => {
@@ -110,10 +116,66 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   };
 
   const deleteNote = async (id: string) => {
-    if (!confirm('Delete this note?')) return;
+    if (!confirm('Move this note to Trash?')) return;
     await fetch(`/notes/${id}`, { method: 'DELETE' });
     setNotes(notes.filter(n => n.id !== id));
     if (selectedId === id) setSelectedId(notes.find(n => n.id !== id)?.id ?? null);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); };
+
+  const bulkApi = async (path: string, body: any, okMsg: string) => {
+    setBulkBusy(true);
+    try {
+      const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error('bulk failed');
+      showToast(okMsg);
+      loadNotes();
+      exitSelect();
+    } catch {
+      showToast('Bulk action failed');
+    } finally { setBulkBusy(false); }
+  };
+
+  const bulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} notes to Trash?`)) return;
+    bulkApi('/library/bulk-delete', { entity: 'note', ids: Array.from(selectedIds) }, 'Moved to Trash');
+  };
+
+  const bulkTagAdd = () => {
+    const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (!tags.length || selectedIds.size === 0) return;
+    bulkApi('/library/bulk-tag-add', { entity: 'note', ids: Array.from(selectedIds), tags }, 'Tags added');
+    setTagPromptInput('');
+  };
+
+  const bulkTagRemove = () => {
+    const tags = tagPromptInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (!tags.length || selectedIds.size === 0) return;
+    bulkApi('/library/bulk-tag-remove', { entity: 'note', ids: Array.from(selectedIds), tags }, 'Tags removed');
+    setTagPromptInput('');
+  };
+
+  const bulkExport = () => {
+    if (selectedIds.size === 0) return;
+    const chosen = notes.filter(n => selectedIds.has(n.id));
+    const md = chosen.map(n => `# ${n.title}\n\nTags: ${n.tags.map(t => '#' + t).join(' ')}\n\n${n.content}\n\n---\n`).join('\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `notes-export-${Date.now()}.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${chosen.length} notes`);
   };
 
   const addTag = () => {
@@ -171,6 +233,56 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
               style={{ width: '100%', padding: '9px 12px 9px 32px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontSize: 12.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
 
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button onClick={() => { if (selectMode) exitSelect(); else setSelectMode(true); }}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '6px 10px', background: selectMode ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${selectMode ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 9, color: selectMode ? 'var(--primary)' : 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {selectMode ? <CheckSquare size={11} /> : <Square size={11} />}
+              {selectMode ? `Selected: ${selectedIds.size}` : 'Select'}
+            </button>
+            {selectMode && filtered.length > 0 && (
+              <button onClick={() => {
+                const allIds = new Set(filtered.map(n => n.id));
+                setSelectedIds(selectedIds.size === filtered.length ? new Set() : allIds);
+              }}
+                style={{ padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {selectedIds.size === filtered.length ? 'None' : 'All'}
+              </button>
+            )}
+          </div>
+
+          {selectMode && selectedIds.size > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, background: 'var(--surface-2)', border: '1px solid var(--primary-border)', borderRadius: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                <button onClick={bulkDelete} disabled={bulkBusy} title="Move to Trash"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 7, color: '#ef4444', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <Trash2 size={10} /> Trash
+                </button>
+                <button onClick={bulkExport} disabled={bulkBusy} title="Export markdown"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <Download size={10} /> Export
+                </button>
+                <button onClick={() => { setTagPrompt('add'); setTagPromptInput(''); }} disabled={bulkBusy}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <TagIcon size={10} /> Add tag
+                </button>
+                <button onClick={() => { setTagPrompt('remove'); setTagPromptInput(''); }} disabled={bulkBusy}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <X size={10} /> Remove tag
+                </button>
+              </div>
+              {tagPrompt && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input autoFocus value={tagPromptInput} onChange={e => setTagPromptInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { tagPrompt === 'add' ? bulkTagAdd() : bulkTagRemove(); } }}
+                    placeholder="tag1, tag2"
+                    style={{ flex: 1, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
+                  <button onClick={tagPrompt === 'add' ? bulkTagAdd : bulkTagRemove} disabled={!tagPromptInput.trim()}
+                    style={{ padding: '5px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, cursor: tagPromptInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: tagPromptInput.trim() ? 1 : 0.5 }}>OK</button>
+                </div>
+              )}
+            </div>
+          )}
+
           {allTags.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               <button onClick={() => setTagFilter(null)} style={{ padding: '3px 9px', background: !tagFilter ? 'var(--primary-bg)' : 'transparent', border: `1px solid ${!tagFilter ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 12, color: !tagFilter ? 'var(--primary)' : 'var(--text-3)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>All</button>
@@ -189,11 +301,18 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                 <div style={{ fontSize: 12 }}>No notes yet</div>
                 <button onClick={createNew} style={{ marginTop: 10, padding: '6px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8, color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Create first note</button>
               </div>
-            ) : filtered.map(n => (
-              <motion.div key={n.id} onClick={() => setSelectedId(n.id)}
+            ) : filtered.map(n => {
+              const isSel = selectedIds.has(n.id);
+              return (
+              <motion.div key={n.id} onClick={() => selectMode ? toggleSelect(n.id) : setSelectedId(n.id)}
                 whileHover={{ x: 2 }}
-                style={{ padding: '10px 12px', background: selectedId === n.id ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${selectedId === n.id ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 11, cursor: 'pointer', position: 'relative' }}>
+                style={{ padding: '10px 12px', background: selectMode && isSel ? 'rgba(99,102,241,0.12)' : selectedId === n.id ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${selectMode && isSel ? 'var(--primary)' : selectedId === n.id ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 11, cursor: 'pointer', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'start', gap: 8 }}>
+                  {selectMode && (
+                    isSel
+                      ? <CheckSquare size={13} color="var(--primary)" style={{ flexShrink: 0, marginTop: 1 }} />
+                      : <Square size={13} color="var(--text-3)" style={{ flexShrink: 0, marginTop: 1 }} />
+                  )}
                   {n.pinned && <Pin size={11} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: selectedId === n.id ? 'var(--primary)' : 'var(--text-1)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</div>
@@ -204,7 +323,8 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

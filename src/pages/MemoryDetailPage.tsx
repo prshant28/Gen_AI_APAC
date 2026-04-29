@@ -93,13 +93,22 @@ export default function MemoryDetailPage() {
           role: 'assistant',
           content: `I've read **"${m.title}"** — ask me anything about this topic, request deeper insights, or tell me what you'd like to do with it.`,
         }]);
-        // Fetch related
-        if (m.tags?.length) {
-          fetch(`/memories?limit=6`)
-            .then(r => r.ok ? r.json() : [])
-            .then((all: Memory[]) => setRelated(all.filter(x => x.id !== id && x.tags?.some(t => m.tags.includes(t))).slice(0,4)))
-            .catch(() => {});
-        }
+        // Fetch related via the dedicated endpoint (tag + domain overlap, ranked)
+        fetch(`/memories/${id}/related?limit=6`)
+          .then(r => r.ok ? r.json() : [])
+          .then((j: any) => {
+            const list: Memory[] = Array.isArray(j) ? j : Array.isArray(j?.results) ? j.results : [];
+            setRelated(list);
+          })
+          .catch(() => {
+            // Fallback to client-side overlap if endpoint fails
+            if (m.tags?.length) {
+              fetch(`/memories?limit=6`)
+                .then(r => r.ok ? r.json() : [])
+                .then((all: Memory[]) => setRelated(all.filter(x => x.id !== id && x.tags?.some(t => m.tags.includes(t))).slice(0, 4)))
+                .catch(() => {});
+            }
+          });
       })
       .catch(() => setError('Memory not found.'))
       .finally(() => setLoading(false));

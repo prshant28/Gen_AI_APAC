@@ -38,6 +38,10 @@ export interface Memory {
   // Inbox triage flags
   reviewed?: boolean;
   archived?: boolean;
+  // Library power-ups (Task #18)
+  pinned?: boolean;
+  trashed_at?: string;
+  project_id?: string;
   // Optional preview-only metadata surfaced by the capture preview pipeline
   // (none of these are persisted on the saved memory document — they're
   // displayed in the Capture page metadata strip).
@@ -153,6 +157,30 @@ export interface WorkspaceOrganizeAssignment {
   section_id: WorkspaceSectionId | string;
   tags: string[];
   group_id: string;
+}
+
+export interface SmartCollection {
+  id: string;
+  name: string;
+  filters: {
+    search?: string;
+    domain?: string;
+    source?: string;
+    tags?: string[];
+    pinned_only?: boolean;
+    archived?: boolean;
+    deep?: boolean;
+  };
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TagIndexEntry {
+  name: string;
+  memories: number;
+  notes: number;
+  bookmarks: number;
+  total: number;
 }
 
 export interface WorkspaceOrganizeResult {

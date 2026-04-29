@@ -21,13 +21,15 @@ def _today_iso() -> str:
 
 # ─── Notes ─────────────────────────────────────────────────────────────────────
 
-async def list_notes(tag: str = "", limit: int = 50) -> List[dict]:
+async def list_notes(tag: str = "", limit: int = 50, include_trashed: bool = False) -> List[dict]:
     db = await get_db()
     snapshot = await db.collection("notes").get()
     notes = []
     for doc in snapshot:
         d = doc.to_dict() | {"id": doc.id}
         if not belongs_to_current_user(d):
+            continue
+        if not include_trashed and d.get("trashed_at"):
             continue
         if tag and tag not in (d.get("tags") or []):
             continue
@@ -71,24 +73,30 @@ async def update_note(note_id: str, **fields) -> dict:
     return existing
 
 
-async def delete_note(note_id: str) -> dict:
+async def delete_note(note_id: str, hard: bool = False) -> dict:
+    """Soft-delete by default (move to Trash). `hard=True` permanently removes."""
     db = await get_db()
     doc = await db.collection("notes").document(note_id).get()
     if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError(f"Note {note_id} not found")
-    await db.collection("notes").document(note_id).delete()
-    return {"success": True, "id": note_id}
+    if hard:
+        await db.collection("notes").document(note_id).delete()
+        return {"success": True, "id": note_id, "hard": True}
+    await db.collection("notes").document(note_id).update({"trashed_at": _utcnow_iso()})
+    return {"success": True, "id": note_id, "trashed": True}
 
 
 # ─── Bookmarks ────────────────────────────────────────────────────────────────
 
-async def list_bookmarks(status: str = "", limit: int = 100) -> List[dict]:
+async def list_bookmarks(status: str = "", limit: int = 100, include_trashed: bool = False) -> List[dict]:
     db = await get_db()
     snapshot = await db.collection("bookmarks").get()
     items = []
     for doc in snapshot:
         d = doc.to_dict() | {"id": doc.id}
         if not belongs_to_current_user(d):
+            continue
+        if not include_trashed and d.get("trashed_at"):
             continue
         if status and d.get("status") != status:
             continue
@@ -131,13 +139,17 @@ async def update_bookmark(bm_id: str, **fields) -> dict:
     return existing
 
 
-async def delete_bookmark(bm_id: str) -> dict:
+async def delete_bookmark(bm_id: str, hard: bool = False) -> dict:
+    """Soft-delete by default (move to Trash). `hard=True` permanently removes."""
     db = await get_db()
     doc = await db.collection("bookmarks").document(bm_id).get()
     if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError(f"Bookmark {bm_id} not found")
-    await db.collection("bookmarks").document(bm_id).delete()
-    return {"success": True, "id": bm_id}
+    if hard:
+        await db.collection("bookmarks").document(bm_id).delete()
+        return {"success": True, "id": bm_id, "hard": True}
+    await db.collection("bookmarks").document(bm_id).update({"trashed_at": _utcnow_iso()})
+    return {"success": True, "id": bm_id, "trashed": True}
 
 
 # ─── Habits ───────────────────────────────────────────────────────────────────

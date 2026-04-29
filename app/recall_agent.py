@@ -385,7 +385,13 @@ Write a SHORT, direct answer:
     }
 
 
-async def list_memories(domain: str = "", limit: int = 20, unreviewed: bool = False) -> List[dict]:
+async def list_memories(
+    domain: str = "",
+    limit: int = 20,
+    unreviewed: bool = False,
+    include_archived: bool = False,
+    include_trashed: bool = False,
+) -> List[dict]:
     """List the current user's memories, newest first.
 
     `unreviewed=True` returns only items that have not yet been reviewed
@@ -393,6 +399,11 @@ async def list_memories(domain: str = "", limit: int = 20, unreviewed: bool = Fa
     when neither `reviewed` nor `archived` is true on the document.
     Older docs created before these fields existed are treated as
     unreviewed (the field is missing) so legacy captures still show up.
+
+    By default, items in Trash (`trashed_at` set) and items in Archive
+    (`archived=True`) are excluded from the main list. Pass
+    `include_archived=True` to merge archived items back in. Trashed items
+    only appear via the dedicated /trash endpoints.
     """
     db = await get_db()
     query_ref = db.collection("memories")
@@ -405,6 +416,12 @@ async def list_memories(domain: str = "", limit: int = 20, unreviewed: bool = Fa
         m = doc.to_dict()
         if not belongs_to_current_user(m):
             continue
+        # Exclude trashed unless explicitly requested
+        if not include_trashed and m.get("trashed_at"):
+            continue
+        # Exclude archived unless explicitly requested
+        if not include_archived and m.get("archived") is True:
+            continue
         if unreviewed and (m.get("reviewed") is True or m.get("archived") is True):
             continue
         m["id"] = doc.id
@@ -413,6 +430,8 @@ async def list_memories(domain: str = "", limit: int = 20, unreviewed: bool = Fa
         results.append(m)
         if len(results) >= limit:
             break
+    # Pinned items float to the top within the returned page
+    results.sort(key=lambda x: 0 if x.get("pinned") else 1)
     return results
 
 
@@ -430,14 +449,22 @@ async def get_memory(memory_id: str) -> dict:
     return m
 
 
-async def delete_memory(memory_id: str) -> dict:
+async def delete_memory(memory_id: str, hard: bool = False) -> dict:
+    """Soft-delete by default — set `trashed_at` so the item moves to Trash
+    and can be restored. Pass `hard=True` to permanently remove the doc
+    (used by the trash purge endpoint)."""
     db = await get_db()
     doc_ref = db.collection("memories").document(memory_id)
     doc = await doc_ref.get()
     if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise ValueError(f"Memory '{memory_id}' not found.")
-    await doc_ref.delete()
-    return {"success": True, "message": f"Memory {memory_id} deleted."}
+    if hard:
+        await doc_ref.delete()
+        return {"success": True, "message": f"Memory {memory_id} permanently deleted.", "hard": True}
+    import datetime as _dt
+    now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    await doc_ref.update({"trashed_at": now_iso})
+    return {"success": True, "message": f"Memory {memory_id} moved to Trash.", "trashed_at": now_iso}
 
 
 async def get_stats() -> dict:
