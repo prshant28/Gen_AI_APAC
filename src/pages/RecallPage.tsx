@@ -362,7 +362,7 @@ const RecallView = () => {
                 </span>
               </div>
               <div style={{ color: 'var(--text-3)', fontSize: 11.5, marginTop: 2 }}>
-                Talk to your Second Brain — Gemini Live answers instantly
+                Talk to your Second Brain — answers stream back in real time
               </div>
             </div>
           </div>

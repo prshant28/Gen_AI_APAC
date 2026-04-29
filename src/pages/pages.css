@@ -3109,19 +3109,10 @@
   .lg-right-vignette { display: none !important; }
 }
 
-/* ───────── Agent Hub v2: responsive grid ───────── */
-@media (max-width: 1080px) {
-  .agent-hub-v2 .agent-body-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .agent-hub-v2 .agent-body-grid > div:first-child {
-    max-height: 380px;
-  }
-}
-
+/* ───────── Agent Hub v2: chat-first responsive tweaks ───────── */
 @media (max-width: 720px) {
   .agent-hub-v2 .agent-hero h2 {
-    font-size: 22px !important;
+    font-size: 18px !important;
   }
 }
 
@@ -3807,23 +3798,22 @@
 
 /* ─────────────────────────────────────────────────────────────────
    AGENT HUB — phone polish
-   Wrap hero buttons cleanly + hide non-essential labels on tiny widths.
+   Tighten the header row and let action buttons collapse to icons on
+   very narrow screens so the chat thread stays the focal point.
    ───────────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .agent-hub-v2 { padding: 8px 0 24px !important; }
-  /* Hero row: title + actions — let actions wrap to a fresh row,
-     and let each action button shrink to icon+small-label. */
-  .agent-hub-v2 .agent-hero > div:first-child { row-gap: 10px; }
+  .agent-hub-v2 .agent-hero { row-gap: 10px; }
   .agent-hub-v2 .agent-hero button {
     padding: 7px 10px !important;
     font-size: 11.5px !important;
   }
   .agent-hub-v2 .agent-hero h2 {
-    font-size: 18px !important;
+    font-size: 17px !important;
   }
 }
 @media (max-width: 420px) {
-  /* Even tighter: hide button text labels, keep icons only. */
+  /* Even tighter: hide button text labels in the header, keep icons only. */
   .agent-hub-v2 .agent-hero button > svg ~ * { display: none; }
   .agent-hub-v2 .agent-hero button {
     width: 36px; height: 36px; padding: 0 !important;
@@ -3842,11 +3832,16 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   AGENT HUB — Live Voice section: keep transcript readable on phones
+   AGENT HUB — keep inputs at 16px on phones to prevent iOS auto-zoom
    ───────────────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
-  .agent-hub-v2 input[placeholder*="Type instead"] {
-    font-size: 16px !important; /* prevents iOS auto-zoom */
+  .agent-hub-v2 input,
+  .agent-hub-v2 textarea {
+    font-size: 16px !important;
+  }
+  /* Drawer should fill the screen on small phones */
+  .agent-history-drawer {
+    width: 100vw !important;
   }
 }
 

@@ -1118,7 +1118,7 @@ const CaptureView = () => {
                         {voice.recording ? '● Recording…' : voice.transcribing ? '◌ Transcribing…' : 'Press to record'}
                       </p>
                       <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
-                        {voice.recording ? 'Click again to stop and transcribe' : voice.transcribing ? 'Whisper AI is converting your audio' : 'Audio sent to Whisper for transcription'}
+                        {voice.recording ? 'Click again to stop and transcribe' : voice.transcribing ? 'Converting your audio…' : 'Audio is transcribed automatically'}
                       </p>
                     </div>
                   </div>

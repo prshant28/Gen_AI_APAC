@@ -1,6 +1,6 @@
 /**
  * LiveChatPanel — floating panel that gives the user a real-time voice / video
- * conversation with their Second Brain via the Gemini Live API.
+ * conversation with their Second Brain.
  *
  * Composition:
  *   - <LiveButton/> renders a floating "Live" button on every page.
@@ -231,7 +231,7 @@ const LivePanel: React.FC<PanelProps> = ({ open, onClose }) => {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>Live with Brain</div>
                 <div style={{ fontSize: 11, opacity: 0.65 }}>
-                  {isConnected ? `Connected · ${model || "Gemini Live"}`
+                  {isConnected ? `Connected · Voice ready`
                     : isConnecting ? "Connecting…"
                     : state === "error" ? "Error" : "Idle"}
                 </div>
@@ -467,8 +467,8 @@ export default LiveButton;
  * (text + voice) instead of a confusing 3rd floating button.
  *
  * Props:
- *   active   — when false the upstream Gemini Live session is torn down
- *              and mic/camera are released (privacy + cost). Pass `true`
+ *   active   — when false the upstream live session is torn down and
+ *              mic/camera are released (privacy + cost). Pass `true`
  *              while the section is visible to the user.
  *   compact  — slightly tighter padding for sidebars / narrow widths.
  */
@@ -640,7 +640,7 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Live Voice with Brain</div>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>
-              {isConnected ? `Connected · ${model || "Gemini Live"}`
+              {isConnected ? `Connected · Voice ready`
                 : isConnecting ? "Connecting…"
                 : state === "error" ? "Error" : "Idle — tap Start to talk"}
             </div>
@@ -787,7 +787,7 @@ export const LiveInlineGate: React.FC<{ active: boolean; compact?: boolean }> = 
     return (
       <div style={{ padding: 14, fontSize: 12, color: "var(--text-3)",
           background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12 }}>
-        Live voice is unavailable in this environment (Gemini Live API key not configured). Text chat above still works.
+        Voice mode is unavailable in this environment. Text chat above still works.
       </div>
     );
   }

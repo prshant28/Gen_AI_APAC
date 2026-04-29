@@ -84,7 +84,7 @@ const DeckPage: React.FC = () => {
         {[
           { icon: Brain,     label: '7 AI Agents',         val: 'Capture → Recall',    color: '#3b82f6' },
           { icon: Zap,       label: '8 Input Sources',     val: 'Web · YT · PDF · …',  color: '#22d3ee' },
-          { icon: Sparkles,  label: 'Gemini 2.0 + GPT',    val: 'Multi-model engine',  color: '#a78bfa' },
+          { icon: Sparkles,  label: 'AI engine',           val: 'Multi-model',         color: '#a78bfa' },
           { icon: Trophy,    label: 'APAC 2026 Submission', val: 'Live demo ready',    color: '#fbbf24' },
         ].map((s, i) => (
           <div key={i} style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10 }}>

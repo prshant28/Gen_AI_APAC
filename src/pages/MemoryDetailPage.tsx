@@ -504,7 +504,7 @@ export default function MemoryDetailPage() {
               </div>
               <div>
                 <p style={{ fontSize:12, fontWeight:700, color:'var(--text-1)', margin:0 }}>Research Agent</p>
-                <p style={{ fontSize:10, color:'var(--text-3)', margin:0 }}>Context-aware · Powered by RecallAgent</p>
+                <p style={{ fontSize:10, color:'var(--text-3)', margin:0 }}>Context-aware · Searches your memories</p>
               </div>
             </div>
 
