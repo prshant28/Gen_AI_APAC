@@ -68,32 +68,36 @@ class Settings(BaseSettings):
         if not self.FIREBASE_DATABASE_ID:
             self.FIREBASE_DATABASE_ID = os.getenv("FIREBASE_DATABASE_ID", "(default)")
 
-        # Gemini-only test mode (per user request): use the live Gemini key
-        # via the OpenAI-compatible Gemini endpoint as the only provider.
-        gemini_key = (
-            os.getenv("GEMINI_LIVE_API_KEY")
-            or os.getenv("GOOGLE_API_KEY")
-            or os.getenv("GEMINI_API_KEY")
-            or os.getenv("BACKUP_GEMINI_API_KEY")
-            or self.GEMINI_API_KEY
+        # OpenAI-only mode (user added a paid OPENAI_API_KEY).
+        # Priority: OPENAI_API_KEY (the freshly paid key) wins over the
+        # earlier rotated _1 key and the legacy fallback aliases.
+        raw_openai_key = (
+            os.getenv("OPENAI_API_KEY")
+            or os.getenv("OPENAI_API_KEY_1")
+            or os.getenv("FALLBACK_AI_KEY")
+            or os.getenv("GEN_APAC_API_KEY")
+            or os.getenv("GEN_API_KEY")
         )
 
-        # No fallback / backup tiers in this mode.
-        self.FALLBACK_AI_KEY = None
+        # Force-disable Gemini and backup tiers in this single-provider mode.
+        self.GEMINI_API_KEY = None
+        self.GOOGLE_API_KEY = None
+        self.USE_GEMINI = False
         self.BACKUP_GEMINI_API_KEY = None
+        self.FALLBACK_AI_KEY = None
 
-        if gemini_key:
-            self.GEMINI_API_KEY = gemini_key
-            self.GOOGLE_API_KEY = gemini_key
-            self.PRIMARY_AI_KEY = gemini_key
-            self.PRIMARY_AI_BASE_URL = GEMINI_COMPAT_URL
-            self.PRIMARY_AI_MODEL = self.GEMINI_MODEL
-            self.USE_GEMINI = True
-            self.USE_OPENROUTER = False
-            # Keep OPENAI_API_KEY pointing at Gemini for backward compat
-            # with any code that still reads it directly.
-            self.OPENAI_API_KEY = gemini_key
-            self.OPENAI_MODEL = self.GEMINI_MODEL
+        if raw_openai_key:
+            self.PRIMARY_AI_KEY = raw_openai_key
+            if _is_openrouter_key(raw_openai_key):
+                self.PRIMARY_AI_BASE_URL = OPENROUTER_BASE_URL
+                self.PRIMARY_AI_MODEL = "openai/gpt-4o-mini"
+                self.USE_OPENROUTER = True
+            else:
+                self.PRIMARY_AI_BASE_URL = OPENAI_BASE_URL
+                self.PRIMARY_AI_MODEL = "gpt-4o-mini"
+                self.USE_OPENROUTER = False
+            self.OPENAI_API_KEY = raw_openai_key
+            self.OPENAI_MODEL = self.PRIMARY_AI_MODEL
 
     @property
     def openai_base_url(self) -> str:
