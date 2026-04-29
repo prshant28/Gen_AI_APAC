@@ -2,11 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bookmark, Plus, Search, Trash2, ExternalLink, Globe, Tag as TagIcon,
   CheckCircle2, Clock, BookOpen, Filter, Hash, X, Link as LinkIcon,
-  Star, Eye, Archive, Youtube, Play, CheckSquare, Square, Download
+  Star, Eye, Archive, ArchiveRestore, FolderInput, Youtube, Play, CheckSquare, Square, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
 import { showToast } from '../App';
+import type { BulkApiResponse } from '../lib/types';
+
+type BMStatus = 'unread' | 'reading' | 'done';
 
 interface BM {
   id: string;
@@ -42,15 +45,18 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [tagPrompt, setTagPrompt] = useState<null | 'add' | 'remove'>(null);
   const [tagPromptInput, setTagPromptInput] = useState('');
+  const [moveProjectPrompt, setMoveProjectPrompt] = useState(false);
+  const [moveProjectInput, setMoveProjectInput] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = () => {
-    fetch('/bookmarks').then(r => r.json()).then((data: BM[]) => {
+    fetch(`/bookmarks${showArchived ? '?include_archived=true' : ''}`).then(r => r.json()).then((data: BM[]) => {
       setItems(data || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [showArchived]);
 
   const domains = useMemo(() => {
     const map: Record<string, number> = {};
@@ -88,9 +94,9 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
     load();
   };
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: BMStatus) => {
     await fetch(`/bookmarks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
-    setItems(items.map(i => i.id === id ? { ...i, status: status as any } : i));
+    setItems(items.map(i => i.id === id ? { ...i, status } : i));
   };
 
   const deleteBM = async (id: string) => {
@@ -107,13 +113,14 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
     });
   };
 
-  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); };
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); setMoveProjectPrompt(false); };
 
-  const bulkApi = async (path: string, body: any, okMsg: string) => {
+  const bulkApi = async (path: string, body: Record<string, unknown>, okMsg: string) => {
     setBulkBusy(true);
     try {
       const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error('bulk failed');
+      await r.json().catch(() => ({} as BulkApiResponse));
       showToast(okMsg);
       load();
       exitSelect();
@@ -132,6 +139,25 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
     if (selectedIds.size === 0) return;
     if (!confirm(`Archive ${selectedIds.size} bookmarks? They get hidden from the main list but stay searchable.`)) return;
     bulkApi('/library/bulk-archive', { entity: 'bookmark', ids: Array.from(selectedIds), archived: true }, 'Archived');
+  };
+
+  const bulkUnarchive = () => {
+    if (selectedIds.size === 0) return;
+    bulkApi('/library/bulk-archive', { entity: 'bookmark', ids: Array.from(selectedIds), archived: false }, 'Unarchived');
+  };
+
+  const submitMoveProject = () => {
+    const pid = moveProjectInput.trim();
+    if (!pid || selectedIds.size === 0) { setMoveProjectPrompt(false); setMoveProjectInput(''); return; }
+    bulkApi('/library/bulk-move-project', { entity: 'bookmark', ids: Array.from(selectedIds), project_id: pid }, 'Moved to project');
+    setMoveProjectInput('');
+  };
+
+  const submitClearProject = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Remove ${selectedIds.size} bookmarks from any project?`)) return;
+    bulkApi('/library/bulk-move-project', { entity: 'bookmark', ids: Array.from(selectedIds), project_id: null }, 'Cleared project');
+    setMoveProjectInput('');
   };
 
   const bulkTagAdd = () => {
@@ -243,6 +269,10 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
             {selectMode ? <CheckSquare size={11} /> : <Square size={11} />}
             {selectMode ? `Selected: ${selectedIds.size}` : 'Select'}
           </button>
+          <button onClick={() => setShowArchived(v => !v)} title={showArchived ? 'Hide archived' : 'Show archived too'}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: showArchived ? 'rgba(168,85,247,0.12)' : 'transparent', border: `1px solid ${showArchived ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`, borderRadius: 9, color: showArchived ? '#a855f7' : 'var(--text-2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Archive size={11} /> {showArchived ? 'With archived' : 'Show archived'}
+          </button>
           {selectMode && filtered.length > 0 && (
             <button onClick={() => {
               const allIds = new Set(filtered.map(i => i.id));
@@ -269,10 +299,21 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
               <X size={11} /> Remove tags
             </button>
-            <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 8, color: '#a855f7', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-              <Archive size={11} /> Archive
+            <button onClick={() => { setMoveProjectPrompt(true); setMoveProjectInput(''); }} disabled={bulkBusy} title="Move to project"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <FolderInput size={11} /> Move
             </button>
+            {showArchived ? (
+              <button onClick={bulkUnarchive} disabled={bulkBusy} title="Bring back to main list"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, color: '#22c55e', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                <ArchiveRestore size={11} /> Unarchive
+              </button>
+            ) : (
+              <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 8, color: '#a855f7', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                <Archive size={11} /> Archive
+              </button>
+            )}
             <button onClick={bulkExport} disabled={bulkBusy}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 11, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
               <Download size={11} /> Export
@@ -285,6 +326,18 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
                   style={{ width: 140, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
                 <button onClick={tagPrompt === 'add' ? bulkTagAdd : bulkTagRemove} disabled={!tagPromptInput.trim()}
                   style={{ padding: '5px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: tagPromptInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: tagPromptInput.trim() ? 1 : 0.5 }}>OK</button>
+              </div>
+            )}
+            {moveProjectPrompt && (
+              <div style={{ display: 'flex', gap: 4, marginLeft: 6, flexWrap: 'wrap' }}>
+                <input autoFocus value={moveProjectInput} onChange={e => setMoveProjectInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitMoveProject(); if (e.key === 'Escape') { setMoveProjectPrompt(false); setMoveProjectInput(''); } }}
+                  placeholder="project id"
+                  style={{ width: 140, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
+                <button onClick={submitMoveProject} disabled={!moveProjectInput.trim() || bulkBusy}
+                  style={{ padding: '5px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: moveProjectInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: moveProjectInput.trim() ? 1 : 0.5 }}>Move</button>
+                <button onClick={submitClearProject} disabled={bulkBusy}
+                  style={{ padding: '5px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
               </div>
             )}
           </div>
@@ -362,7 +415,7 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
                 {bm.description && <p style={{ margin: '4px 0 0', color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{bm.description}</p>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <select value={bm.status} onChange={e => updateStatus(bm.id, e.target.value)}
+                <select value={bm.status} onChange={e => updateStatus(bm.id, e.target.value as BMStatus)}
                   style={{ padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
                   <option value="unread">Unread</option>
                   <option value="reading">Reading</option>

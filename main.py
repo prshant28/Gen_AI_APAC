@@ -692,11 +692,12 @@ async def bulk_archive_endpoint(body: BulkArchiveRequest):
 class BulkMoveProjectRequest(BaseModel):
     ids: List[str]
     project_id: Optional[str] = None
+    entity: Optional[str] = "memory"
 
 
 @app.post("/library/bulk-move-project")
 async def bulk_move_project_endpoint(body: BulkMoveProjectRequest):
-    return await library_agent.bulk_move_project(body.ids, body.project_id)
+    return await library_agent.bulk_move_project(body.ids, body.project_id, body.entity or "memory")
 
 
 class BulkTagRequest(BaseModel):

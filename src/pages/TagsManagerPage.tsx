@@ -51,8 +51,9 @@ const TagsManagerPage: React.FC = () => {
       showToast(`Renamed "${renaming.from}" to "${renaming.to.trim()}" across ${j.items_updated ?? 0} items`);
       setRenaming(null);
       load();
-    } catch (err: any) {
-      showToast(err?.message ? `Rename failed — ${String(err.message).slice(0, 80)}` : 'Rename failed', 'error');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      showToast(msg ? `Rename failed — ${msg.slice(0, 80)}` : 'Rename failed', 'error');
     } finally { setBusy(false); }
   };
 
@@ -71,8 +72,9 @@ const TagsManagerPage: React.FC = () => {
       setSelected(new Set());
       setMergeTarget('');
       load();
-    } catch (err: any) {
-      showToast(err?.message ? `Merge failed — ${String(err.message).slice(0, 80)}` : 'Merge failed', 'error');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      showToast(msg ? `Merge failed — ${msg.slice(0, 80)}` : 'Merge failed', 'error');
     } finally { setBusy(false); }
   };
 
@@ -85,8 +87,9 @@ const TagsManagerPage: React.FC = () => {
       const j = await r.json();
       showToast(`Removed "${name}" from ${j.items_updated ?? 0} items`);
       load();
-    } catch (err: any) {
-      showToast(err?.message ? `Delete failed — ${String(err.message).slice(0, 80)}` : 'Delete failed', 'error');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      showToast(msg ? `Delete failed — ${msg.slice(0, 80)}` : 'Delete failed', 'error');
     } finally { setBusy(false); }
   };
 

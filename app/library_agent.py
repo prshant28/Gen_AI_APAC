@@ -205,16 +205,17 @@ async def set_pinned(memory_id: str, pinned: bool) -> Dict[str, Any]:
     return {"id": memory_id, "pinned": bool(pinned)}
 
 
-async def bulk_move_project(ids: List[str], project_id: Optional[str]) -> Dict[str, Any]:
+async def bulk_move_project(ids: List[str], project_id: Optional[str], entity: str = "memory") -> Dict[str, Any]:
+    coll = _ENTITY_TO_COLLECTION.get((entity or "memory").lower(), "memories")
     pid = (project_id or "").strip() or None
     changed: List[str] = []
     for doc_id in ids:
-        d = await _doc("memories", doc_id)
+        d = await _doc(coll, doc_id)
         if d is None:
             continue
-        await _update("memories", doc_id, {"project_id": pid})
+        await _update(coll, doc_id, {"project_id": pid})
         changed.append(doc_id)
-    return {"updated": len(changed), "project_id": pid, "ids": changed}
+    return {"updated": len(changed), "project_id": pid, "entity": entity, "ids": changed}
 
 
 # ─── Bulk tag operations on memories ─────────────────────────────────────────

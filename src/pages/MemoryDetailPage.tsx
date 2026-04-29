@@ -6,6 +6,7 @@ import {
   Network, Send, Loader2, Bot, Zap, BookOpen, Share2, Copy, Clock,
   FlipHorizontal, Clipboard, Link2, ChevronRight, AlertCircle, Layers,
   MessageCircle, ListTodo, Bell, SquareArrowOutUpRight, RefreshCw,
+  type LucideIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed } from '../lib/utils';
@@ -24,7 +25,7 @@ const SRC = {
 /* ── Smart Action Detector ───────────────────────────────────────── */
 function detectActions(memory: Memory) {
   const text = [memory.title, memory.summary, ...memory.key_points].join(' ').toLowerCase();
-  const actions: { id: string; label: string; desc: string; icon: any; color: string; agent: string }[] = [];
+  const actions: { id: string; label: string; desc: string; icon: LucideIcon; color: string; agent: string }[] = [];
 
   const kw = (words: string[]) => words.some(w => text.includes(w));
 
@@ -96,8 +97,12 @@ export default function MemoryDetailPage() {
         // Fetch related via the dedicated endpoint (tag + domain overlap, ranked)
         fetch(`/memories/${id}/related?limit=6`)
           .then(r => r.ok ? r.json() : [])
-          .then((j: any) => {
-            const list: Memory[] = Array.isArray(j) ? j : Array.isArray(j?.results) ? j.results : [];
+          .then((j: unknown) => {
+            const list: Memory[] = Array.isArray(j)
+              ? (j as Memory[])
+              : (j && typeof j === 'object' && Array.isArray((j as { results?: Memory[] }).results))
+                ? (j as { results: Memory[] }).results
+                : [];
             setRelated(list);
           })
           .catch(() => {

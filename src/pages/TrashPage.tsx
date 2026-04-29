@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2, RotateCcw, AlertTriangle, Database, StickyNote, Bookmark, Search, X } from 'lucide-react';
+import { Trash2, RotateCcw, AlertTriangle, Database, StickyNote, Bookmark, Search, X, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { showToast } from '../App';
 
@@ -22,7 +22,7 @@ interface TrashResponse {
   bookmarks: TrashItem[];
 }
 
-const ENTITY_META: Record<Entity, { label: string; icon: any; color: string }> = {
+const ENTITY_META: Record<Entity, { label: string; icon: LucideIcon; color: string }> = {
   memory: { label: 'Memory', icon: Database, color: '#a78bfa' },
   note: { label: 'Note', icon: StickyNote, color: '#f59e0b' },
   bookmark: { label: 'Bookmark', icon: Bookmark, color: '#ec4899' },

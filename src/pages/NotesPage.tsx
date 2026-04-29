@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StickyNote, Plus, Search, Pin, PinOff, Trash2, Save, Edit3, X,
   Eye, Code, Tag as TagIcon, FileText, Sparkles, Calendar as CalendarIcon,
-  Hash, Filter, Type, ChevronRight, Clock, CheckSquare, Square, Download, Archive
+  Hash, Filter, Type, ChevronRight, Clock, CheckSquare, Square, Download, Archive, ArchiveRestore, FolderInput
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { showToast } from '../App';
+import type { BulkApiResponse } from '../lib/types';
 
 interface Note {
   id: string;
@@ -52,16 +53,19 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [tagPrompt, setTagPrompt] = useState<null | 'add' | 'remove'>(null);
   const [tagPromptInput, setTagPromptInput] = useState('');
+  const [moveProjectPrompt, setMoveProjectPrompt] = useState(false);
+  const [moveProjectInput, setMoveProjectInput] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const loadNotes = useCallback(() => {
-    fetch('/notes').then(r => r.json()).then((data: Note[]) => {
+    fetch(`/notes${showArchived ? '?include_archived=true' : ''}`).then(r => r.json()).then((data: Note[]) => {
       setNotes(data);
       if (data.length && !selectedId) setSelectedId(data[0].id);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [selectedId]);
+  }, [selectedId, showArchived]);
 
-  useEffect(() => { loadNotes(); }, []);
+  useEffect(() => { loadNotes(); }, [showArchived]);
 
   const selected = useMemo(() => notes.find(n => n.id === selectedId) || null, [notes, selectedId]);
 
@@ -130,13 +134,14 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
     });
   };
 
-  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); };
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setTagPrompt(null); setMoveProjectPrompt(false); };
 
-  const bulkApi = async (path: string, body: any, okMsg: string) => {
+  const bulkApi = async (path: string, body: Record<string, unknown>, okMsg: string) => {
     setBulkBusy(true);
     try {
       const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error('bulk failed');
+      await r.json().catch(() => ({} as BulkApiResponse));
       showToast(okMsg);
       loadNotes();
       exitSelect();
@@ -155,6 +160,25 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
     if (selectedIds.size === 0) return;
     if (!confirm(`Archive ${selectedIds.size} notes? They get hidden from the main list but stay searchable.`)) return;
     bulkApi('/library/bulk-archive', { entity: 'note', ids: Array.from(selectedIds), archived: true }, 'Archived');
+  };
+
+  const bulkUnarchive = () => {
+    if (selectedIds.size === 0) return;
+    bulkApi('/library/bulk-archive', { entity: 'note', ids: Array.from(selectedIds), archived: false }, 'Unarchived');
+  };
+
+  const submitMoveProject = () => {
+    const pid = moveProjectInput.trim();
+    if (!pid || selectedIds.size === 0) { setMoveProjectPrompt(false); setMoveProjectInput(''); return; }
+    bulkApi('/library/bulk-move-project', { entity: 'note', ids: Array.from(selectedIds), project_id: pid }, 'Moved to project');
+    setMoveProjectInput('');
+  };
+
+  const submitClearProject = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Remove ${selectedIds.size} notes from any project?`)) return;
+    bulkApi('/library/bulk-move-project', { entity: 'note', ids: Array.from(selectedIds), project_id: null }, 'Cleared project');
+    setMoveProjectInput('');
   };
 
   const bulkTagAdd = () => {
@@ -254,6 +278,10 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                 {selectedIds.size === filtered.length ? 'None' : 'All'}
               </button>
             )}
+            <button onClick={() => setShowArchived(v => !v)} title={showArchived ? 'Showing archived too' : 'Hide archived'}
+              style={{ padding: '6px 10px', background: showArchived ? 'rgba(168,85,247,0.12)' : 'var(--surface-2)', border: `1px solid ${showArchived ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`, borderRadius: 9, color: showArchived ? '#a855f7' : 'var(--text-3)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Archive size={10} /> {showArchived ? 'Archived: on' : 'Archived'}
+            </button>
           </div>
 
           {selectMode && selectedIds.size > 0 && (
@@ -275,10 +303,21 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
                   <X size={10} /> Remove tag
                 </button>
-                <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
-                  style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 7, color: '#a855f7', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-                  <Archive size={10} /> Archive
+                <button onClick={() => { setMoveProjectPrompt(true); setMoveProjectInput(''); }} disabled={bulkBusy} title="Move to project"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  <FolderInput size={10} /> Move
                 </button>
+                {showArchived ? (
+                  <button onClick={bulkUnarchive} disabled={bulkBusy} title="Bring back to main list"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 7, color: '#22c55e', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    <ArchiveRestore size={10} /> Unarchive
+                  </button>
+                ) : (
+                  <button onClick={bulkArchive} disabled={bulkBusy} title="Archive — hidden from main list, still searchable"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '6px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 7, color: '#a855f7', fontSize: 10.5, fontWeight: 700, cursor: bulkBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    <Archive size={10} /> Archive
+                  </button>
+                )}
               </div>
               {tagPrompt && (
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -288,6 +327,18 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                     style={{ flex: 1, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
                   <button onClick={tagPrompt === 'add' ? bulkTagAdd : bulkTagRemove} disabled={!tagPromptInput.trim()}
                     style={{ padding: '5px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, cursor: tagPromptInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: tagPromptInput.trim() ? 1 : 0.5 }}>OK</button>
+                </div>
+              )}
+              {moveProjectPrompt && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <input autoFocus value={moveProjectInput} onChange={e => setMoveProjectInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitMoveProject(); if (e.key === 'Escape') { setMoveProjectPrompt(false); setMoveProjectInput(''); } }}
+                    placeholder="project id"
+                    style={{ flex: 1, minWidth: 100, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-1)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }} />
+                  <button onClick={submitMoveProject} disabled={!moveProjectInput.trim() || bulkBusy}
+                    style={{ padding: '5px 10px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 7, color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, cursor: moveProjectInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: moveProjectInput.trim() ? 1 : 0.5 }}>Move</button>
+                  <button onClick={submitClearProject} disabled={bulkBusy}
+                    style={{ padding: '5px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
                 </div>
               )}
             </div>

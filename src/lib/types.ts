@@ -76,7 +76,7 @@ export interface AgentStepData {
   tool: string;
   name: string;
   status: 'running' | 'completed' | 'failed';
-  input?: any;
+  input?: string | Record<string, unknown>;
   output_summary?: string;
   error?: string;
   duration_ms?: number;
@@ -159,20 +159,48 @@ export interface WorkspaceOrganizeAssignment {
   group_id: string;
 }
 
+export interface SmartCollectionFilters {
+  search?: string;
+  domain?: string;
+  source?: string;
+  tags?: string[];
+  pinned_only?: boolean;
+  archived?: boolean;
+  deep?: boolean;
+  sort?: string;
+}
+
 export interface SmartCollection {
   id: string;
   name: string;
-  filters: {
-    search?: string;
-    domain?: string;
-    source?: string;
-    tags?: string[];
-    pinned_only?: boolean;
-    archived?: boolean;
-    deep?: boolean;
-  };
+  filters: SmartCollectionFilters;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface BulkApiResponse {
+  updated?: number;
+  deleted?: number;
+  trashed?: number;
+  archived?: boolean;
+  ids?: string[];
+  entity?: string;
+  project_id?: string | null;
+  error?: string;
+  detail?: string;
+}
+
+export interface DeepSearchHit {
+  id: string;
+  title?: string;
+  snippet?: string;
+  field?: string;
+}
+
+export interface DeepSearchResponse {
+  memories?: DeepSearchHit[];
+  notes?: DeepSearchHit[];
+  bookmarks?: DeepSearchHit[];
 }
 
 export interface TagIndexEntry {

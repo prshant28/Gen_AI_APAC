@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus, Edit2, FolderInput } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
-import type { Memory, Flashcard, SmartCollection } from '../lib/types';
+import type { Memory, Flashcard, SmartCollection, BulkApiResponse, DeepSearchResponse, DeepSearchHit } from '../lib/types';
 import { card } from '../lib/ui';
 import ViewModeToggle, { type ViewMode, type Density } from '../components/ViewModeToggle';
 import { showToast } from '../App';
@@ -186,14 +186,16 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
       try {
         const r = await fetch(`/search/deep?q=${encodeURIComponent(filter)}&entities=memory&limit=50`);
         if (!r.ok) { setDeepResults({}); return; }
-        const j = await r.json();
+        const j = await r.json() as DeepSearchResponse | DeepSearchHit[] | { results?: DeepSearchHit[] };
         const map: Record<string, string> = {};
         const ids: string[] = [];
         // Backend returns { memories: [...], notes: [...], bookmarks: [...] } — Vault only consumes memories
-        const rows: any[] = Array.isArray(j?.memories) ? j.memories
-          : Array.isArray(j?.results) ? j.results
-          : Array.isArray(j) ? j : [];
-        rows.forEach((row: any) => {
+        const rows: DeepSearchHit[] = Array.isArray((j as DeepSearchResponse).memories)
+          ? (j as DeepSearchResponse).memories!
+          : Array.isArray((j as { results?: DeepSearchHit[] }).results)
+          ? (j as { results: DeepSearchHit[] }).results
+          : Array.isArray(j) ? (j as DeepSearchHit[]) : [];
+        rows.forEach(row => {
           map[row.id] = row.snippet || '';
           ids.push(row.id);
         });
@@ -250,7 +252,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
 
   const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
 
-  const runBulk = async (path: string, body: any, successLabel: string) => {
+  const runBulk = async (path: string, body: Record<string, unknown>, successLabel: string) => {
     if (!selectedIds.size) return;
     setBulkBusy(true);
     try {
@@ -262,13 +264,14 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
         const txt = await r.text().catch(() => '');
         throw new Error(txt || `HTTP ${r.status}`);
       }
-      const j = await r.json().catch(() => ({}));
+      const j: BulkApiResponse = await r.json().catch(() => ({}));
       const n = j.deleted ?? j.trashed ?? j.updated ?? (Array.isArray(j.ids) ? j.ids.length : undefined) ?? selectedIds.size;
       showToast(`${successLabel} ${n} memor${n === 1 ? 'y' : 'ies'}`);
       exitSelect();
       fetchMemories();
-    } catch (err: any) {
-      showToast(err?.message ? `Action failed — ${String(err.message).slice(0, 80)}` : 'Action failed', 'error');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      showToast(msg ? `Action failed — ${msg.slice(0, 80)}` : 'Action failed', 'error');
     } finally { setBulkBusy(false); }
   };
 
@@ -325,12 +328,14 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
     setPinnedOnly(!!f.pinned_only);
     setShowArchived(!!f.archived);
     setDeepMode(!!f.deep);
+    setSort(f.sort || 'newest');
   };
 
   const clearCollection = () => {
     setActiveCollectionId(null);
     setFilter(''); setDomainFilter(''); setSourceTypeFilter(initialSourceFilter);
     setPinnedOnly(false); setShowArchived(false); setDeepMode(false);
+    setSort('newest');
   };
 
   const saveCollection = async () => {
@@ -342,6 +347,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
       pinned_only: pinnedOnly || undefined,
       archived: showArchived || undefined,
       deep: deepMode || undefined,
+      sort: sort && sort !== 'newest' ? sort : undefined,
     };
     try {
       const r = await fetch('/smart-collections', {
@@ -705,7 +711,7 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
               <motion.div key={memory.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.4) }}
                 onClick={() => { if (selectMode) toggleSelect(memory.id); }}
                 className={cn(memory.pinned && 'vault-card-pinned', sel && 'vault-card-selected')}
-                style={{ ...card, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer', borderColor: sel ? 'var(--primary-border)' : 'var(--border)', background: sel ? 'var(--primary-bg)' : (card as any).background }}
+                style={{ ...card, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer', borderColor: sel ? 'var(--primary-border)' : 'var(--border)', background: sel ? 'var(--primary-bg)' : card.background }}
                 onMouseEnter={e => { if (!sel) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${src.color}12`; e.currentTarget.style.borderColor = `${src.color}25`; } }}
                 onMouseLeave={e => { if (!sel) { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; } }}>
 
