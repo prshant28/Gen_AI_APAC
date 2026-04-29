@@ -15,7 +15,7 @@ DEMO_MEMORIES = [
     {
         "title": "Gemini 2.0: Google's Most Capable Multimodal AI",
         "source_type": "youtube",
-        "source_url": "https://youtube.com/watch?v=demo1",
+        "source_url": "https://www.youtube.com/watch?v=lhwFkqiTA6Q",
         "summary": "Gemini 2.0 Flash delivers breakthrough multimodal reasoning, natively handling text, images, audio, and video in a single model. The architecture introduces native tool use, real-time streaming, and a 1M token context window — making it the backbone of modern agentic AI systems.",
         "key_points": [
             "1 million token context window enables full document analysis",
@@ -95,7 +95,7 @@ DEMO_MEMORIES = [
     {
         "title": "Transformer Architecture Deep Dive",
         "source_type": "youtube",
-        "source_url": "https://youtube.com/watch?v=demo2",
+        "source_url": "https://www.youtube.com/watch?v=j_l-9uNX2SA",
         "summary": "The Transformer's self-attention mechanism computes relationships between every token pair in O(n²) time — enabling global context but limiting sequence length. Modern variants (Flash Attention, Ring Attention) address this through IO-aware tiling and distributed attention, pushing context windows to millions of tokens.",
         "key_points": [
             "Self-attention: Q·K^T/√d → softmax → V produces contextual embeddings",
@@ -160,7 +160,7 @@ DEMO_MEMORIES = [
     {
         "title": "Cal Newport — Deep Work for Builders",
         "source_type": "youtube",
-        "source_url": "https://youtube.com/watch?v=deepwork-demo",
+        "source_url": "https://www.youtube.com/watch?v=IUU6OR8yHCc",
         "summary": "Newport argues that deep, distraction-free work is the rare and increasingly valuable skill of the knowledge economy. The book's central protocol — schedule deep blocks, reduce shallow noise, embrace boredom — yields measurable output gains for engineers, writers, and founders.",
         "key_points": [
             "Deep work hours, not total hours, drive output",
@@ -192,7 +192,7 @@ DEMO_MEMORIES = [
     {
         "title": "Sleep, Glucose & Cognitive Performance",
         "source_type": "youtube",
-        "source_url": "https://youtube.com/watch?v=hubermanlab-sleep",
+        "source_url": "https://www.youtube.com/watch?v=j_l-9uNX2SA",
         "summary": "Sleep debt and post-meal glucose spikes are the two largest reversible drags on knowledge-worker cognition. A 10pm-6am window, morning sunlight within 30 minutes of waking, and protein-first meals can shift HRV, focus, and mood within 14 days.",
         "key_points": [
             "Get 5-15 minutes of direct sunlight on the eyes within 30 min of waking",
@@ -208,7 +208,7 @@ DEMO_MEMORIES = [
     {
         "title": "Latent Space Podcast — The Year of Agents",
         "source_type": "youtube",
-        "source_url": "https://youtube.com/watch?v=latentspace-agents",
+        "source_url": "https://www.youtube.com/watch?v=lhwFkqiTA6Q",
         "summary": "2026 is the year agents stop being demos and start owning real workflows. The conversation covers planning loops, tool calling reliability, eval harnesses, and why most teams fail at long-horizon tasks (state explosion + bad recovery from tool errors).",
         "key_points": [
             "Long-horizon agents need explicit memory + checkpointing",
