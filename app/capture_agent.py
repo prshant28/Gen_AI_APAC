@@ -1322,12 +1322,29 @@ No emojis."""
     except Exception:
         pass
 
+    # ── Phase 4: persist a `research_sessions` record so future Library /
+    # Workspace views can group "items captured together" without scanning
+    # workspace_projects metadata. Best-effort — never fails the request.
+    summary_for_record = (project.get("meta") or {}).get("summary", "") if isinstance(project, dict) else ""
+    try:
+        await record_research_session(
+            session_id=session_id,
+            project_id=project.get("id", "") if isinstance(project, dict) else "",
+            project_name=project.get("name", "") if isinstance(project, dict) else "",
+            memory_ids=[m["id"] for m in saved_memories],
+            summary=summary_for_record,
+            folder_mode=folder_mode,
+            user_id=user_id,
+        )
+    except Exception as e:
+        print(f"process_capture_session record_research_session error: {e}")
+
     return {
         "ok": routing_ok,
         "session_id": session_id,
         "project": project,
         "memories": [{"id": m["id"], "title": m.get("title"), "source_type": m.get("source_type")} for m in saved_memories],
-        "summary": (project.get("meta") or {}).get("summary", "") if isinstance(project, dict) else "",
+        "summary": summary_for_record,
         "routing_error": routing_error,
         "stats": {
             "captured": len(saved_memories),
@@ -1337,6 +1354,157 @@ No emojis."""
         },
         "errors": errors,
     }
+
+
+# ─── Pre-save Duplicate Check (called before /memories save) ──────────────
+async def check_duplicate(
+    url: str = "",
+    title: str = "",
+    summary: str = "",
+    user_id: str = "",
+) -> dict:
+    """Look up an existing memory matching either the normalized URL or the
+    (title+summary) content hash. Returns {duplicate: {...} | None, by: 'url'|'content'|None}.
+    Used by the Capture page to warn the user BEFORE they hit Save."""
+    from app.user_context import get_uid as _get_uid
+    uid = (user_id or "").strip() or _get_uid()
+    # 1) URL match
+    if url:
+        try:
+            d = await _find_duplicate_by_url(uid, url)
+            if d:
+                return {"duplicate": d, "by": "url"}
+        except Exception as e:
+            print(f"check_duplicate url error: {e}")
+    # 2) Content-hash match (fallback for notes / re-captures)
+    if title or summary:
+        try:
+            d = await _find_duplicate_by_content_hash(uid, title or "", summary or "")
+            if d:
+                return {"duplicate": d, "by": "content"}
+        except Exception as e:
+            print(f"check_duplicate content error: {e}")
+    return {"duplicate": None, "by": None}
+
+
+# ─── Session Preview (AI bundle overview + 3 folder name candidates) ──────
+async def preview_capture_session(items: list[dict]) -> dict:
+    """Given a tray of pending session items, return an AI bundle overview and
+    3 candidate folder-name suggestions WITHOUT saving anything. Lets the user
+    decide a destination before committing the session."""
+    if not items:
+        return {"ok": False, "reason": "empty", "summary": "", "folder_names": []}
+
+    catalog_lines: list[str] = []
+    for i, raw in enumerate(items[:30]):
+        kind = (raw.get("kind") or "").strip().lower()
+        if kind == "note":
+            preview = (raw.get("content") or "").strip()[:200]
+            catalog_lines.append(f"[{i}] note :: {preview}")
+        elif kind == "link":
+            url = (raw.get("url") or "").strip()
+            host = ""
+            try:
+                host = urlsplit(url).netloc.replace("www.", "")
+            except Exception:
+                pass
+            catalog_lines.append(f"[{i}] link :: {host or url}")
+        elif kind == "voice":
+            preview = (raw.get("transcript") or raw.get("content") or "").strip()[:200]
+            catalog_lines.append(f"[{i}] voice :: {preview}")
+        elif kind == "image":
+            cap = (raw.get("caption") or raw.get("alt") or "image").strip()[:120]
+            catalog_lines.append(f"[{i}] image :: {cap}")
+        else:
+            catalog_lines.append(f"[{i}] {kind} :: (unsupported)")
+    catalog = "\n".join(catalog_lines) or "(empty)"
+
+    prompt = f"""You are previewing a multi-source capture bundle the user is about to commit.
+Look at what they've staged and propose:
+
+1. A 2-3 sentence summary of what this bundle is about (no fluff, no emojis).
+2. THREE distinct candidate folder names (each <=48 chars, descriptive, NOT generic).
+   Make them genuinely different angles — e.g., topic-focused, project-focused, theme-focused.
+
+Items ({len(items)}):
+{catalog}
+
+Return STRICT JSON:
+- "summary": string
+- "folder_names": array of EXACTLY 3 strings
+No emojis, no markdown."""
+    try:
+        ai = await chat_json(
+            messages=[{"role": "user", "content": prompt}],
+            model=settings.OPENAI_MODEL,
+            temperature=0.4,
+        )
+    except Exception as e:
+        return {
+            "ok": False,
+            "reason": "ai_failed",
+            "summary": "",
+            "folder_names": [],
+            "error": str(e),
+        }
+
+    summary = (ai.get("summary") or "").strip()
+    raw_names = ai.get("folder_names") or []
+    if not isinstance(raw_names, list):
+        raw_names = []
+    names: list[str] = []
+    for n in raw_names[:3]:
+        s = _sanitize_ai_name(n, "", max_len=48)
+        if s and s not in names:
+            names.append(s)
+    # Pad with reasonable fallbacks if AI returned fewer than 3
+    while len(names) < 3:
+        names.append(f"Capture session · {len(items)} items" + (f" #{len(names)+1}" if names else ""))
+    return {
+        "ok": True,
+        "summary": summary,
+        "folder_names": names[:3],
+        "item_count": len(items),
+    }
+
+
+# ─── Research Session record (links memory IDs from /capture/session) ─────
+async def record_research_session(
+    session_id: str,
+    project_id: str,
+    project_name: str,
+    memory_ids: list[str],
+    summary: str = "",
+    folder_mode: str = "auto",
+    user_id: str = "",
+) -> Optional[dict]:
+    """Persist a `research_sessions` doc that links the saved memory IDs to
+    their target workspace. Allows a future Library/Workspace view to surface
+    "X items from your morning research session" groupings."""
+    if not memory_ids:
+        return None
+    from app.user_context import get_uid as _get_uid
+    uid = (user_id or "").strip() or _get_uid()
+    try:
+        db = await get_db()
+        doc_data = {
+            "session_id": session_id,
+            "project_id": project_id,
+            "project_name": project_name,
+            "memory_ids": memory_ids[:200],
+            "summary": (summary or "")[:600],
+            "folder_mode": folder_mode,
+            "user_id": uid,
+            "userId": uid,
+            "created_at": _utcnow_session(),
+            "item_count": len(memory_ids),
+        }
+        ref = db.collection("research_sessions").document(session_id)
+        await ref.set(doc_data)
+        return {"id": session_id, **doc_data}
+    except Exception as e:
+        print(f"record_research_session error: {e}")
+        return None
 
 
 def _sanitize_ai_name(raw, fallback: str, max_len: int = 48) -> str:

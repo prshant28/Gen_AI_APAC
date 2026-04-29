@@ -5,7 +5,8 @@ import {
   Tag, ExternalLink, Save, Upload, Mic, MicOff, Code2, Twitter, Clipboard,
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
   AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
-  Clock, FolderOpen, Star, ArrowRight, GitBranch,
+  Clock, FolderOpen, Star, ArrowRight, GitBranch, ChevronUp, ChevronDown,
+  Pencil, Trash2, BookmarkPlus, Wand2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -183,6 +184,64 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const sessionVoice = useVoiceRecorder();
   const sessionSubmitLock = useRef(false);
 
+  // ── Tray persistence (localStorage) + resume banner ─────────────────
+  // Saved + resumed across reloads so multi-source research isn't lost.
+  const SESSION_LS_KEY = 'recall:capture:session:v1';
+  const [sessionResume, setSessionResume] = useState<null | { count: number }>(null);
+  const sessionLoadedRef = useRef(false);
+
+  useEffect(() => {
+    // First-mount: peek at storage and offer to resume if there's anything saved.
+    if (sessionLoadedRef.current) return;
+    sessionLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(SESSION_LS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const savedItems = Array.isArray(parsed?.items) ? parsed.items : [];
+      if (savedItems.length === 0) return;
+      setSessionResume({ count: savedItems.length });
+    } catch {}
+  }, []);
+
+  const resumeSession = () => {
+    try {
+      const raw = localStorage.getItem(SESSION_LS_KEY);
+      if (!raw) { setSessionResume(null); return; }
+      const parsed = JSON.parse(raw);
+      const savedItems = Array.isArray(parsed?.items) ? parsed.items : [];
+      setSessionItems(savedItems as SessionItem[]);
+      if (parsed?.folderMode) setSessionFolderMode(parsed.folderMode);
+      if (typeof parsed?.folderName === 'string') setSessionFolderName(parsed.folderName);
+      if (typeof parsed?.hint === 'string') setSessionHint(parsed.hint);
+      setSessionMode(true);
+      setSessionResume(null);
+      showToast(`Resumed ${savedItems.length} item${savedItems.length === 1 ? '' : 's'} from your last session`);
+    } catch { setSessionResume(null); }
+  };
+  const discardSavedSession = () => {
+    try { localStorage.removeItem(SESSION_LS_KEY); } catch {}
+    setSessionResume(null);
+  };
+
+  // Persist tray to localStorage whenever it has content. We deliberately
+  // only WRITE here (never delete) — a "skip-first-render" ref pattern is
+  // unreliable in React StrictMode (double-mount fires the effect twice and
+  // wipes the saved tray right after Resume reads it). Explicit clears live
+  // in submitSession/Clear-tray/discardSavedSession instead.
+  useEffect(() => {
+    if (sessionItems.length === 0) return;
+    try {
+      localStorage.setItem(SESSION_LS_KEY, JSON.stringify({
+        items: sessionItems,
+        folderMode: sessionFolderMode,
+        folderName: sessionFolderName,
+        hint: sessionHint,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch {}
+  }, [sessionItems, sessionFolderMode, sessionFolderName, sessionHint]);
+
   // Lazily fetch existing workspaces when user picks the Existing mode.
   useEffect(() => {
     if (!sessionMode || sessionFolderMode !== 'existing' || sessionProjects.length > 0) return;
@@ -192,10 +251,95 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       .catch(() => {});
   }, [sessionMode, sessionFolderMode, sessionProjects.length]);
 
+  // ── Tray reorder + edit ──────────────────────────────────────────────
+  const moveSessionItem = (id: string, dir: -1 | 1) => {
+    setSessionItems(prev => {
+      const idx = prev.findIndex(x => x.id === id);
+      if (idx < 0) return prev;
+      const target = idx + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState('');
+  const startEditItem = (it: SessionItem) => {
+    setEditingItemId(it.id);
+    if (it.kind === 'note')  setEditingDraft(it.content);
+    else if (it.kind === 'link')  setEditingDraft(it.url);
+    else if (it.kind === 'voice') setEditingDraft(it.transcript);
+    else setEditingDraft(it.caption);
+  };
+  const cancelEditItem = () => { setEditingItemId(null); setEditingDraft(''); };
+  const saveEditItem = () => {
+    const txt = editingDraft.trim();
+    if (!txt) { showToast('Cannot be empty'); return; }
+    setSessionItems(prev => prev.map(it => {
+      if (it.id !== editingItemId) return it;
+      if (it.kind === 'note')  return { ...it, content: txt };
+      if (it.kind === 'link')  {
+        if (!/^https?:\/\//i.test(txt)) { showToast('Enter a valid URL'); return it; }
+        return { ...it, url: txt };
+      }
+      if (it.kind === 'voice') return { ...it, transcript: txt };
+      return { ...it, caption: txt };
+    }));
+    setEditingItemId(null);
+    setEditingDraft('');
+  };
+
+  // ── AI bundle preview (summary + 3 folder name candidates) ──────────
+  const [bundlePreview, setBundlePreview] = useState<null | { summary: string; folder_names: string[] }>(null);
+  const [bundleLoading, setBundleLoading] = useState(false);
+  const fetchBundlePreview = async () => {
+    if (sessionItems.length < 2) { showToast('Add at least 2 items first'); return; }
+    setBundleLoading(true);
+    setBundlePreview(null);
+    try {
+      const r = await fetch('/capture/session/preview', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: sessionItems.map(it => {
+            if (it.kind === 'note')  return { kind: 'note',  content: it.content };
+            if (it.kind === 'link')  return { kind: 'link',  url: it.url };
+            if (it.kind === 'voice') return { kind: 'voice', transcript: it.transcript };
+            return { kind: 'image', caption: it.caption };
+          }),
+        }),
+      });
+      const data = await r.json();
+      if (data?.ok) {
+        setBundlePreview({ summary: data.summary || '', folder_names: data.folder_names || [] });
+      } else {
+        showToast(data?.error || data?.message || 'AI preview failed');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'AI preview failed');
+    } finally {
+      setBundleLoading(false);
+    }
+  };
+  const applyBundleFolder = (name: string) => {
+    setSessionFolderMode('create');
+    setSessionFolderName(name);
+    showToast(`Folder set: ${name}`);
+  };
+
   const newSessionId = () => Math.random().toString(36).slice(2, 10);
 
   const addSessionItem = (item: SessionItem) => setSessionItems(prev => [...prev, item]);
-  const removeSessionItem = (id: string) => setSessionItems(prev => prev.filter(x => x.id !== id));
+  const removeSessionItem = (id: string) => setSessionItems(prev => {
+    const next = prev.filter(x => x.id !== id);
+    // If the user emptied the tray manually (one-by-one removal), clear the
+    // saved snapshot so a stale Resume banner can't resurrect it on next visit.
+    if (next.length === 0) {
+      try { localStorage.removeItem(SESSION_LS_KEY); } catch {}
+    }
+    return next;
+  });
 
   const commitDraftItem = () => {
     const text = sessionDraftText.trim();
@@ -262,6 +406,8 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
         setSessionItems([]);
         setSessionFolderName('');
         setSessionHint('');
+        // Explicit clear — the persist effect no longer auto-deletes on empty state.
+        try { localStorage.removeItem(SESSION_LS_KEY); } catch {}
       } else {
         showToast(data?.message || data?.detail || 'Session save failed');
       }
@@ -279,6 +425,203 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     if (it.kind === 'voice') return it.transcript.slice(0, 80);
     return it.caption || 'image';
   };
+
+  // ── Capture templates (starter scaffolds + user-saved) ───────────────
+  type Template = { id: string; label: string; source: string; body: string };
+  const TEMPLATES_LS_KEY = 'recall:capture:templates:v1';
+  const STARTER_TEMPLATES: Template[] = [
+    {
+      id: 'starter:research',
+      label: 'Research note',
+      source: 'note',
+      body: 'Topic:\n\nKey question:\n\nWhat I found:\n- \n- \n\nNext step:\n',
+    },
+    {
+      id: 'starter:meeting',
+      label: 'Meeting summary',
+      source: 'note',
+      body: 'Meeting:\nDate:\nAttendees:\n\nDecisions:\n- \n\nAction items:\n- \n\nOpen questions:\n- \n',
+    },
+    {
+      id: 'starter:code',
+      label: 'Code snippet',
+      source: 'code',
+      body: '// What this does:\n//\n// Why it matters:\n//\n// Code:\n',
+    },
+  ];
+  const [userTemplates, setUserTemplates] = useState<Template[]>([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_LS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setUserTemplates(parsed.filter((t: any) => t?.id && t?.body));
+      }
+    } catch {}
+  }, []);
+  const persistUserTemplates = (next: Template[]) => {
+    setUserTemplates(next);
+    try { localStorage.setItem(TEMPLATES_LS_KEY, JSON.stringify(next)); } catch {}
+  };
+  const applyTemplate = (t: Template) => {
+    setSource(t.source);
+    setInput(t.body);
+    setTemplatesOpen(false);
+    showToast(`Loaded template: ${t.label}`);
+  };
+  const saveCurrentAsTemplate = () => {
+    const body = input.trim();
+    if (!body) { showToast('Nothing to save — fill the input first'); return; }
+    const label = window.prompt('Name this template (e.g. "Daily standup")');
+    if (!label || !label.trim()) return;
+    const next: Template = {
+      id: `user:${Date.now()}`,
+      label: label.trim().slice(0, 48),
+      source,
+      body,
+    };
+    persistUserTemplates([...userTemplates, next]);
+    showToast(`Saved template: ${next.label}`);
+  };
+  const removeUserTemplate = (id: string) => {
+    persistUserTemplates(userTemplates.filter(t => t.id !== id));
+  };
+
+  // ── Batch URL paste (multi-URL queue → sequential captures) ─────────
+  // Detect 2+ URLs in one paste; show a queue dialog; process them one at a
+  // time, auto-saving each (no preview), with live progress.
+  const [batchQueue, setBatchQueue] = useState<string[] | null>(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [batchResults, setBatchResults] = useState<Array<{ url: string; ok: boolean; title?: string; error?: string; duplicate?: boolean }>>([]);
+
+  const extractUrls = (text: string): string[] => {
+    const urls = (text.match(/https?:\/\/[^\s<>"']+/gi) || [])
+      .map(u => u.replace(/[)\].,;]+$/, '').trim());
+    return Array.from(new Set(urls));
+  };
+
+  const handleUrlPaste = (text: string) => {
+    const urls = extractUrls(text);
+    if (urls.length >= 2) {
+      setBatchQueue(urls);
+      setBatchResults([]);
+      setBatchProgress(null);
+      // Don't replace input — let the user see what was pasted
+      setInput(text);
+      return true;
+    }
+    return false;
+  };
+
+  const runBatchCapture = async () => {
+    if (!batchQueue || batchQueue.length === 0) return;
+    setBatchRunning(true);
+    setBatchResults([]);
+    const results: typeof batchResults = [];
+    for (let i = 0; i < batchQueue.length; i++) {
+      const url = batchQueue[i];
+      setBatchProgress({ done: i, total: batchQueue.length, current: url });
+      try {
+        const isYt = url.includes('youtube.com') || url.includes('youtu.be');
+        const isTw = url.includes('twitter.com') || url.includes('x.com');
+        const source_type = isYt ? 'youtube' : 'web';
+        // Capture (no preview)
+        const cap = await fetch('/capture', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ source_type, url, content: '', preview: true }),
+        });
+        if (!cap.ok) throw new Error(`HTTP ${cap.status}`);
+        const previewData = await cap.json();
+        if (previewData?.error) throw new Error(previewData.error);
+        if (!previewData.source_url) previewData.source_url = url;
+        // Save
+        const sav = await fetch('/memories', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(previewData),
+        });
+        if (!sav.ok) throw new Error('Save failed');
+        const saved = await sav.json().catch(() => null);
+        results.push({
+          url,
+          ok: true,
+          title: saved?.title || previewData.title || url,
+          duplicate: !!saved?.duplicate,
+        });
+        // Mark twitter (treated as web)
+        void isTw;
+      } catch (e: any) {
+        results.push({ url, ok: false, error: e?.message || 'Failed' });
+      }
+      setBatchResults([...results]);
+    }
+    setBatchProgress({ done: batchQueue.length, total: batchQueue.length, current: '' });
+    setBatchRunning(false);
+    const ok = results.filter(r => r.ok).length;
+    showToast(`Batch done: ${ok}/${results.length} captured`);
+  };
+  const cancelBatch = () => {
+    setBatchQueue(null);
+    setBatchResults([]);
+    setBatchProgress(null);
+  };
+
+  // ── Pre-save dedup check (content-hash) on preview arrival ───────────
+  // Only fires for note-like captures where there's no URL to do an exact
+  // URL match against — fuzzy content-hash matches on web/youtube/pdf would
+  // produce false positives because their summaries can rhyme thematically.
+  const NOTE_LIKE_SOURCES = new Set(['note', 'voice', 'clipboard', 'code']);
+  const [preSaveDup, setPreSaveDup] = useState<null | { id: string; title: string; by: string }>(null);
+  useEffect(() => {
+    if (!preview) { setPreSaveDup(null); return; }
+    if ((preview as any).duplicate_of) return; // URL match already surfaced
+    const previewSource = String((preview as any).source_type || '').toLowerCase();
+    const isNoteLike = NOTE_LIKE_SOURCES.has(previewSource) || NOTE_LIKE_SOURCES.has(source);
+    if (!isNoteLike) { setPreSaveDup(null); return; }
+    const title = preview.title || '';
+    const summary = preview.summary || '';
+    if (!title && !summary) return;
+    let cancelled = false;
+    fetch('/capture/dedup-check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      // Send no URL — restricts the check to content-hash on the backend.
+      body: JSON.stringify({ url: '', title, summary }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        if (d?.duplicate?.id) {
+          setPreSaveDup({ id: d.duplicate.id, title: d.duplicate.title || 'Existing memory', by: d.by || 'match' });
+        } else {
+          setPreSaveDup(null);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [preview, source]);
+
+  // ── Preview metadata (word count + read time + tag count) ────────────
+  const previewMeta = useMemo(() => {
+    if (!preview) return null;
+    const parts = [
+      preview.summary || '',
+      preview.executive_summary || '',
+      ...(Array.isArray(preview.key_points) ? preview.key_points : []),
+    ];
+    const text = parts.join(' ').trim();
+    const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    const readMinutes = words > 0 ? Math.max(1, Math.round(words / 200)) : 0;
+    return {
+      words,
+      readMinutes,
+      tagCount: Array.isArray(preview.tags) ? preview.tags.length : 0,
+      keyPoints: Array.isArray(preview.key_points) ? preview.key_points.length : 0,
+    };
+  }, [preview]);
 
   /* Local PDF preview (object URL) */
   useEffect(() => {
@@ -826,30 +1169,127 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                       Nothing added yet — pick a kind above and add your first item.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
-                      {sessionItems.map(it => {
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 280, overflowY: 'auto' }}>
+                      {sessionItems.map((it, idx) => {
                         const Icon = it.kind === 'note' ? StickyNote : it.kind === 'link' ? Link2 : it.kind === 'voice' ? Mic : FileDigit;
+                        const isFirst = idx === 0;
+                        const isLast = idx === sessionItems.length - 1;
+                        const isEditing = editingItemId === it.id;
+                        const editable = it.kind !== 'image' || true; // images are caption-editable
                         return (
                           <div key={it.id} style={{
-                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                            background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                            display: 'flex', alignItems: isEditing ? 'flex-start' : 'center', gap: 8, padding: '6px 10px',
+                            background: isEditing ? 'var(--primary-bg)' : 'var(--surface-2)',
+                            border: '1px solid ' + (isEditing ? 'var(--primary-border)' : 'var(--border)'),
+                            borderRadius: 8,
                           }}>
+                            {/* Reorder controls */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <button type="button" onClick={() => moveSessionItem(it.id, -1)} disabled={isFirst} aria-label="Move up"
+                                style={{ padding: 1, background: 'transparent', border: 'none', cursor: isFirst ? 'not-allowed' : 'pointer', opacity: isFirst ? 0.3 : 1, color: 'var(--text-3)', display: 'inline-flex' }}>
+                                <ChevronUp size={11} />
+                              </button>
+                              <button type="button" onClick={() => moveSessionItem(it.id, 1)} disabled={isLast} aria-label="Move down"
+                                style={{ padding: 1, background: 'transparent', border: 'none', cursor: isLast ? 'not-allowed' : 'pointer', opacity: isLast ? 0.3 : 1, color: 'var(--text-3)', display: 'inline-flex' }}>
+                                <ChevronDown size={11} />
+                              </button>
+                            </div>
+
                             <Icon size={12} color="var(--text-3)" />
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{it.kind}</span>
-                            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {sessionItemLabel(it)}
-                            </span>
-                            <button type="button" onClick={() => removeSessionItem(it.id)}
-                              aria-label="Remove item"
-                              style={{ padding: 4, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
-                              <X size={12} />
-                            </button>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px', flexShrink: 0 }}>{it.kind}</span>
+
+                            {/* Inline label or editor */}
+                            {isEditing ? (
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                                {it.kind === 'note' || it.kind === 'voice' ? (
+                                  <textarea value={editingDraft} onChange={e => setEditingDraft(e.target.value)} rows={3}
+                                    style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+                                ) : (
+                                  <input type={it.kind === 'link' ? 'url' : 'text'} value={editingDraft} onChange={e => setEditingDraft(e.target.value)}
+                                    style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                                )}
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" onClick={saveEditItem}
+                                    style={{ padding: '4px 10px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                    Save
+                                  </button>
+                                  <button type="button" onClick={cancelEditItem}
+                                    style={{ padding: '4px 10px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {sessionItemLabel(it)}
+                              </span>
+                            )}
+
+                            {/* Action buttons (hidden while editing) */}
+                            {!isEditing && editable && (
+                              <button type="button" onClick={() => startEditItem(it)}
+                                aria-label="Edit item"
+                                style={{ padding: 4, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
+                                <Pencil size={11} />
+                              </button>
+                            )}
+                            {!isEditing && (
+                              <button type="button" onClick={() => removeSessionItem(it.id)}
+                                aria-label="Remove item"
+                                style={{ padding: 4, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
+                                <X size={12} />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   )}
                 </div>
+
+                {/* ── AI bundle overview (≥2 items) ─────────────────────────── */}
+                {sessionItems.length >= 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={fetchBundlePreview} disabled={bundleLoading}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', fontSize: 11.5, fontWeight: 700, borderRadius: 8, border: '1px solid var(--primary-border)', background: bundleLoading ? 'var(--surface-2)' : 'var(--primary-bg)', color: 'var(--primary)', cursor: bundleLoading ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                        {bundleLoading ? <Loader2 size={12} className="spin" /> : <Wand2 size={12} />}
+                        {bundleLoading ? 'Thinking…' : 'Get AI overview + folder ideas'}
+                      </button>
+                      {bundlePreview && (
+                        <button type="button" onClick={() => setBundlePreview(null)}
+                          style={{ padding: '5px 8px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Hide
+                        </button>
+                      )}
+                    </div>
+                    {bundlePreview && (
+                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                        style={{ padding: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {bundlePreview.summary && (
+                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-1)', lineHeight: 1.5 }}>
+                            {bundlePreview.summary}
+                          </p>
+                        )}
+                        {bundlePreview.folder_names.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px', marginBottom: 6 }}>
+                              SUGGESTED FOLDER NAMES (CLICK TO USE)
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {bundlePreview.folder_names.map((name, i) => (
+                                <button key={i} type="button" onClick={() => applyBundleFolder(name)}
+                                  style={{ padding: '6px 10px', fontSize: 11.5, fontWeight: 700, borderRadius: 8, border: '1px solid var(--primary-border)', background: 'var(--surface)', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                  <FolderOpen size={11} /> {name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── Folder picker (auto / create / existing) ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
@@ -908,7 +1348,10 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 {/* ── Submit ── */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, pointerEvents: sessionSubmitting ? 'none' : 'auto' }}
                   aria-busy={sessionSubmitting}>
-                  <button type="button" onClick={() => { setSessionItems([]); setSessionResult(null); }}
+                  <button type="button" onClick={() => {
+                    setSessionItems([]); setSessionResult(null);
+                    try { localStorage.removeItem(SESSION_LS_KEY); } catch {}
+                  }}
                     disabled={sessionSubmitting || sessionItems.length === 0}
                     style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, borderRadius: 8,
                       border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)',
@@ -962,26 +1405,152 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
         </AnimatePresence>
       </motion.div>
 
-      {/* ── Duplicate-memory warning banner (preview state) ─────────── */}
-      {preview?.duplicate_of && (
-        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-          className="view-card"
-          style={{ padding: '12px 16px', borderColor: '#f59e0b', background: 'color-mix(in srgb, #f59e0b 8%, var(--surface))', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)' }}>
-              Bhai, ye URL already Vault mein hai
-            </p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              "{preview.duplicate_of.title}" — saving will just open the existing entry, no duplicate created.
-            </p>
-          </div>
-          <button onClick={() => { window.location.href = `/memory/${preview.duplicate_of.id}`; }}
-            style={{ padding: '6px 10px', background: '#f59e0b', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
-            Open existing
-          </button>
-        </motion.div>
-      )}
+      {/* ── Duplicate-memory warning banner (URL match from /capture, OR
+            content-hash match from pre-save dedup-check) ──────────────── */}
+      {(() => {
+        const dup = preview?.duplicate_of
+          ? { id: preview.duplicate_of.id, title: preview.duplicate_of.title, by: 'url' }
+          : preSaveDup;
+        if (!dup) return null;
+        const reason = dup.by === 'url'
+          ? 'This URL is already in your Vault.'
+          : 'A very similar memory is already in your Vault.';
+        return (
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            className="view-card"
+            style={{ padding: '12px 16px', borderColor: '#f59e0b', background: 'color-mix(in srgb, #f59e0b 8%, var(--surface))', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)' }}>
+                {reason}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                "{dup.title}" — saving will open the existing entry instead of creating a duplicate.
+              </p>
+            </div>
+            <button onClick={() => { window.location.href = `/memory/${dup.id}`; }}
+              style={{ padding: '6px 10px', background: '#f59e0b', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+              Open existing
+            </button>
+          </motion.div>
+        );
+      })()}
+
+      {/* ── Resume-session banner (saved tray from previous visit) ────── */}
+      <AnimatePresence>
+        {sessionResume && !sessionMode && (
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            className="view-card"
+            style={{ padding: '12px 16px', borderColor: 'var(--primary-border)', background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Layers size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)' }}>
+                Unfinished session: {sessionResume.count} item{sessionResume.count === 1 ? '' : 's'} waiting
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-3)' }}>
+                Pick up where you left off, or discard it.
+              </p>
+            </div>
+            <button onClick={resumeSession}
+              style={{ padding: '6px 12px', background: 'var(--primary)', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+              Resume
+            </button>
+            <button onClick={discardSavedSession}
+              style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+              Discard
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Batch URL queue dialog (paste 2+ URLs → sequential capture) ── */}
+      <AnimatePresence>
+        {batchQueue && (
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            className="view-card"
+            style={{ padding: '14px 16px', borderColor: '#22d3ee', background: 'color-mix(in srgb, #22d3ee 6%, var(--surface))' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <Layers size={16} color="#22d3ee" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>
+                  Detected {batchQueue.length} URLs in your paste
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--text-3)' }}>
+                  {batchRunning
+                    ? `Capturing ${batchProgress?.done || 0} of ${batchProgress?.total || batchQueue.length}…`
+                    : 'Run the 7-agent pipeline on each one and save them all to your Vault.'}
+                </p>
+              </div>
+              {!batchRunning && (
+                <>
+                  <button onClick={runBatchCapture}
+                    style={{ padding: '7px 14px', background: '#22d3ee', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#06283d', fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', flexShrink: 0 }}>
+                    Capture all
+                  </button>
+                  <button onClick={cancelBatch}
+                    style={{ padding: '7px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+                    Dismiss
+                  </button>
+                </>
+              )}
+              {batchRunning && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--primary)', fontWeight: 700 }}>
+                  <Loader2 size={12} className="spin" /> Running…
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            {batchProgress && batchProgress.total > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
+                  <motion.div
+                    animate={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }}
+                    transition={{ type: 'tween', duration: 0.3 }}
+                    style={{ height: '100%', background: 'linear-gradient(90deg,#22d3ee,#a855f7)' }} />
+                </div>
+                {batchProgress.current && batchRunning && (
+                  <p style={{ margin: '6px 0 0', fontSize: 10.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    Now: {batchProgress.current}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* URL list with per-item status */}
+            {batchQueue.length > 0 && (
+              <div style={{ marginTop: 10, maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {batchQueue.map((u, i) => {
+                  const r = batchResults[i];
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11 }}>
+                      <span style={{ width: 16, flexShrink: 0, color: 'var(--text-3)', fontWeight: 700 }}>{i + 1}.</span>
+                      <span style={{ flex: 1, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u}</span>
+                      {!r && batchProgress?.done === i && batchRunning && <Loader2 size={11} className="spin" color="var(--primary)" />}
+                      {r?.ok && <CheckCircle2 size={12} color="#10b981" />}
+                      {r?.ok && r.duplicate && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#f59e0b' }}>DUP</span>}
+                      {r && !r.ok && <span title={r.error} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#ef4444', fontWeight: 700 }}><AlertCircle size={11} /> Failed</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!batchRunning && batchResults.length > 0 && batchResults.length === batchQueue.length && (
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button onClick={() => navigate('/vault')}
+                  style={{ padding: '6px 12px', background: 'var(--primary)', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit' }}>
+                  Open Vault
+                </button>
+                <button onClick={cancelBatch}
+                  style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
+                  Done
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!preview ? (
         <>
@@ -1024,6 +1593,61 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
 
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+              {/* Capture templates dropdown — quick-fill the input from a saved scaffold */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => setTemplatesOpen(v => !v)}
+                  aria-expanded={templatesOpen}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid var(--border)', background: templatesOpen ? 'var(--primary-bg)' : 'var(--surface-2)', color: templatesOpen ? 'var(--primary)' : 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <BookOpen size={11} /> Templates {templatesOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+                {(isMultiline) && (
+                  <button type="button" onClick={saveCurrentAsTemplate}
+                    title="Save the current input as a reusable template"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <BookmarkPlus size={11} /> Save as template
+                  </button>
+                )}
+              </div>
+              <AnimatePresence>
+                {templatesOpen && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    style={{ overflow: 'hidden' }}>
+                    <div style={{ marginTop: -6, padding: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px' }}>STARTERS</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {STARTER_TEMPLATES.map(t => (
+                          <button key={t.id} type="button" onClick={() => applyTemplate(t)}
+                            style={{ padding: '6px 12px', fontSize: 11.5, fontWeight: 700, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                      {userTemplates.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', letterSpacing: '0.5px', marginTop: 4 }}>YOUR TEMPLATES</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {userTemplates.map(t => (
+                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6 }}>
+                                <button type="button" onClick={() => applyTemplate(t)}
+                                  style={{ flex: 1, textAlign: 'left', padding: 0, fontSize: 11.5, fontWeight: 700, background: 'transparent', border: 'none', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {t.label}
+                                </button>
+                                <span style={{ fontSize: 9.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.4px' }}>{t.source.toUpperCase()}</span>
+                                <button type="button" onClick={() => removeUserTemplate(t.id)}
+                                  aria-label={`Delete template ${t.label}`}
+                                  style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'inline-flex' }}>
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* URL input */}
               {(isUrl) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1034,6 +1658,12 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                     <Link2 size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                     <input type="url" value={input} onChange={e => handleInputChange(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleCapture()}
+                      onPaste={e => {
+                        const txt = e.clipboardData?.getData('text') || '';
+                        if (txt && handleUrlPaste(txt)) {
+                          e.preventDefault();
+                        }
+                      }}
                       placeholder={inputPlaceholder}
                       style={{ width: '100%', padding: '11px 14px 11px 36px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 13.5, outline: 'none', fontFamily: 'inherit', transition: 'all 0.15s', boxSizing: 'border-box' }}
                       onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px var(--primary-bg)'; }}
@@ -1276,6 +1906,32 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
               </div>
             ))}
           </div>
+
+          {/* Preview metadata strip — at-a-glance signal density */}
+          {previewMeta && (previewMeta.words > 0 || previewMeta.tagCount > 0 || previewMeta.keyPoints > 0) && (
+            <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', background: 'var(--surface-2)' }}>
+              {previewMeta.readMinutes > 0 && (
+                <span title="Estimated read time at 200 wpm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
+                  <Clock size={11} /> {previewMeta.readMinutes} min read
+                </span>
+              )}
+              {previewMeta.words > 0 && (
+                <span title="Approximate word count of summary + key points" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
+                  <FileDigit size={11} /> {previewMeta.words.toLocaleString()} words
+                </span>
+              )}
+              {previewMeta.keyPoints > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
+                  <ListChecks size={11} /> {previewMeta.keyPoints} insights
+                </span>
+              )}
+              {previewMeta.tagCount > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)', padding: '3px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999 }}>
+                  <Tag size={11} /> {previewMeta.tagCount} tags
+                </span>
+              )}
+            </div>
+          )}
 
           {preview.source_type === 'youtube' && (previewUrl || preview.source_url) && (
             <div style={{ padding: '16px 20px 0' }}>

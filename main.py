@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
 from app.coordinator import run_coordinator, run_coordinator_stream, clear_session_history, get_session_history
-from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session
+from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session, check_duplicate, preview_capture_session
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events, delete_event, get_event, import_ics_events
@@ -753,6 +753,39 @@ async def capture_session_endpoint(request: CaptureSessionRequest):
         hint=request.hint or "",
     )
     return result
+
+
+# ─── Pre-save Duplicate Check ────────────────────────────────────────────
+# Called by the Capture page right after the /capture preview returns, so
+# the user gets a Vault-collision warning BEFORE they hit Save (in addition
+# to the post-save dedup that /memories already does).
+
+class DedupCheckRequest(BaseModel):
+    url: Optional[str] = ""
+    title: Optional[str] = ""
+    summary: Optional[str] = ""
+
+
+@app.post("/capture/dedup-check")
+async def capture_dedup_check_endpoint(request: DedupCheckRequest):
+    """Return any existing memory matching the URL or (title+summary) hash."""
+    return await check_duplicate(
+        url=(request.url or "").strip(),
+        title=(request.title or "").strip(),
+        summary=(request.summary or "").strip(),
+    )
+
+
+# ─── Session Preview (AI bundle overview + 3 folder-name candidates) ─────
+
+@app.post("/capture/session/preview")
+async def capture_session_preview_endpoint(request: CaptureSessionRequest):
+    """Preview a tray of pending session items: AI summary + 3 folder name
+    candidates. Pure read — does NOT save anything."""
+    if not request.items:
+        raise HTTPException(status_code=400, detail="At least one item is required.")
+    items = [i.model_dump() for i in request.items]
+    return await preview_capture_session(items)
 
 
 # --- Recall ---
