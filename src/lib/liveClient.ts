@@ -155,7 +155,7 @@ export class LiveClient {
         ws.onerror = (ev) => {
           if (!opened) {
             this.setState("error");
-            this.emit({ type: "error", error: "WebSocket error" });
+            this.emit({ type: "error", error: "Live connection error" });
             reject(ev);
           }
         };
