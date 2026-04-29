@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, Plus, Database, Bot, ArrowRight, ArrowLeft, X,
-  Globe, Youtube, FileText, Mic, Brain, Zap, Network, GraduationCap,
+  Sparkles, Plus, Bot, ArrowRight, ArrowLeft, X,
+  LayoutDashboard, Library, Cpu, Kanban, Target, Calendar as CalendarIcon,
+  GraduationCap, Compass, BarChart2, Plug, Settings,
 } from 'lucide-react';
 
 const STEPS = [
@@ -11,56 +12,70 @@ const STEPS = [
     eyebrow: 'WELCOME TO RECALL X247',
     title: 'Your AI-powered Second Brain',
     description:
-      'Seven specialist AI agents quietly capture, link, and recall everything you learn — so every idea is one question away. Forever.',
+      'Seven specialist AI agents capture, link, and recall everything you learn — so every idea is one question away. Forever.',
     icon: Sparkles,
     accent: '#3b82f6',
     chips: [
-      { icon: Brain, label: 'Capture' },
-      { icon: Network, label: 'Connect' },
-      { icon: Bot, label: 'Recall' },
+      { icon: LayoutDashboard, label: 'Dashboard' },
+      { icon: Library,         label: 'Library' },
+      { icon: Bot,             label: 'Recall AI' },
+      { icon: Cpu,             label: 'Agent Hub' },
+    ],
+  },
+  {
+    eyebrow: 'YOUR DAILY HOME',
+    title: 'Four pinned hubs at the top',
+    description:
+      'Dashboard for your daily overview. Library now holds Vault, Notes, Bookmarks, Files and your Inbox as tabs in one place. Recall AI answers questions in plain English. Agent Hub runs multi-agent workflows.',
+    icon: Library,
+    accent: '#f472b6',
+    chips: [
+      { icon: LayoutDashboard, label: 'Dashboard' },
+      { icon: Library,         label: 'Library' },
+      { icon: Bot,             label: 'Recall AI' },
+      { icon: Cpu,             label: 'Agent Hub' },
+    ],
+  },
+  {
+    eyebrow: 'WORKSPACE',
+    title: 'Plan your week in one place',
+    description:
+      'The Workspace group keeps Projects, Focus and Calendar one click apart. Tasks and Habits now live as sections inside Focus, so your daily rituals and to-dos share a single screen.',
+    icon: Kanban,
+    accent: '#f59e0b',
+    chips: [
+      { icon: Kanban,       label: 'Projects' },
+      { icon: Target,       label: 'Focus' },
+      { icon: CalendarIcon, label: 'Calendar' },
+      { icon: Sparkles,     label: 'Tasks + Habits' },
+    ],
+  },
+  {
+    eyebrow: 'LEARN, DISCOVER, INSIGHTS',
+    title: 'See your knowledge from every angle',
+    description:
+      'Learn brings Study Plan, Flashcards and Revisits together as tabs. Discover surfaces fresh ideas based on what you save. Insights merges Timeline, Mind Graph and Analytics into one hub. Integrations and Settings sit quietly in the footer when you need them.',
+    icon: GraduationCap,
+    accent: '#7c3aed',
+    chips: [
       { icon: GraduationCap, label: 'Learn' },
+      { icon: Compass,       label: 'Discover' },
+      { icon: BarChart2,     label: 'Insights' },
+      { icon: Plug,          label: 'Integrations' },
     ],
   },
   {
-    eyebrow: 'STEP 1 — CAPTURE',
-    title: 'Save anything in seconds',
+    eyebrow: 'PICK ONE TO START',
+    title: 'Where do you want to begin?',
     description:
-      'Drop in a link, paste a YouTube URL, upload a PDF, record a voice note or just type a thought. The Capture Agent reads, summarizes and tags it automatically.',
-    icon: Plus,
-    accent: '#22d3ee',
-    chips: [
-      { icon: Globe, label: 'Web' },
-      { icon: Youtube, label: 'YouTube' },
-      { icon: FileText, label: 'PDF' },
-      { icon: Mic, label: 'Voice' },
-    ],
-  },
-  {
-    eyebrow: 'STEP 2 — ORGANIZE',
-    title: 'Knowledge that organizes itself',
-    description:
-      'Every memory becomes a rich card — AI summary, key insights, smart tags, and graph connections to related ideas. Browse the Vault, Timeline, or Mind Graph.',
-    icon: Database,
-    accent: '#818cf8',
-    chips: [
-      { icon: Database, label: 'Vault' },
-      { icon: Network, label: 'Mind Graph' },
-      { icon: Zap, label: 'Timeline' },
-      { icon: Brain, label: 'Insights' },
-    ],
-  },
-  {
-    eyebrow: 'STEP 3 — RECALL',
-    title: 'Ask anything, get instant answers',
-    description:
-      'Use Neural Recall to ask questions in plain English. Generate flashcards, schedule events, or draft emails — all powered by your own knowledge.',
-    icon: Bot,
+      'Capture something, ask a question, or just take a look around. You can re-open this tour any time from Settings.',
+    icon: Sparkles,
     accent: '#3b82f6',
     chips: [
-      { icon: Bot, label: 'Ask AI' },
-      { icon: GraduationCap, label: 'Flashcards' },
-      { icon: Sparkles, label: 'Smart Actions' },
-      { icon: Zap, label: 'Agents' },
+      { icon: Plus,     label: 'Capture' },
+      { icon: Bot,      label: 'Recall AI' },
+      { icon: Library,  label: 'Library' },
+      { icon: Settings, label: 'Settings' },
     ],
   },
 ];
@@ -245,13 +260,10 @@ export default function OnboardingTour({
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-                  <div style={{ fontSize: 10, letterSpacing: '0.18em', color: '#6b7388', fontWeight: 700, marginBottom: 2 }}>
-                    PICK ONE TO START
-                  </div>
                   {[
-                    { icon: Plus,    label: 'Capture your first item',  desc: 'Paste a link, video or note',         color: '#22d3ee', path: '/capture' },
-                    { icon: Bot,     label: 'Try Recall AI',            desc: 'Ask a question in plain English',     color: '#3b82f6', path: '/recall' },
-                    { icon: Sparkles, label: 'Explore the Dashboard',   desc: 'See your knowledge at a glance',      color: '#818cf8', path: '/dashboard' },
+                    { icon: Plus,     label: 'Capture your first item',  desc: 'Paste a link, video or note — lands in Library Inbox', color: '#22d3ee', path: '/library?tab=inbox' },
+                    { icon: Bot,      label: 'Try Recall AI',            desc: 'Ask a question in plain English',                      color: '#3b82f6', path: '/recall' },
+                    { icon: Library,  label: 'Browse your Library',      desc: 'Vault, Notes, Bookmarks, Files — all in one place',    color: '#f472b6', path: '/library' },
                   ].map((q, i) => {
                     const QIcon = q.icon;
                     return (
