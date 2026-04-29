@@ -1495,7 +1495,11 @@ async def record_research_session(
         doc_data = {
             "session_id": session_id,
             "project_id": project_id,
+            # Write both keys so the read endpoint and any downstream
+            # consumers see a consistent display name. `project_name` is
+            # kept for backwards compatibility with older docs.
             "project_name": project_name,
+            "folder_name": project_name,
             "memory_ids": memory_ids[:200],
             "summary": (summary or "")[:600],
             "folder_mode": folder_mode,

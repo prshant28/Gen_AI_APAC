@@ -827,10 +827,16 @@ async def get_research_session_endpoint(session_id: str):
                         })
             except Exception:
                 continue
+        # The persisted doc uses `project_name` (see record_research_session),
+        # but the frontend reads `folder_name` for the SessionDetail header.
+        # Surface both keys so either side of the contract works without the
+        # header silently falling back to "Research session".
+        display_name = data.get("folder_name") or data.get("project_name") or ""
         return {
             "id": session_id,
             "summary": data.get("summary", ""),
-            "folder_name": data.get("folder_name", ""),
+            "folder_name": display_name,
+            "project_name": display_name,
             "project_id": data.get("project_id", ""),
             "memory_ids": memory_ids,
             "created_at": data.get("created_at"),
