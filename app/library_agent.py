@@ -467,21 +467,39 @@ def _build_snippet(text: str, query: str, radius: int = 80) -> str:
     return f"{prefix}{snippet}{suffix}"
 
 
-async def deep_search(query: str, limit: int = 30) -> Dict[str, List[Dict[str, Any]]]:
+async def deep_search(
+    query: str,
+    limit: int = 30,
+    entities: Optional[List[str]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
     """Full-text search across memories (title, summary, key_points, notes,
     executive_summary), notes (title, content), bookmarks (title, description,
-    url). Returns matched rows with a snippet preview."""
+    url). Returns matched rows with a snippet preview.
+
+    `entities` optionally restricts the search to a subset of
+    {"memory", "note", "bookmark"}. When omitted or empty, all three are
+    searched. Buckets that aren't requested are returned empty so the
+    response shape stays stable for callers.
+    """
     q = (query or "").strip()
     if not q:
         return {"memories": [], "notes": [], "bookmarks": []}
     qlc = q.lower()
+    wanted = {e.strip().lower() for e in (entities or []) if e and e.strip()}
+    want_memories = not wanted or "memory" in wanted
+    want_notes = not wanted or "note" in wanted
+    want_bookmarks = not wanted or "bookmark" in wanted
 
     def _matches(text: str) -> bool:
         return qlc in (text or "").lower()
 
     out: Dict[str, List[Dict[str, Any]]] = {"memories": [], "notes": [], "bookmarks": []}
 
-    for doc_id, data in await _scoped_docs("memories"):
+    if not want_memories:
+        memory_iter: List = []
+    else:
+        memory_iter = list(await _scoped_docs("memories"))
+    for doc_id, data in memory_iter:
         if _is_trashed(data):
             continue
         # Defensive: include any extracted body, transcript, or full-text fields
@@ -522,7 +540,8 @@ async def deep_search(query: str, limit: int = 30) -> Dict[str, List[Dict[str, A
         }
         out["memories"].append(row)
 
-    for doc_id, data in await _scoped_docs("notes"):
+    notes_iter = await _scoped_docs("notes") if want_notes else []
+    for doc_id, data in notes_iter:
         if _is_trashed(data):
             continue
         haystack = "\n".join([data.get("title", ""), data.get("content", ""), " ".join(data.get("tags") or [])])
@@ -536,7 +555,8 @@ async def deep_search(query: str, limit: int = 30) -> Dict[str, List[Dict[str, A
             "updated_at": _to_iso(data.get("updated_at")),
         })
 
-    for doc_id, data in await _scoped_docs("bookmarks"):
+    bookmarks_iter = await _scoped_docs("bookmarks") if want_bookmarks else []
+    for doc_id, data in bookmarks_iter:
         if _is_trashed(data):
             continue
         haystack = "\n".join([

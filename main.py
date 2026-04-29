@@ -816,8 +816,14 @@ async def tag_delete_endpoint(name: str):
 
 # Deep search + related
 @app.get("/search/deep")
-async def deep_search_endpoint(q: str = "", limit: int = 30):
-    return await library_agent.deep_search(q, limit=limit)
+async def deep_search_endpoint(q: str = "", limit: int = 30, entities: str = ""):
+    """Deep full-text search.
+
+    `entities` — optional comma-separated subset of {memory,note,bookmark}.
+    Default behaviour searches all three.
+    """
+    ents = [e for e in (entities or "").split(",") if e.strip()] or None
+    return await library_agent.deep_search(q, limit=limit, entities=ents)
 
 
 @app.get("/memories/{memory_id}/related")

@@ -410,8 +410,10 @@ async def list_memories(
     if domain and domain in ALLOWED_DOMAINS:
         query_ref = query_ref.where("domain", "==", domain)
     # Over-fetch then filter to current user (and optionally unreviewed)
-    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(max(limit * 4, 80)).get()
-    results = []
+    # Pull a wide window so pinned items further back can still float into
+    # the returned page even when many newer items exist.
+    snapshot = await query_ref.order_by("created_at", direction="DESCENDING").limit(max(limit * 6, 120)).get()
+    candidates = []
     for doc in snapshot:
         m = doc.to_dict()
         if not belongs_to_current_user(m):
@@ -427,12 +429,11 @@ async def list_memories(
         m["id"] = doc.id
         if "created_at" in m and hasattr(m["created_at"], "isoformat"):
             m["created_at"] = m["created_at"].isoformat()
-        results.append(m)
-        if len(results) >= limit:
-            break
-    # Pinned items float to the top within the returned page
-    results.sort(key=lambda x: 0 if x.get("pinned") else 1)
-    return results
+        candidates.append(m)
+    # Pinned items float to the top first, THEN we apply the page limit so
+    # pinned docs anywhere in the candidate window still surface.
+    candidates.sort(key=lambda x: 0 if x.get("pinned") else 1)
+    return candidates[:limit]
 
 
 async def get_memory(memory_id: str) -> dict:
