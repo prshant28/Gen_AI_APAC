@@ -386,8 +386,9 @@ const RecallView = () => {
 
       {/* Flex-1 content area: expands to fill space so the input bar is
           always anchored to the bottom of the viewport even when the
-          conversation is empty. */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          conversation is empty. paddingBottom reserves space so the last
+          row of content is never hidden behind the sticky input bar. */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 108 }}>
 
       {/* Empty state — minimal hero + 6 prompt chips */}
       {isEmpty && (
