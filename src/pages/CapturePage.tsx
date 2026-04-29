@@ -591,6 +591,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   // produce false positives because their summaries can rhyme thematically.
   const NOTE_LIKE_SOURCES = new Set(['note', 'voice', 'clipboard', 'code']);
   const [preSaveDup, setPreSaveDup] = useState<null | { id: string; title: string; by: string }>(null);
+  // User chose "Save anyway" on the duplicate banner — let the next save go
+  // through as a new memory and reset the override after.
+  const [dupOverride, setDupOverride] = useState(false);
   useEffect(() => {
     if (!preview) { setPreSaveDup(null); return; }
     if ((preview as any).duplicate_of) return; // URL match already surfaced
@@ -783,11 +786,21 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     if (!preview) return;
     setIsProcessing(true);
     try {
+      // If the user chose "Save anyway" on the duplicate banner, strip the
+      // duplicate_of hint and pass force_new=true so the backend skips its
+      // own dedup short-circuit and creates a fresh memory.
+      const body: any = { ...preview };
+      if (dupOverride) {
+        delete body.duplicate_of;
+        body.force_new = true;
+      }
       const res = await fetch('/memories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(preview),
+        body: JSON.stringify(body),
       });
+      // Clear override regardless of outcome — it only applies to one save.
+      setDupOverride(false);
       if (res.ok) {
         const saved = await res.json().catch(() => null);
         const memId = saved?.id;
@@ -1219,7 +1232,10 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                         const isFirst = idx === 0;
                         const isLast = idx === sessionItems.length - 1;
                         const isEditing = editingItemId === it.id;
-                        const editable = it.kind !== 'image' || true; // images are caption-editable
+                        // All four item kinds (note / link / voice / image) expose an
+                        // editable text field — keep this explicit in case we later
+                        // add a kind that should be read-only.
+                        const editable = true;
                         return (
                           <div key={it.id} style={{
                             display: 'flex', alignItems: isEditing ? 'flex-start' : 'center', gap: 8, padding: '6px 10px',
@@ -1464,13 +1480,25 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                             </div>
                           )}
                         </div>
-                        <a href="/workspace" style={{
-                          padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6,
-                          background: 'var(--primary)', color: '#fff', textDecoration: 'none',
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                        }}>
-                          Open <ArrowRight size={10} />
-                        </a>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                          <a href="/workspace" style={{
+                            padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6,
+                            background: 'var(--primary)', color: '#fff', textDecoration: 'none',
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                          }}>
+                            Open folder <ArrowRight size={10} />
+                          </a>
+                          {sessionResult.session_id && (
+                            <a href={`/session/${sessionResult.session_id}`} style={{
+                              padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6,
+                              background: 'transparent', color: 'var(--primary)',
+                              border: '1px solid var(--primary-border)', textDecoration: 'none',
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}>
+                              <Layers size={10} /> View session
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -1482,32 +1510,55 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       </motion.div>
 
       {/* ── Duplicate-memory warning banner (URL match from /capture, OR
-            content-hash match from pre-save dedup-check) ──────────────── */}
+            content-hash match from pre-save dedup-check). Three explicit
+            actions: Open existing / Save anyway / Cancel. ─────────────── */}
       {(() => {
         const dup = preview?.duplicate_of
           ? { id: preview.duplicate_of.id, title: preview.duplicate_of.title, by: 'url' }
           : preSaveDup;
         if (!dup) return null;
+        if (dupOverride) return null; // user chose "save anyway"
         const reason = dup.by === 'url'
           ? 'This URL is already in your Vault.'
           : 'A very similar memory is already in your Vault.';
         return (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
             className="view-card"
-            style={{ padding: '12px 16px', borderColor: '#f59e0b', background: 'color-mix(in srgb, #f59e0b 8%, var(--surface))', display: 'flex', alignItems: 'center', gap: 10 }}>
+            style={{ padding: '12px 16px', borderColor: '#f59e0b', background: 'color-mix(in srgb, #f59e0b 8%, var(--surface))', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
               <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)' }}>
                 {reason}
               </p>
               <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                "{dup.title}" — saving will open the existing entry instead of creating a duplicate.
+                "{dup.title}" — choose what to do below.
               </p>
             </div>
-            <button onClick={() => { window.location.href = `/memory/${dup.id}`; }}
-              style={{ padding: '6px 10px', background: '#f59e0b', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
-              Open existing
-            </button>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button onClick={() => { window.location.href = `/memory/${dup.id}`; }}
+                title="Open the existing entry — your new capture will be discarded"
+                style={{ padding: '6px 10px', background: '#f59e0b', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
+                Open existing
+              </button>
+              <button onClick={() => { setDupOverride(true); showToast('Will save as a new entry'); }}
+                title="Save this as a new memory anyway"
+                style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-1)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
+                Save anyway
+              </button>
+              <button onClick={() => {
+                  // Cancel — drop the preview and clear any draft state so the
+                  // page returns to its empty/start state.
+                  setPreview(null);
+                  setInput('');
+                  setPreSaveDup(null);
+                  setDupOverride(false);
+                  showToast('Capture cancelled');
+                }}
+                title="Discard this capture"
+                style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+            </div>
           </motion.div>
         );
       })()}
