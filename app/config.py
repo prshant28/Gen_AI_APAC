@@ -68,9 +68,12 @@ class Settings(BaseSettings):
         if not self.FIREBASE_DATABASE_ID:
             self.FIREBASE_DATABASE_ID = os.getenv("FIREBASE_DATABASE_ID", "(default)")
 
-        # Save the RAW OPENAI_API_KEY before anything overwrites it
+        # Save the RAW OPENAI/OpenRouter key before anything overwrites it.
+        # OPENAI_API_KEY_1 is checked first so newly-rotated keys (added with
+        # the _1 suffix to keep the old one around as backup) take priority.
         raw_openai_key = (
-            os.getenv("OPENAI_API_KEY")
+            os.getenv("OPENAI_API_KEY_1")
+            or os.getenv("OPENAI_API_KEY")
             or os.getenv("FALLBACK_AI_KEY")
             or os.getenv("GEN_APAC_API_KEY")
             or os.getenv("GEN_API_KEY")
