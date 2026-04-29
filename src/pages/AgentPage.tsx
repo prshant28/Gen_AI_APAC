@@ -4,7 +4,8 @@ import {
   X, Clock, Cpu, Check, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { AgentMsg } from '../lib/types';
+import type { AgentMsg, AgentStepData } from '../lib/types';
+import type { LucideIcon } from 'lucide-react';
 import MarkdownMessage from '../components/MarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards from '../components/ActionResultCards';
@@ -89,7 +90,7 @@ const formatDuration = (ms: number): string => {
 // for completed assistant messages. Read-only — drill-down lives in the toolbar export.
 // Only friendly agent labels from AGENT_LABEL are shown — unknown identifiers are dropped
 // so we never leak raw "FooAgent" or model strings into the UI.
-const CompletionSummary: React.FC<{ steps: any[] }> = ({ steps }) => {
+const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
   if (!steps || steps.length === 0) return null;
   const completed = steps.filter(s => s.status === 'completed').length;
   const failed = steps.filter(s => s.status === 'failed').length;
@@ -108,7 +109,7 @@ const CompletionSummary: React.FC<{ steps: any[] }> = ({ steps }) => {
   // one step actually finished, else neutral "Finished" (covers stuck/unknown states).
   let statusText = 'Done';
   let statusColor = '#10b981';
-  let StatusIcon: any = Check;
+  let StatusIcon: LucideIcon = Check;
   if (failed > 0 && completed === 0) {
     statusText = "Couldn't complete";
     statusColor = '#ef4444';
@@ -554,7 +555,7 @@ const AgentHubView = () => {
 
                     {/* End-of-stream summary chip — quick "Done — Coordinator → Capture · 2.4s" */}
                     {msg.role === 'assistant' && msg.type === 'text' && msg.steps && msg.steps.length > 0 && (
-                      <CompletionSummary steps={msg.steps as any} />
+                      <CompletionSummary steps={msg.steps} />
                     )}
 
                     {/* Action result cards (memory saved, task created, event scheduled) */}
