@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, ArrowRight } from 'lucide-react';
 
-const DISMISSED_PREFIX = 'recall:redirect_banner_dismissed:';
+export const DISMISSED_PREFIX = 'recall:redirect_banner_dismissed:';
 
 const ROUTE_LABELS: Record<string, { from: string; nowIn: string; hub: string }> = {
   '/notes':      { from: 'Notes',         nowIn: 'Library',       hub: 'library' },

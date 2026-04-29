@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Loader2, Settings, Zap, CheckCircle2, AlertCircle, Shield, RefreshCw, Presentation, ArrowRight, Bell, BellOff, Send, Key, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
+import { showToast } from '../App';
+import { DISMISSED_PREFIX as REDIRECT_BANNER_DISMISSED_PREFIX } from '../components/LegacyRedirectBanner';
 
 const SettingsView = () => {
   const navigate = useNavigate();
@@ -110,6 +112,31 @@ const SettingsView = () => {
     } finally {
       setBriefSaving(false);
     }
+  };
+
+  const handleResetRedirectBanners = () => {
+    let cleared = 0;
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(REDIRECT_BANNER_DISMISSED_PREFIX)) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+      }
+      cleared = keysToRemove.length;
+    } catch {
+      showToast('Could not reset onboarding hints', 'error');
+      return;
+    }
+    showToast(
+      cleared > 0
+        ? `Onboarding hints reset — ${cleared} banner${cleared === 1 ? '' : 's'} will reappear on their pages`
+        : 'Onboarding hints already cleared — banners will appear next time you visit a moved page'
+    );
   };
 
   const handleTestAI = async () => {
@@ -551,6 +578,28 @@ const SettingsView = () => {
             {briefStatus.msg}
           </p>
         )}
+      </motion.div>
+
+      {/* Reset onboarding hints — clears dismissed legacy redirect banners */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
+        className="view-card" style={{ marginTop: 20, padding: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <RotateCcw size={18} color="#6366f1" />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 3px' }}>Reset onboarding hints</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
+              Bring back the "now part of Library / Focus / Learn / Insights" banners on legacy pages — handy if you dismissed them too quickly or are showing the app to someone new.
+            </p>
+          </div>
+          <button
+            onClick={handleResetRedirectBanners}
+            data-testid="button-reset-onboarding-hints"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <RotateCcw size={13} /> Reset hints
+          </button>
+        </div>
       </motion.div>
 
       {/* Pitch Deck — promoted from sidebar to a Settings entry */}
