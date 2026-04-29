@@ -23,11 +23,20 @@ const safeHostname = (raw: string): string | null => {
 };
 const faviconUrl = (host: string) => `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
 
+/* Accept .pdf / .txt / .md / .markdown for the document upload pipeline.
+ * Some browsers report a blank `type` for text files dragged from the
+ * filesystem, so we fall back to extension matching. */
+const isAcceptedDoc = (f: File): boolean => {
+  const t = (f.type || '').toLowerCase();
+  if (t === 'application/pdf' || t === 'text/plain' || t === 'text/markdown') return true;
+  return /\.(pdf|txt|md|markdown)$/i.test(f.name);
+};
+
 /* ── Source types ───────────────────────────────────────────────── */
 const SOURCES = [
   { id: 'web',       label: 'Web Article', icon: Globe,         color: '#3b82f6', hint: 'Any URL — news, blogs, docs' },
   { id: 'youtube',   label: 'YouTube',     icon: Youtube,       color: '#ef4444', hint: 'Video summary + transcript' },
-  { id: 'pdf',       label: 'PDF / Doc',   icon: FileText,      color: '#f59e0b', hint: 'Upload & extract contents' },
+  { id: 'pdf',       label: 'PDF / Doc',   icon: FileText,      color: '#f59e0b', hint: 'PDF, TXT or MD — extracted by AI' },
   { id: 'note',      label: 'Quick Note',  icon: StickyNote,    color: '#22d3ee', hint: 'Ideas, meeting notes, thoughts' },
   { id: 'code',      label: 'Code',        icon: Code2,         color: '#a78bfa', hint: 'Snippets with AI explanation' },
   { id: 'twitter',   label: 'X / Thread',  icon: Twitter,       color: '#60a5fa', hint: 'Tweet or thread URL' },
@@ -117,7 +126,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const [previewUrl, setPreviewUrl]     = useState('');
   const [pdfFile, setPdfFile]           = useState<File | null>(null);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string>('');
+  const [textPreview, setTextPreview]   = useState<string>('');
   const [dragOver, setDragOver]         = useState(false);
+  const runButtonRef = useRef<HTMLDivElement | null>(null);
   const [justSavedId, setJustSavedId]   = useState<string | null>(null);
   const [justSaved, setJustSaved]       = useState<{ id: string; title: string; url: string } | null>(null);
   const [showRevisit, setShowRevisit]   = useState(false);
@@ -704,12 +715,58 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     };
   }, [preview]);
 
-  /* Local PDF preview (object URL) */
+  /* Local file preview.
+   *   - PDFs render as an object URL inside an <iframe>.
+   *   - Text files (.txt/.md) get the first ~4kB inlined as a code block
+   *     so the user can sanity-check the contents before running the
+   *     7-agent pipeline.
+   * Also auto-scrolls the Run-Pipeline button into view, since users
+   * kept missing it below the fold (especially on shorter laptops). */
   useEffect(() => {
-    if (!pdfFile) { if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl); setPdfObjectUrl(''); return; }
-    const u = URL.createObjectURL(pdfFile);
-    setPdfObjectUrl(u);
-    return () => URL.revokeObjectURL(u);
+    if (!pdfFile) {
+      if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+      setPdfObjectUrl('');
+      setTextPreview('');
+      return;
+    }
+    // Clear stale preview from the previous file BEFORE the async read
+    // so the user never sees File-A's content under File-B's filename.
+    setTextPreview('');
+    const isPdf = /\.pdf$/i.test(pdfFile.name);
+    if (isPdf) {
+      const u = URL.createObjectURL(pdfFile);
+      setPdfObjectUrl(u);
+      // Bring the Run button into view on the next paint
+      requestAnimationFrame(() => {
+        runButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      return () => URL.revokeObjectURL(u);
+    }
+    // Text file → read first 4kB for the inline preview.
+    // `cancelled` flag + reader.abort() in the cleanup prevents a stale
+    // onload from a previous file landing in the new file's preview
+    // (race when the user picks two files in quick succession).
+    setPdfObjectUrl('');
+    const reader = new FileReader();
+    let cancelled = false;
+    reader.onload = () => {
+      if (cancelled) return;
+      const txt = String(reader.result || '');
+      setTextPreview(txt.slice(0, 4000));
+      requestAnimationFrame(() => {
+        runButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    };
+    reader.onerror = () => {
+      if (cancelled) return;
+      setTextPreview('');
+      showToast('Could not read file', 'error');
+    };
+    reader.readAsText(pdfFile.slice(0, 4000));
+    return () => {
+      cancelled = true;
+      try { reader.abort(); } catch { /* readyState already DONE — no-op */ }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfFile]);
 
@@ -767,9 +824,12 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         if (!data.title || data.title === 'PDF Document') {
-          data.title = pdfFile.name.replace(/\.pdf$/i, '');
+          data.title = pdfFile.name.replace(/\.(pdf|txt|md|markdown)$/i, '');
         }
-        data.source_type = 'pdf';
+        // Mark as 'pdf' for the source-type badge only when the original
+        // file was a PDF — text files are saved as 'note' on the backend
+        // and we don't want to mislabel the badge.
+        if (/\.pdf$/i.test(pdfFile.name)) data.source_type = 'pdf';
         await pipelinePromise;
         setPreview(data);
       } catch (err: any) {
@@ -1931,38 +1991,64 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                     <div
                       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                       onDragLeave={() => setDragOver(false)}
-                      onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f?.type === 'application/pdf') setPdfFile(f); else if (f) showToast('Please drop a PDF file', 'error'); }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        setDragOver(false);
+                        const f = e.dataTransfer.files[0];
+                        if (!f) return;
+                        const ok = isAcceptedDoc(f);
+                        if (!ok) { showToast('Please drop a PDF, .txt, or .md file', 'error'); return; }
+                        if (f.size > 25 * 1024 * 1024) { showToast('File too large (max 25MB)', 'error'); return; }
+                        setPdfFile(f);
+                      }}
                       onClick={() => fileInputRef.current?.click()}
                       style={{ border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border-2)'}`, borderRadius: 16, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: dragOver ? 'var(--primary-bg)' : 'var(--surface-2)' }}>
-                      <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { if (f.size > 15 * 1024 * 1024) { showToast('PDF too large (max 15MB)', 'error'); return; } setPdfFile(f); } }} />
+                      <input ref={fileInputRef} type="file"
+                        accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (!isAcceptedDoc(f)) { showToast('Unsupported file type. Use .pdf, .txt, or .md', 'error'); e.target.value = ''; return; }
+                          if (f.size > 25 * 1024 * 1024) { showToast('File too large (max 25MB)', 'error'); e.target.value = ''; return; }
+                          setPdfFile(f);
+                          e.target.value = '';
+                        }} />
                       <div style={{ width: 52, height: 52, background: 'var(--surface-3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                         <Upload size={26} color="var(--text-3)" />
                       </div>
-                      <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Drop PDF or click to upload</p>
-                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>AI extracts and structures all content · Max 15 MB</p>
+                      <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Drop file or click to upload</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>PDF, TXT, MD · AI extracts and structures all content · Max 25 MB</p>
                     </div>
                   ) : (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       style={{ borderRadius: 14, border: '1.5px solid #10b981', overflow: 'hidden', background: 'var(--surface-2)' }}>
-                      {/* PDF file header */}
+                      {/* File header */}
                       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)', background: 'rgba(16,185,129,0.06)' }}>
                         <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(16,185,129,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <FileDigit size={18} color="#10b981" />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · ready to process</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>
+                            {(pdfFile.size / 1024 / 1024).toFixed(2)} MB · ready — click <b>Run Pipeline</b> below
+                          </p>
                         </div>
                         <button onClick={() => setPdfFile(null)}
                           style={{ padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
                           <X size={11} /> Remove
                         </button>
                       </div>
-                      {/* Inline PDF preview — large so user can read before pipeline runs */}
-                      {pdfObjectUrl && (
+                      {/* Inline preview: PDFs render in iframe; text files show first chars */}
+                      {pdfObjectUrl && /\.pdf$/i.test(pdfFile.name) && (
                         <div style={{ height: 420, background: '#1a1a1a' }}>
                           <iframe src={pdfObjectUrl} title="PDF preview"
                             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+                        </div>
+                      )}
+                      {!/\.pdf$/i.test(pdfFile.name) && (
+                        <div style={{ padding: '14px 16px', maxHeight: 240, overflow: 'auto', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, background: 'var(--surface)', whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace' }}>
+                          {textPreview || <span style={{ color: 'var(--text-3)' }}>Reading file…</span>}
                         </div>
                       )}
                     </motion.div>
@@ -2027,10 +2113,12 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                   </div>
                 </motion.div>
               ) : (
-                <button onClick={handleCapture} disabled={!canSubmit}
-                  className="btn-premium" style={{ width: '100%', fontSize: 14.5, gap: 10 }}>
-                  <Zap size={17} /> Run 7-Agent Capture Pipeline
-                </button>
+                <div ref={runButtonRef} style={{ scrollMarginTop: 80 }}>
+                  <button onClick={handleCapture} disabled={!canSubmit}
+                    className="btn-premium" style={{ width: '100%', fontSize: 14.5, gap: 10 }}>
+                    <Zap size={17} /> Run 7-Agent Capture Pipeline
+                  </button>
+                </div>
               )}
             </div>
           </motion.div>

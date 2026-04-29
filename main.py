@@ -556,20 +556,89 @@ async def capture_endpoint(request: CaptureRequest):
 
 @app.post("/capture/upload")
 async def capture_upload_endpoint(file: UploadFile = File(...), preview: bool = Query(False)):
-    """Upload and capture a PDF file. Supports preview mode (preview=true) so the UI can show a confirm-before-save card."""
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-    try:
-        pdf_bytes = await file.read()
-        result = await capture(
-            source_type="pdf",
-            pdf_bytes=pdf_bytes,
-            preview=preview,
+    """Upload and capture a document.
+
+    Supported types:
+      .pdf                    → routed through the PDF parser (pypdf).
+      .txt / .md / .markdown  → read as UTF-8 text and routed through the
+                                note pipeline so the LLM can summarise it
+                                with the same 7-agent treatment.
+
+    Hard size cap: 25 MB. Anything larger gets a 413 with a clear message
+    instead of a generic 500.
+    """
+    name = (file.filename or "").lower()
+    is_pdf = name.endswith(".pdf")
+    is_text = (
+        name.endswith(".txt")
+        or name.endswith(".md")
+        or name.endswith(".markdown")
+    )
+    if not (is_pdf or is_text):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file. Allowed: .pdf, .txt, .md",
         )
+    try:
+        # Stream-read with a running byte counter so we can hang up on
+        # oversized uploads BEFORE allocating the whole payload in memory.
+        # `await file.read()` would happily buffer hundreds of MB before
+        # the size check ran — easy DoS vector if the frontend cap is
+        # bypassed (curl, malicious clients, etc).
+        max_bytes = 25 * 1024 * 1024
+        chunks: list[bytes] = []
+        total = 0
+        chunk_size = 256 * 1024  # 256 kB
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail="File too large (max 25 MB).",
+                )
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+        if not raw:
+            raise HTTPException(status_code=400, detail="Empty file.")
+
+        if is_pdf:
+            result = await capture(
+                source_type="pdf",
+                pdf_bytes=raw,
+                preview=preview,
+            )
+        else:
+            try:
+                text = raw.decode("utf-8", errors="ignore").strip()
+            except Exception:
+                text = ""
+            if not text:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Could not read text from file (empty or non-UTF8).",
+                )
+            # Cap analysis input to keep the model call cheap; the original
+            # raw bytes are already saved to the user's source_filename.
+            result = await capture(
+                source_type="note",
+                content=text[:50000],
+                preview=preview,
+            )
+            # Use the filename (without extension) as the human-readable
+            # title — much friendlier than whatever the LLM invents from a
+            # bare paragraph.
+            if isinstance(result, dict):
+                display_name = (file.filename or "Document").rsplit(".", 1)[0]
+                result["title"] = display_name[:140]
+                result["source_filename"] = file.filename
+
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
-        # Pass through original filename for nicer UI titles
-        if isinstance(result, dict) and not result.get("title", "").strip().lower().startswith(file.filename.lower()[:6]):
+        # Pass through original filename for nicer UI titles (PDF path)
+        if isinstance(result, dict) and not result.get("title", "").strip().lower().startswith(name[:6]):
             result.setdefault("source_filename", file.filename)
         return result
     except HTTPException as he:
