@@ -532,7 +532,8 @@ const HUB_DEEP_LINKS = [
    Any page can trigger: window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }))
 ────────────────────────────────────────────── */
 type ToastType = 'success' | 'error' | 'info';
-interface ToastItem { id: number; msg: string; type: ToastType; }
+export interface ToastAction { label: string; onClick: () => void | Promise<void>; testId?: string; }
+interface ToastItem { id: number; msg: string; type: ToastType; action?: ToastAction; }
 
 const TOAST_ICONS: Record<ToastType, React.ReactNode> = {
   success: <CheckCircle2 size={15} />,
@@ -548,17 +549,22 @@ const TOAST_COLORS: Record<ToastType, { bg: string; border: string; text: string
 const GlobalToast = () => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const counterRef = useRef(0);
+  const dismiss = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
   useEffect(() => {
     const handler = (e: Event) => {
-      const { msg, type = 'success' } = (e as CustomEvent).detail ?? {};
+      const { msg, type = 'success', action } = (e as CustomEvent).detail ?? {};
       if (!msg) return;
       const id = ++counterRef.current;
-      setToasts(prev => [...prev, { id, msg, type }]);
-      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3800);
+      setToasts(prev => [...prev, { id, msg, type, action }]);
+      // Toasts with an action (e.g. Undo) linger longer so users have time to react.
+      const lifetime = action ? 5500 : 3800;
+      setTimeout(() => dismiss(id), lifetime);
     };
     window.addEventListener('recall-toast', handler);
     return () => window.removeEventListener('recall-toast', handler);
-  }, []);
+  }, [dismiss]);
 
   return (
     <div style={{ position: 'fixed', top: 22, right: 22, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
@@ -567,9 +573,23 @@ const GlobalToast = () => {
           const c = TOAST_COLORS[t.type];
           return (
             <motion.div key={t.id} initial={{ opacity: 0, x: 60, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 60, scale: 0.9 }}
-              style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9, color: c.text, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontFamily: "'Poppins', sans-serif", pointerEvents: 'all', minWidth: 220, maxWidth: 340 }}>
+              style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '11px 14px 11px 18px', display: 'flex', alignItems: 'center', gap: 9, color: c.text, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontFamily: "'Poppins', sans-serif", pointerEvents: 'all', minWidth: 220, maxWidth: 360 }}>
               {TOAST_ICONS[t.type]}
               <span style={{ flex: 1 }}>{t.msg}</span>
+              {t.action && (
+                <button
+                  data-testid={t.action.testId || 'button-toast-action'}
+                  onClick={async () => {
+                    // Optimistically dismiss so users get instant feedback even
+                    // if the action awaits a network round-trip.
+                    dismiss(t.id);
+                    try { await t.action!.onClick(); } catch { /* no-op: handler shows its own error */ }
+                  }}
+                  style={{ marginLeft: 4, padding: '5px 11px', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.4px' }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </motion.div>
           );
         })}
@@ -578,8 +598,8 @@ const GlobalToast = () => {
   );
 };
 
-export const showToast = (msg: string, type: ToastType = 'success') => {
-  window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type } }));
+export const showToast = (msg: string, type: ToastType = 'success', action?: ToastAction) => {
+  window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg, type, action } }));
 };
 
 /* ─────────────────────────────────────────────

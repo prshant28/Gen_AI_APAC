@@ -222,26 +222,57 @@ const LibraryInboxTab: React.FC = () => {
     }
   };
 
+  // Restore a row that was just reviewed or archived. Best-effort: if the
+  // component has been unmounted (user navigated tabs), the local setItems is a
+  // no-op but the PATCH still revives the memory on the server, so it will
+  // reappear next time the inbox loads.
+  const restoreMemory = async (m: Memory, originalIndex: number, body: Record<string, unknown>) => {
+    const ok = await patchMemory(m.id, body);
+    if (ok) {
+      setItems(prev => {
+        if (prev.some(x => x.id === m.id)) return prev;
+        const next = [...prev];
+        const insertAt = Math.max(0, Math.min(originalIndex, next.length));
+        next.splice(insertAt, 0, m);
+        return next;
+      });
+      showToast('Restored');
+    }
+  };
+
   // Note: the sidebar Inbox badge auto-refreshes after Review / Archive because
   // the global apiFetch hook broadcasts `inbox-count-refresh` on every
   // successful non-GET /memories call — no explicit dispatch needed here.
   const handleReview = async (m: Memory) => {
+    const originalIndex = items.findIndex(x => x.id === m.id);
     setBusyId(m.id);
     const ok = await patchMemory(m.id, { reviewed: true });
     setBusyId(null);
     if (ok) {
       removeFromList(m.id);
-      showToast('Marked as reviewed');
+      showToast('Marked as reviewed', 'success', {
+        label: 'Undo',
+        testId: `button-undo-review-${m.id}`,
+        onClick: () => restoreMemory(m, originalIndex, { reviewed: false }),
+      });
     }
   };
 
   const handleArchive = async (m: Memory) => {
+    const originalIndex = items.findIndex(x => x.id === m.id);
     setBusyId(m.id);
     const ok = await patchMemory(m.id, { archived: true });
     setBusyId(null);
     if (ok) {
       removeFromList(m.id);
-      showToast('Archived');
+      // Archiving from the inbox implicitly leaves `reviewed` untouched, but
+      // restoring should bring the row back to the inbox in its prior state, so
+      // we explicitly clear both flags on undo.
+      showToast('Archived', 'success', {
+        label: 'Undo',
+        testId: `button-undo-archive-${m.id}`,
+        onClick: () => restoreMemory(m, originalIndex, { archived: false, reviewed: false }),
+      });
     }
   };
 
