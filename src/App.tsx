@@ -188,7 +188,7 @@ const Sidebar = ({
           {/* ── PINNED ESSENTIALS — always visible, prominent ───────────────── */}
           {!isCollapsed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 6px', color: 'var(--text-3)', fontSize: 9, letterSpacing: '1.6px', textTransform: 'uppercase', fontWeight: 700 }}>
-              <Pin size={12} strokeWidth={1.75} /> Essentials
+              <Pin size={16} strokeWidth={1.75} /> Essentials
             </div>
           )}
           {isCollapsed && <div style={{ height: 4 }} />}
@@ -355,7 +355,7 @@ const Sidebar = ({
         </nav>
         {!isCollapsed && canScrollDown && (
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24, background: 'linear-gradient(to bottom, transparent, var(--surface))', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 2, pointerEvents: 'none' }}>
-            <ChevronDown size={11} color="var(--text-3)" style={{ opacity: 0.45 }} />
+            <ChevronDown size={16} strokeWidth={1.75} color="var(--text-3)" style={{ opacity: 0.45 }} />
           </div>
         )}
       </div>
