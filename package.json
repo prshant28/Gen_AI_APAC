@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "check:vendor-leaks": "bash scripts/check-no-vendor-leaks.sh",
     "start": "python main.py"
   },
   "dependencies": {
