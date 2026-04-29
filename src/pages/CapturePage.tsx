@@ -247,7 +247,8 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     if (!sessionMode || sessionFolderMode !== 'existing' || sessionProjects.length > 0) return;
     fetch('/workspace/projects')
       .then(r => r.json())
-      .then(d => setSessionProjects(((d?.projects || []) as any[]).map(p => ({ id: p.id, name: p.name }))))
+      .then((d: { projects?: Array<{ id: string; name: string }> }) =>
+        setSessionProjects((d?.projects || []).map(p => ({ id: p.id, name: p.name }))))
       .catch(() => {});
   }, [sessionMode, sessionFolderMode, sessionProjects.length]);
 
@@ -316,8 +317,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       } else {
         showToast(data?.error || data?.message || 'AI preview failed');
       }
-    } catch (e: any) {
-      showToast(e?.message || 'AI preview failed');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'AI preview failed';
+      showToast(msg);
     } finally {
       setBundleLoading(false);
     }
@@ -427,8 +429,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       } else {
         showToast(data?.message || data?.detail || 'Session save failed');
       }
-    } catch (e: any) {
-      showToast(e?.message || 'Session save failed');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Session save failed';
+      showToast(msg);
     } finally {
       setSessionSubmitting(false);
       sessionSubmitLock.current = false;
@@ -482,7 +485,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       const raw = localStorage.getItem(TEMPLATES_LS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setUserTemplates(parsed.filter((t: any) => t?.id && t?.body));
+        if (Array.isArray(parsed)) {
+          const valid: Template[] = (parsed as Partial<Template>[])
+            .filter((t): t is Template => typeof t?.id === 'string' && typeof t?.body === 'string' && typeof t?.label === 'string' && typeof t?.source === 'string');
+          setUserTemplates(valid);
+        }
       }
     } catch {}
   }, []);
@@ -585,8 +592,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
         });
         // Mark twitter (treated as web)
         void isTw;
-      } catch (e: any) {
-        results.push({ url, ok: false, error: e?.message || 'Failed' });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Failed';
+        results.push({ url, ok: false, error: msg });
       }
       setBatchResults([...results]);
     }
@@ -615,8 +623,8 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const [dupOverride, setDupOverride] = useState(false);
   useEffect(() => {
     if (!preview) { setPreSaveDup(null); return; }
-    if ((preview as any).duplicate_of) return; // URL match already surfaced by /capture
-    const previewSource = String((preview as any).source_type || '').toLowerCase();
+    if (preview.duplicate_of) return; // URL match already surfaced by /capture
+    const previewSource = String(preview.source_type || '').toLowerCase();
     const isNoteLike = NOTE_LIKE_SOURCES.has(previewSource) || NOTE_LIKE_SOURCES.has(source);
     const url = (preview.source_url || previewUrl || '').trim();
     const title = preview.title || '';
@@ -674,12 +682,12 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       if (/[a-zA-Z]/.test(s)) return 'English';
       return '';
     };
-    const language = String((preview as any).language || detectLang(text) || '');
+    const language = String(preview.language || detectLang(text) || '');
     // Guardian agent confidence — surfaced if the backend included it in the
     // preview payload (any of: guardian_confidence, guardian_score, quality_score).
-    const rawGuardian = (preview as any).guardian_confidence
-      ?? (preview as any).guardian_score
-      ?? (preview as any).quality_score;
+    const rawGuardian = preview.guardian_confidence
+      ?? preview.guardian_score
+      ?? preview.quality_score;
     let guardianPct: number | null = null;
     if (typeof rawGuardian === 'number' && isFinite(rawGuardian)) {
       guardianPct = rawGuardian > 1 ? Math.round(rawGuardian) : Math.round(rawGuardian * 100);
@@ -815,11 +823,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       // If the user chose "Save anyway" on the duplicate banner, strip the
       // duplicate_of hint and pass force_new=true so the backend skips its
       // own dedup short-circuit and creates a fresh memory.
-      const body: any = { ...preview };
-      if (dupOverride) {
-        delete body.duplicate_of;
-        body.force_new = true;
-      }
+      const { duplicate_of, ...rest } = preview;
+      void duplicate_of; // intentionally dropped on save-anyway, kept on normal save below
+      const body: Partial<Memory> = dupOverride
+        ? { ...rest, force_new: true }
+        : preview;
       const res = await fetch('/memories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

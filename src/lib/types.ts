@@ -38,6 +38,16 @@ export interface Memory {
   // Inbox triage flags
   reviewed?: boolean;
   archived?: boolean;
+  // Optional preview-only metadata surfaced by the capture preview pipeline
+  // (none of these are persisted on the saved memory document — they're
+  // displayed in the Capture page metadata strip).
+  language?: string;
+  guardian_confidence?: number;
+  guardian_score?: number;
+  quality_score?: number;
+  // Override flag sent by the frontend's "Save anyway" path so the backend
+  // skips its URL/content-hash dedup guards. Server-side only.
+  force_new?: boolean;
 }
 
 export interface Flashcard {
