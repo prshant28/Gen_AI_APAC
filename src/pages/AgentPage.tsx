@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send, Mic, MicOff, Loader2, Plus, Radio, MessageSquare, Trash2,
-  X, Clock, Cpu, Check, AlertTriangle,
+  X, Clock, Cpu, Check, AlertTriangle, ChevronDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg, AgentStepData } from '../lib/types';
 import type { LucideIcon } from 'lucide-react';
 import MarkdownMessage from '../components/MarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
-import ActionResultCards from '../components/ActionResultCards';
+import ActionResultCards, { ROUTE_MAP } from '../components/ActionResultCards';
 import { LiveInlineGate } from '../components/LiveChatPanel';
 
 // ─── Persisted chat storage (cleared on sign-out by App.handleSignOut) ────
@@ -86,6 +86,35 @@ const formatDuration = (ms: number): string => {
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
 };
 
+// Map any noun we receive to a (singular, plural) pair so the aggregated chip
+// and the per-step drill-down panel both pluralise consistently — e.g. a
+// "memory" step (count 1) and a "memories" step (count 5) collapse cleanly.
+const NOUN_FORMS: Record<string, { singular: string; plural: string }> = {
+  memory:      { singular: 'memory',     plural: 'memories'    },
+  memories:    { singular: 'memory',     plural: 'memories'    },
+  task:        { singular: 'task',       plural: 'tasks'       },
+  tasks:       { singular: 'task',       plural: 'tasks'       },
+  event:       { singular: 'event',      plural: 'events'      },
+  events:      { singular: 'event',      plural: 'events'      },
+  briefing:    { singular: 'briefing',   plural: 'briefings'   },
+  briefings:   { singular: 'briefing',   plural: 'briefings'   },
+  'study plan':  { singular: 'study plan', plural: 'study plans' },
+  'study plans': { singular: 'study plan', plural: 'study plans' },
+};
+
+// Render a single step's entity audit as "saved 1 memory" / "checked 3 memories".
+// Returns "" when the step lacks a usable count/noun/verb (e.g. stats tools).
+const stepEntityPhrase = (step: AgentStepData): string => {
+  const count = step.entity_count;
+  const noun = (step.entity_noun || '').toLowerCase();
+  const verb = step.entity_verb || '';
+  if (typeof count !== 'number' || count < 0 || !noun || !verb) return '';
+  const forms = NOUN_FORMS[noun];
+  const singular = forms?.singular || noun;
+  const plural = forms?.plural || `${noun}s`;
+  return `${verb} ${count} ${count === 1 ? singular : plural}`;
+};
+
 // Build a "saved 2 memories, created 1 task" phrase from per-step entity counts.
 // Aggregates counts that share the same (verb, noun-stem) so a workflow with
 // multiple captures collapses to one "saved 3 memories" instead of three
@@ -96,21 +125,6 @@ const buildEntityPhrase = (steps: AgentStepData[]): string => {
   // entry tracks the running count and the verb/noun pair we'll render.
   const order: string[] = [];
   const groups = new Map<string, { verb: string; singular: string; plural: string; count: number }>();
-
-  // Map any noun we receive to a (singular, plural) pair so adding a "memory"
-  // step (count 1) and a "memories" step (count 5) collapses cleanly.
-  const NOUN_FORMS: Record<string, { singular: string; plural: string }> = {
-    memory:      { singular: 'memory',     plural: 'memories'    },
-    memories:    { singular: 'memory',     plural: 'memories'    },
-    task:        { singular: 'task',       plural: 'tasks'       },
-    tasks:       { singular: 'task',       plural: 'tasks'       },
-    event:       { singular: 'event',      plural: 'events'      },
-    events:      { singular: 'event',      plural: 'events'      },
-    briefing:    { singular: 'briefing',   plural: 'briefings'   },
-    briefings:   { singular: 'briefing',   plural: 'briefings'   },
-    'study plan':  { singular: 'study plan', plural: 'study plans' },
-    'study plans': { singular: 'study plan', plural: 'study plans' },
-  };
 
   for (const s of steps) {
     if (s.status !== 'completed') continue;
@@ -145,10 +159,16 @@ const buildEntityPhrase = (steps: AgentStepData[]): string => {
 // End-of-stream summary chip: renders concrete counts when the backend supplied
 // per-step entity audit data ("Done — checked 3 memories, created 1 task · 2.4s"),
 // otherwise falls back to the friendly agent path ("Done · Coordinator → Tasks · 2.4s").
-// Read-only — drill-down lives in the toolbar export. Only friendly agent labels from
-// AGENT_LABEL are shown — unknown identifiers are dropped so we never leak raw
-// "FooAgent" or model strings into the UI.
-const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
+// When `onToggle` is provided the chip is rendered as a button — clicking it
+// expands the inline drill-down panel below the assistant message. Only friendly
+// agent labels from AGENT_LABEL are shown — unknown identifiers are dropped so we
+// never leak raw "FooAgent" or model strings into the UI.
+const CompletionSummary: React.FC<{
+  steps: AgentStepData[];
+  expanded?: boolean;
+  onToggle?: () => void;
+  controlsId?: string;
+}> = ({ steps, expanded, onToggle, controlsId }) => {
   if (!steps || steps.length === 0) return null;
   const completed = steps.filter(s => s.status === 'completed').length;
   const failed = steps.filter(s => s.status === 'failed').length;
@@ -190,29 +210,17 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
   const durationStr = totalMs > 0 ? formatDuration(totalMs) : null;
   // Title mirrors the rendered chip: "Done — checked 3 memories · 2.4s".
   const titleStatusAndMid = middleText ? `${statusText} — ${middleText}` : statusText;
-  const title = durationStr ? `${titleStatusAndMid} · ${durationStr}` : titleStatusAndMid;
+  const baseTitle = durationStr ? `${titleStatusAndMid} · ${durationStr}` : titleStatusAndMid;
+  // Hint that the chip is now interactive when the parent wired up a toggle.
+  const title = onToggle
+    ? `${baseTitle} — click to ${expanded ? 'hide' : 'see'} what the assistant did`
+    : baseTitle;
+  const isInteractive = typeof onToggle === 'function';
 
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      title={title}
-      style={{
-        marginTop: 8,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 7,
-        padding: '4px 10px 4px 8px',
-        background: `${statusColor}10`,
-        border: `1px solid ${statusColor}33`,
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 600,
-        color: statusColor,
-        maxWidth: '100%',
-        cursor: 'default',
-        userSelect: 'none',
-      }}>
+  // Shared inner contents — used both for the static <div> chip and the
+  // interactive <button> chip so we don't duplicate markup.
+  const chipInner = (
+    <>
       <StatusIcon size={11} strokeWidth={2.5} />
       <span style={{ color: statusColor, fontWeight: 700, letterSpacing: '0.1px' }}>{statusText}</span>
       {middleText && (
@@ -234,6 +242,158 @@ const CompletionSummary: React.FC<{ steps: AgentStepData[] }> = ({ steps }) => {
           <span style={{ color: 'var(--text-3)', fontWeight: 600 }}>{durationStr}</span>
         </>
       )}
+      {isInteractive && (
+        <ChevronDown
+          size={11}
+          strokeWidth={2.5}
+          aria-hidden
+          style={{
+            marginLeft: 1,
+            color: 'var(--text-3)',
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.18s ease',
+          }} />
+      )}
+    </>
+  );
+
+  const baseStyle: React.CSSProperties = {
+    marginTop: 8,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '4px 10px 4px 8px',
+    background: `${statusColor}10`,
+    border: `1px solid ${statusColor}33`,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 600,
+    color: statusColor,
+    maxWidth: '100%',
+    cursor: isInteractive ? 'pointer' : 'default',
+    userSelect: 'none',
+    fontFamily: 'inherit',
+    lineHeight: 1.2,
+    textAlign: 'left',
+  };
+
+  if (!isInteractive) {
+    return (
+      <div role="status" aria-live="polite" title={title} style={baseStyle}>
+        {chipInner}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={title}
+      aria-expanded={!!expanded}
+      aria-controls={controlsId}
+      data-testid="completion-summary-toggle"
+      style={baseStyle}>
+      {chipInner}
+    </button>
+  );
+};
+
+// Inline drill-down panel shown when the user clicks the completion chip.
+// Lists every step the orchestrator ran for that turn, using the friendly
+// agent label, the entity verb+count+noun the backend already emitted, the
+// duration, and a truncated output_summary. Failed steps are visibly marked
+// and show their error string instead of the summary. Read-only — no actions.
+// Steps whose agent isn't in AGENT_LABEL are dropped so we never leak raw
+// "FooAgent" / model identifiers into the UI.
+const CompletionDetailsPanel: React.FC<{ steps: AgentStepData[]; panelId: string }> = ({ steps, panelId }) => {
+  const visible = (steps || []).filter(s => AGENT_LABEL[s.agent]);
+  if (visible.length === 0) {
+    return (
+      <div
+        id={panelId}
+        data-testid="completion-summary-details"
+        style={{
+          marginTop: 8,
+          padding: '10px 12px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          fontSize: 12,
+          color: 'var(--text-3)',
+        }}>
+        No step details available for this reply.
+      </div>
+    );
+  }
+  return (
+    <div
+      id={panelId}
+      data-testid="completion-summary-details"
+      role="region"
+      aria-label="What the assistant did"
+      style={{
+        marginTop: 8,
+        padding: '10px 12px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        display: 'flex', flexDirection: 'column', gap: 8,
+      }}>
+      {visible.map(step => {
+        const meta = ROUTE_MAP[step.agent];
+        const color = meta?.color || '#a78bfa';
+        const StepIcon = meta?.icon || Cpu;
+        const label = AGENT_LABEL[step.agent];
+        const isFailed = step.status === 'failed';
+        const isRunning = step.status === 'running';
+        const phrase = stepEntityPhrase(step);
+        const summary = (step.output_summary || '').toString().trim().slice(0, 220);
+        const dur = typeof step.duration_ms === 'number' && step.duration_ms > 0
+          ? formatDuration(step.duration_ms)
+          : null;
+        return (
+          <div key={step.step_id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+              background: isFailed ? 'rgba(239,68,68,0.15)' : `${color}18`,
+              border: `1px solid ${isFailed ? 'rgba(239,68,68,0.45)' : `${color}40`}`,
+              display: 'grid', placeItems: 'center',
+            }}>
+              {isFailed
+                ? <AlertTriangle size={12} color="#ef4444" />
+                : <StepIcon size={12} color={color} />}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 700 }}>{label}</span>
+                {phrase && (
+                  <span style={{ color: 'var(--text-2)', fontSize: 11.5, fontWeight: 500 }}>· {phrase}</span>
+                )}
+                {isRunning && (
+                  <span style={{ color: '#a78bfa', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.3px' }}>· RUNNING</span>
+                )}
+                {isFailed && (
+                  <span style={{ color: '#ef4444', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.3px' }}>· FAILED</span>
+                )}
+                {dur && (
+                  <span style={{ marginLeft: 'auto', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600 }}>{dur}</span>
+                )}
+              </div>
+              {isFailed && step.error && (
+                <div style={{ marginTop: 3, color: '#ef4444', fontSize: 11.5, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                  {step.error.toString().slice(0, 240)}
+                </div>
+              )}
+              {!isFailed && summary && (
+                <div style={{ marginTop: 3, color: 'var(--text-3)', fontSize: 11.5, lineHeight: 1.45, wordBreak: 'break-word' }}>
+                  {summary}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -274,6 +434,10 @@ const AgentHubView = () => {
   // Live per-agent status. Drives the inline "Live agents" strip below the header
   // so the user can see exactly which specialist is working at any moment.
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'running' | 'done'>>({});
+  // Tracks which assistant message has its drill-down panel open. Only one
+  // panel is open at a time per chat — opening a second one closes the first.
+  // Reset when loading a different chat session or starting a new chat.
+  const [expandedSummaryMsgId, setExpandedSummaryMsgId] = useState<string | null>(null);
 
   // ── refs ──
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -341,6 +505,7 @@ const AgentHubView = () => {
     setCurrentSessionId(s.id);
     setMessages(s.messages && s.messages.length > 0 ? s.messages : [buildWelcomeMsg()]);
     setAgentStatuses({});
+    setExpandedSummaryMsgId(null);
     setHistoryOpen(false);
     window.dispatchEvent(new CustomEvent('recall-toast', { detail: { msg: `Loaded chat: ${s.title.slice(0, 40)}`, type: 'info' } }));
   }, [currentSessionId, archiveCurrentSession]);
@@ -488,6 +653,7 @@ const AgentHubView = () => {
     setCurrentSessionId(`s-${Date.now()}-${Math.random().toString(36).slice(2,6)}`);
     setMessages([buildWelcomeMsg()]);
     setAgentStatuses({});
+    setExpandedSummaryMsgId(null);
     inputRef.current?.focus();
   }, [archiveCurrentSession]);
 
@@ -680,9 +846,24 @@ const AgentHubView = () => {
                       />
                     </div>
 
-                    {/* End-of-stream summary chip — quick "Done — Coordinator → Capture · 2.4s" */}
+                    {/* End-of-stream summary chip — quick "Done — Coordinator → Capture · 2.4s".
+                        Click to expand an inline panel showing each step the orchestrator ran.
+                        Only one panel can be open per chat at a time — opening another closes this one. */}
                     {msg.role === 'assistant' && msg.type === 'text' && msg.steps && msg.steps.length > 0 && (
-                      <CompletionSummary steps={msg.steps} />
+                      <>
+                        <CompletionSummary
+                          steps={msg.steps}
+                          expanded={expandedSummaryMsgId === msg.id}
+                          onToggle={() => setExpandedSummaryMsgId(prev => prev === msg.id ? null : msg.id)}
+                          controlsId={`completion-details-${msg.id}`}
+                        />
+                        {expandedSummaryMsgId === msg.id && (
+                          <CompletionDetailsPanel
+                            steps={msg.steps}
+                            panelId={`completion-details-${msg.id}`}
+                          />
+                        )}
+                      </>
                     )}
 
                     {/* Action result cards (memory saved, task created, event scheduled) */}

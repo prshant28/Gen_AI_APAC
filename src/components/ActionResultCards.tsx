@@ -28,7 +28,9 @@ interface CardSpec {
 
 // Every agent that has a corresponding page surfaces a "go to that page" card
 // inline in chat — so the user can act on the result with one click.
-const ROUTE_MAP: Record<string, { route: string; label: string; icon: any; color: string; label2: string }> = {
+// Exported so other UI (e.g. AgentPage's completion-summary drill-down panel)
+// can reuse the same per-agent icon/color palette and stay visually consistent.
+export const ROUTE_MAP: Record<string, { route: string; label: string; icon: any; color: string; label2: string }> = {
   CaptureAgent:   { route: '/vault',     label: 'Memory saved',      label2: 'Open in Vault',   icon: Database,     color: '#f43f5e' },
   TaskAgent:      { route: '/tasks',     label: 'Task created',      label2: 'Open Tasks',      icon: CheckSquare,  color: '#10b981' },
   CalendarAgent:  { route: '/calendar',  label: 'Event scheduled',   label2: 'Open Calendar',   icon: CalendarIcon, color: '#f59e0b' },
