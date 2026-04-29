@@ -5,6 +5,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
 import type { Memory, Flashcard } from '../lib/types';
 import { card } from '../lib/ui';
+import ViewModeToggle, { type ViewMode, type Density } from '../components/ViewModeToggle';
+
+const VIEW_KEY = 'recall:vault:viewMode';
+const DENSITY_KEY = 'recall:vault:density';
+const loadViewMode = (): ViewMode => {
+  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
+};
+const loadDensity = (): Density => {
+  try { return localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable'; } catch { return 'comfortable'; }
+};
 
 interface StudyCard extends Flashcard { status: 'unseen' | 'known' | 'unknown'; }
 
@@ -124,6 +134,11 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [flashcardsMemory, setFlashcardsMemory] = useState<Memory | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const [density, setDensity] = useState<Density>(loadDensity);
+
+  useEffect(() => { try { localStorage.setItem(VIEW_KEY, viewMode); } catch { /* ignore */ } }, [viewMode]);
+  useEffect(() => { try { localStorage.setItem(DENSITY_KEY, density); } catch { /* ignore */ } }, [density]);
 
   const fetchMemories = useCallback(() => {
     setIsLoading(true);
@@ -209,21 +224,97 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
             style={{ padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 12, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>
             {SORT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+
+          <div style={{ marginLeft: 'auto' }}>
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewMode={setViewMode}
+              density={density}
+              onDensity={setDensity}
+            />
+          </div>
         </div>
       </motion.div>
 
-      {/* Grid */}
+      {/* Memories — grid (comfortable / compact) or list */}
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
           <Loader2 size={34} color="#f472b6" style={{ animation: 'spin 1s linear infinite' }} />
         </div>
-      ) : (
-        <div className="vault-grid">
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '70px 0' }}>
+          <Brain size={40} color="var(--border-2)" style={{ margin: '0 auto 12px' }} />
+          <p style={{ color: 'var(--text-3)', margin: 0 }}>{filter ? 'No memories match your search.' : 'No memories yet — start capturing knowledge!'}</p>
+          <button onClick={() => navigate('/capture')} style={{ marginTop: 14, padding: '9px 20px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Capture Knowledge
+          </button>
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="vault-list">
           {filtered.map((memory, i) => {
             const src = SRC_ICON[memory.source_type] ?? { icon: StickyNote, color: '#f59e0b' };
             const SrcIcon = src.icon;
             return (
-              <motion.div key={memory.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+              <motion.div key={memory.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.015, 0.3) }}
+                className="vault-row" onClick={() => navigate(`/memory/${memory.id}`)}>
+                <div className="vault-row-icon" style={{ background: `${src.color}12`, border: `1px solid ${src.color}20` }}>
+                  <SrcIcon size={14} color={src.color} />
+                </div>
+                <div className="vault-row-main">
+                  <div className="vault-row-title">{memory.title}</div>
+                  <div className="vault-row-meta">
+                    <span style={{ padding: '1px 6px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{memory.domain}</span>
+                    {memory.tags.slice(0, 2).map(tag => (
+                      <span key={tag} style={{ color: '#f472b6', fontWeight: 700 }}>#{tag}</span>
+                    ))}
+                    {memory.tags.length > 2 && <span style={{ color: 'var(--text-3)', fontWeight: 700 }}>+{memory.tags.length - 2}</span>}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <Clock size={10} />{new Date(memory.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="vault-row-actions">
+                  <button onClick={e => { e.stopPropagation(); setFlashcardsMemory(memory); }} title="Generate Flashcards"
+                    style={{ width: 28, height: 28, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.25)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
+                    <FlipHorizontal size={13} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); navigate(`/memory/${memory.id}`); }} title="Deep Dive"
+                    style={{ width: 28, height: 28, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.12)'; e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
+                    <ChevronRight size={14} />
+                  </button>
+                  <button onClick={e => handleDelete(memory.id, e)} disabled={deletingId === memory.id} title="Delete"
+                    style={{ width: 28, height: 28, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
+                    {deletingId === memory.id ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={13} />}
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={density === 'compact' ? 'vault-grid vault-compact' : 'vault-grid'}>
+          {filtered.map((memory, i) => {
+            const src = SRC_ICON[memory.source_type] ?? { icon: StickyNote, color: '#f59e0b' };
+            const SrcIcon = src.icon;
+            const compact = density === 'compact';
+            const pad = compact ? '10px 11px' : '14px 15px';
+            const tileSize = compact ? 26 : 34;
+            const tileIcon = compact ? 13 : 16;
+            const titleSize = compact ? 12 : 13.5;
+            const titleMb = compact ? 4 : 6;
+            const tagFs = compact ? 9 : 9.5;
+            const showSummary = !compact;
+            const tagLimit = compact ? 2 : 3;
+            const actionBtn = compact ? 22 : 26;
+            const actionIcon = compact ? 11 : 12;
+            return (
+              <motion.div key={memory.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.4) }}
                 style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${src.color}12`; e.currentTarget.style.borderColor = `${src.color}25`; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
@@ -232,64 +323,58 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                   <YouTubeThumbnail url={memory.source_url} onClick={() => setSelectedMemory(memory)} />
                 )}
 
-                <div style={{ padding: '14px 15px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: `${src.color}12`, border: `1px solid ${src.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <SrcIcon size={16} color={src.color} />
+                <div style={{ padding: pad, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 8 : 10 }}>
+                    <div style={{ width: tileSize, height: tileSize, borderRadius: compact ? 7 : 9, background: `${src.color}12`, border: `1px solid ${src.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SrcIcon size={tileIcon} color={src.color} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ padding: '2px 7px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{memory.domain}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 3 : 5 }}>
+                      {!compact && (
+                        <span style={{ padding: '2px 7px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{memory.domain}</span>
+                      )}
                       <button onClick={e => { e.stopPropagation(); setFlashcardsMemory(memory); }} title="Generate Flashcards"
-                        style={{ width: 26, height: 26, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
+                        style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.25)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
-                        <FlipHorizontal size={12} />
+                        <FlipHorizontal size={actionIcon} />
                       </button>
                       <button onClick={e => handleDelete(memory.id, e)} disabled={deletingId === memory.id} title="Delete"
-                        style={{ width: 26, height: 26, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
+                        style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
-                        {deletingId === memory.id ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={12} />}
+                        {deletingId === memory.id ? <Loader2 size={actionIcon - 1} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={actionIcon} />}
                       </button>
                     </div>
                   </div>
 
-                  <h4 onClick={() => navigate(`/memory/${memory.id}`)} style={{ color: 'var(--text-1)', fontSize: 13.5, fontWeight: 700, lineHeight: 1.4, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer', transition: 'color 0.15s' }}
+                  <h4 onClick={() => navigate(`/memory/${memory.id}`)} style={{ color: 'var(--text-1)', fontSize: titleSize, fontWeight: 700, lineHeight: 1.4, marginBottom: titleMb, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer', transition: 'color 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; }}
                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-1)'; }}>
                     {memory.title}
                   </h4>
-                  <p style={{ color: 'var(--text-3)', fontSize: 12, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1, marginBottom: 10 }}>{memory.summary}</p>
+                  {showSummary && (
+                    <p style={{ color: 'var(--text-3)', fontSize: 12, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1, marginBottom: 10 }}>{memory.summary}</p>
+                  )}
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                    {memory.tags.slice(0, 3).map(tag => (
-                      <span key={tag} style={{ padding: '2px 7px', background: 'rgba(244,114,182,0.08)', border: '1px solid rgba(244,114,182,0.18)', borderRadius: 20, color: '#f472b6', fontSize: 9.5, fontWeight: 700 }}>#{tag}</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: compact ? 4 : 5, marginBottom: compact ? 8 : 10, marginTop: compact ? 'auto' : 0 }}>
+                    {memory.tags.slice(0, tagLimit).map(tag => (
+                      <span key={tag} style={{ padding: compact ? '1px 6px' : '2px 7px', background: 'rgba(244,114,182,0.08)', border: '1px solid rgba(244,114,182,0.18)', borderRadius: 20, color: '#f472b6', fontSize: tagFs, fontWeight: 700 }}>#{tag}</span>
                     ))}
-                    {memory.tags.length > 3 && <span style={{ color: 'var(--text-3)', fontSize: 9.5, fontWeight: 700, alignSelf: 'center' }}>+{memory.tags.length - 3}</span>}
+                    {memory.tags.length > tagLimit && <span style={{ color: 'var(--text-3)', fontSize: tagFs, fontWeight: 700, alignSelf: 'center' }}>+{memory.tags.length - tagLimit}</span>}
                   </div>
 
-                  <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ paddingTop: compact ? 8 : 10, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)', fontSize: 10 }}>
                       <Clock size={10} />{new Date(memory.created_at).toLocaleDateString()}
                     </span>
                     <button onClick={() => navigate(`/memory/${memory.id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 10.5, fontWeight: 700, fontFamily: 'inherit' }}>
-                      Deep Dive →
+                      {compact ? '→' : 'Deep Dive →'}
                     </button>
                   </div>
                 </div>
               </motion.div>
             );
           })}
-
-          {filtered.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '70px 0' }}>
-              <Brain size={40} color="var(--border-2)" style={{ margin: '0 auto 12px' }} />
-              <p style={{ color: 'var(--text-3)', margin: 0 }}>{filter ? 'No memories match your search.' : 'No memories yet — start capturing knowledge!'}</p>
-              <button onClick={() => navigate('/capture')} style={{ marginTop: 14, padding: '9px 20px', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                + Capture Knowledge
-              </button>
-            </div>
-          )}
         </div>
       )}
 
