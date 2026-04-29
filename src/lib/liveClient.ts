@@ -1,7 +1,7 @@
 /**
- * Gemini Live client — talks to our backend `/ws/live` relay (which proxies
- * to Google's Gemini Live API). The relay holds the API key, so the browser
- * never sees it.
+ * Live voice client — talks to our backend `/ws/live` relay, which proxies
+ * to a third-party realtime model API. The relay holds the API key, so the
+ * browser never sees it.
  *
  * Capabilities:
  *   - Captures microphone at 16 kHz mono PCM and streams it as base64 frames.

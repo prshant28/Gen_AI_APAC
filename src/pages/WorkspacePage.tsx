@@ -587,7 +587,7 @@ const WorkspacePage: React.FC = () => {
             </div>
             <input value={recallQuery} onChange={e => setRecallQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') runRecall(); }}
-              placeholder='Ask anything — "what did I learn about Vertex AI?"'
+              placeholder='Ask anything — "what did I learn about retrieval pipelines?"'
               style={{ flex: 1, minWidth: 220, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, padding: '7px 11px', outline: 'none', fontFamily: 'inherit' }} />
             <button onClick={runRecall} disabled={recallLoading || !recallQuery.trim()}
               style={{ padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#7c3aed)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: recallLoading ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5, opacity: (recallLoading || !recallQuery.trim()) ? 0.6 : 1 }}>
