@@ -54,6 +54,8 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Analytics:** Tracks learning velocity, domain expertise, and streaks.
 - **User Management:** Profile management, security, and data export.
 - **Integrations:** A catalog of third-party integrations.
+- **Multi-Agent Behaviour Discipline:** The orchestrator hard-stops after a successful capture (no auto-chaining into tasks/schedule/plans) and tracks a per-(uid, session) "focus item" so pronouns like "uska reminder set kar do" resolve to the most recently captured/recalled memory. A deterministic intent gate redirects pure recall/list intents from the agent chat to their dedicated pages (`/recall`, `/tasks`, `/calendar`, `/notes`, `/vault`, `/briefing`) via a `navigate` SSE event instead of dumping result cards into the chat.
+- **Recall Single-Card Default:** `/recall` returns ONE focal card by default for single-topic questions; widens to a batch (cap 8) only when the user explicitly asks for "all / sare / list / top N / compare". A `focal_source_id` parameter pins the same primary card across follow-ups in the same chat so the focal item doesn't flip between turns; "New chat" clears it.
 
 ## External Dependencies
 - **AI Providers:** Google Gemini 2.0 Flash, OpenRouter.

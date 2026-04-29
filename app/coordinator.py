@@ -5,12 +5,14 @@ Tracks execution as Workflows with named Steps for full auditability.
 """
 
 import json
+import re
 import asyncio
 import datetime
 import httpx
-from typing import List, Dict, Any, AsyncGenerator, Optional
+from typing import List, Dict, Any, AsyncGenerator, Optional, Tuple
 from openai import AsyncOpenAI, APITimeoutError, APIConnectionError, RateLimitError
 from app.config import settings, OPENROUTER_BASE_URL, OPENAI_BASE_URL
+from app.user_context import get_uid
 
 # Global timeout applied to every OpenAI call
 _OPENAI_TIMEOUT = httpx.Timeout(connect=8.0, read=50.0, write=10.0, pool=5.0)
@@ -273,17 +275,23 @@ CONVERSATION CONTEXT IS SACRED:
 - The full chat history is provided. NEVER pretend you don't know what was just discussed.
 - If the user replies "yes", "sure", "do it", or any short affirmation, it ALWAYS refers to the most recent suggestion you made — execute that exact action without asking again.
 - If the user says "no" / "later", acknowledge briefly and offer 1-2 alternative agents that could help.
-- Always remember the most recently captured memory (its title, id, domain, tags) — refer to it by name in follow-ups.
+
+CURRENT TOPIC (the item the user is currently focused on):
+{focus_block}
+- When the user uses pronouns ("uska", "iska", "that", "this one", "it", "wo wala", "same video"), they are ALMOST ALWAYS referring to the CURRENT TOPIC above.
+- When you call create_task / schedule_event / generate_study_plan and the user is referring to the current topic, ALWAYS pass `linked_memory_id` set to the topic's memory_id and weave the topic title into the entity title (e.g. task title: "Watch — <topic title>").
+- Never silently start a fresh search when the user is clearly continuing on the same topic. Reuse what you already have.
 
 ROUTING RULES:
 - YouTube/web URL → CaptureAgent (capture_knowledge)
-- Question about saved content → RecallAgent (recall_knowledge)
 - "create task" / "remind me" / "todo" → TaskAgent (create_task)
 - "schedule" / "book time" / "study session" → CalendarAgent (schedule_event)
 - "briefing" / "daily summary" → BriefingAgent (get_daily_briefing)
 - "stats" / "how am I doing" → AnalyticsAgent (get_knowledge_stats)
 - ONE agent per user turn unless the user explicitly asks for two
   (e.g. "save this AND remind me tomorrow"). Do NOT chain on your own.
+
+DO NOT recall or list inside this chat — those are routed to /recall, /tasks, /calendar by the app BEFORE you even see the message. If you somehow receive a pure recall/list query, respond with one short line pointing the user to the right page (e.g. "Opening /recall…") instead of calling recall_knowledge / list_memories / list_tasks / list_schedule. Use those tools only as a sub-step inside a multi-step action the user explicitly asked for.
 
 AFTER A SUCCESSFUL CAPTURE:
 - Reply with EXACTLY ONE short line confirming the save. Use this
@@ -297,12 +305,8 @@ AFTER A SUCCESSFUL CAPTURE:
   capture; respect that.
 - If — and only if — the user later asks for something else
   ("schedule a session for this", "make a task", "give me a plan"),
-  THEN call the matching agent.
-
-PROACTIVE RECALL:
-For non-capture user questions, FIRST silently call recall_knowledge to find related saved memories.
-If matches exist, weave them into your reply ("Based on what you saved about X last week…").
-This makes the assistant feel like a true second brain.
+  THEN call the matching agent — and pass the captured memory's id
+  via `linked_memory_id` so the new task/event references it.
 
 Today: {today}
 
@@ -312,6 +316,227 @@ Always confirm completed actions with ✅. Be concise. Use Hinglish-friendly ton
 
 _SESSION_HISTORY: Dict[str, List[dict]] = {}
 _SESSION_MAX_MESSAGES = 24  # Keep last ~12 turns (user+assistant pairs)
+
+# Per-(uid, session) "focus item" — the memory the user is currently working
+# on. Refreshed whenever capture_knowledge succeeds or recall_knowledge / a
+# memory action lands on a primary item. Lets the LLM resolve pronouns ("uska
+# reminder set kar do") to the right memory_id without re-searching.
+_SESSION_FOCUS: Dict[Tuple[str, str], dict] = {}
+_FOCUS_TTL_SECONDS = 60 * 60  # one focused topic survives ~an hour of idle
+_FOCUS_MAX_ENTRIES = 2000     # hard cap so a long-lived worker can't grow forever
+
+
+def _gc_focus_map() -> None:
+    """Lightweight GC: when the focus map exceeds the cap, evict TTL-expired
+    entries first; if still over cap, drop the oldest by timestamp. Cheap
+    enough to call on every write because we only do real work when over."""
+    if len(_SESSION_FOCUS) <= _FOCUS_MAX_ENTRIES:
+        return
+    now = datetime.datetime.utcnow()
+    expired = []
+    for key, item in _SESSION_FOCUS.items():
+        try:
+            ts = datetime.datetime.fromisoformat(item.get("ts", ""))
+            if (now - ts).total_seconds() > _FOCUS_TTL_SECONDS:
+                expired.append(key)
+        except Exception:
+            expired.append(key)
+    for k in expired:
+        _SESSION_FOCUS.pop(k, None)
+    if len(_SESSION_FOCUS) <= _FOCUS_MAX_ENTRIES:
+        return
+    # Still over cap → drop the oldest entries until we're back under.
+    items = sorted(
+        _SESSION_FOCUS.items(),
+        key=lambda kv: kv[1].get("ts", ""),
+    )
+    overflow = len(_SESSION_FOCUS) - _FOCUS_MAX_ENTRIES
+    for key, _ in items[:overflow]:
+        _SESSION_FOCUS.pop(key, None)
+
+
+def _focus_key(session_id: str) -> Tuple[str, str]:
+    """Scope focus by (uid, session) so two users on the same hardcoded
+    'agent-hub' session_id can never see each other's focus item."""
+    return (get_uid(), session_id or "default")
+
+
+def _set_focus(session_id: str, *, memory_id: str, title: str,
+               source_type: Optional[str] = None,
+               source_url: Optional[str] = None) -> None:
+    if not memory_id or not title:
+        return
+    _SESSION_FOCUS[_focus_key(session_id)] = {
+        "memory_id": memory_id,
+        "title": title,
+        "source_type": source_type or "",
+        "source_url": source_url or "",
+        "ts": datetime.datetime.utcnow().isoformat(),
+    }
+    _gc_focus_map()
+
+
+def _get_focus(session_id: str) -> Optional[dict]:
+    item = _SESSION_FOCUS.get(_focus_key(session_id))
+    if not item:
+        return None
+    try:
+        ts = datetime.datetime.fromisoformat(item["ts"])
+        if (datetime.datetime.utcnow() - ts).total_seconds() > _FOCUS_TTL_SECONDS:
+            _SESSION_FOCUS.pop(_focus_key(session_id), None)
+            return None
+    except Exception:
+        pass
+    return item
+
+
+def _clear_focus(session_id: str) -> None:
+    _SESSION_FOCUS.pop(_focus_key(session_id), None)
+
+
+def _focus_block(session_id: str) -> str:
+    item = _get_focus(session_id)
+    if not item:
+        return "(none yet — no specific item is in focus this turn)"
+    bits = [f"- title: {item['title']}", f"- memory_id: {item['memory_id']}"]
+    if item.get("source_type"):
+        bits.append(f"- type: {item['source_type']}")
+    if item.get("source_url"):
+        bits.append(f"- url: {item['source_url']}")
+    return "\n".join(bits)
+
+
+def _learn_focus_from_tool(session_id: str, tool_name: str, result: Any) -> None:
+    """Inspect a tool result and refresh focus when it produced a primary item."""
+    if not isinstance(result, dict) or "error" in result:
+        return
+    if tool_name == "capture_knowledge":
+        mid = result.get("memory_id") or result.get("id")
+        title = result.get("title")
+        if mid and title:
+            _set_focus(
+                session_id,
+                memory_id=str(mid),
+                title=str(title),
+                source_type=result.get("source_type"),
+                source_url=result.get("source_url"),
+            )
+    elif tool_name == "recall_knowledge":
+        sources = result.get("sources") or []
+        if sources:
+            top = sources[0] or {}
+            mid = top.get("id") or top.get("memory_id")
+            title = top.get("title")
+            if mid and title:
+                _set_focus(
+                    session_id,
+                    memory_id=str(mid),
+                    title=str(title),
+                    source_type=top.get("source_type"),
+                    source_url=top.get("source_url"),
+                )
+
+
+# ─── Intent gate: send pure recall/list intents to their dedicated pages ─────
+#
+# The user explicitly asked for this: when the agent chat receives a message
+# that is purely "find / show / recall my X", we don't run the recall_knowledge
+# tool inline (which dumps a wall of cards into the chat). We emit a
+# `navigate` SSE event so the client redirects to /recall (or /tasks,
+# /calendar) with the query prefilled. The dedicated pages handle the search,
+# show one card per topic, and preserve continuity for follow-ups.
+#
+# We use deterministic regex on the user message (cheap, predictable) instead
+# of an extra LLM call. Anything that's not clearly a navigation intent —
+# e.g. "save this URL", "make a task for tomorrow", "schedule next Tuesday"
+# — falls through to the normal coordinator loop.
+
+_RECALL_PATTERNS = [
+    r"^\s*(recall|find|search|look\s*up|lookup|kya\s+pata)\b",
+    r"^\s*(what|kya|kaun|which|kab|where|kahan)\b.*\b(saved|capture[d]?|note[d]?|read|seen|watched|wo wala|wo video|us article|that video|that article|my notes?|my videos?|my articles?|my pdfs?)\b",
+    r"\b(tell me about|tell me more about|details? of|gist of|summary of)\b.*\b(my\s+|the\s+|that\s+|wo\s+|us\s+)",
+    r"\b(do i have|kya mere paas|mere paas)\b.*\b(any|kuch|koi)\b",
+]
+_TASKS_LIST_PATTERNS = [
+    r"^\s*(show|list|open|view|see|dikha[oa]|batao)\b.*\b(my\s+)?tasks?\b",
+    r"^\s*(what|kya)\b.*\b(tasks?|todos?|to-?do)\b.*\b(today|now|pending|left|baki|hain|hai)\b",
+    r"\b(my\s+)?(task|todo)\s+list\b",
+]
+_SCHEDULE_LIST_PATTERNS = [
+    r"^\s*(show|list|open|view|see|dikha[oa]|batao)\b.*\b(my\s+)?(calendar|schedule|events?|agenda)\b",
+    r"\b(what.?s|kya hai)\b.*\b(on\s+(my\s+)?(calendar|schedule|agenda)|today.?s\s+schedule)\b",
+]
+_NOTES_LIST_PATTERNS = [
+    r"^\s*(show|list|open|view|dikha[oa])\b.*\b(my\s+)?notes?\b\s*$",
+    r"\b(notes?\s+list|all\s+my\s+notes?)\b",
+]
+_VAULT_LIST_PATTERNS = [
+    r"^\s*(open|show|view|dikha[oa])\b.*\b(vault|memories|library)\b",
+]
+_BRIEFING_PATTERNS = [
+    r"\b(daily\s+briefing|today.?s\s+briefing|morning\s+briefing|brief\s+me)\b",
+]
+
+# Cheap signals that tell us the user's message also contains an ACTION verb,
+# in which case we should NOT navigate — the orchestrator must handle it.
+_ACTION_VETO = re.compile(
+    r"\b(remind me|create (a |an )?(task|reminder|todo)|make (a |an )?(task|reminder|todo|note)|"
+    r"add (a |an )?(task|reminder|todo|note)|schedule|book|put on (my |the )?calendar|"
+    r"save this|capture this|add this|store this|note down|jot down|"
+    r"summari[sz]e this|generate (a |an )?(plan|study plan|flashcards?))\b",
+    re.IGNORECASE,
+)
+# URLs are almost always capture intents — never navigate them away.
+_URL_RX = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def _classify_navigate_intent(message: str) -> Optional[Tuple[str, str]]:
+    """Return (path, prefilled_query) if the message is a pure navigation
+    intent that belongs on a dedicated page; else None.
+
+    `prefilled_query` is what the destination page should auto-search for —
+    typically the original message minus boilerplate ("recall ", "find ").
+    """
+    if not message or not message.strip():
+        return None
+    text = message.strip()
+    if _URL_RX.search(text):
+        return None
+    if _ACTION_VETO.search(text):
+        return None
+    low = text.lower()
+
+    def _strip_lead(s: str) -> str:
+        # Strip leading "recall ", "find ", "search ", "look up " etc. so the
+        # destination page's own search box gets a clean topic.
+        return re.sub(
+            r"^\s*(recall|find|search|look\s*up|lookup|tell me about|tell me more about|"
+            r"what is|what was|what about|kya hai|kya tha|kya pata|details? of|gist of|summary of)\s+",
+            "",
+            s,
+            count=1,
+            flags=re.IGNORECASE,
+        ).strip(" ?.!,") or s
+
+    for pat in _BRIEFING_PATTERNS:
+        if re.search(pat, low):
+            return ("/briefing", "")
+    for pat in _TASKS_LIST_PATTERNS:
+        if re.search(pat, low):
+            return ("/tasks", "")
+    for pat in _SCHEDULE_LIST_PATTERNS:
+        if re.search(pat, low):
+            return ("/calendar", "")
+    for pat in _NOTES_LIST_PATTERNS:
+        if re.search(pat, low):
+            return ("/notes", "")
+    for pat in _VAULT_LIST_PATTERNS:
+        if re.search(pat, low):
+            return ("/vault", "")
+    for pat in _RECALL_PATTERNS:
+        if re.search(pat, low):
+            return ("/recall", _strip_lead(text))
+    return None
 
 
 def _serialize_assistant_msg(msg) -> dict:
@@ -348,6 +573,10 @@ def get_session_history(session_id: str) -> List[dict]:
 def clear_session_history(session_id: str) -> int:
     n = len(_SESSION_HISTORY.get(session_id, []))
     _SESSION_HISTORY.pop(session_id, None)
+    # Clearing the chat must also clear the focus item — otherwise the next
+    # turn (with empty history) would still resolve pronouns against the
+    # previous chat's last memory.
+    _clear_focus(session_id)
     return n
 
 
@@ -418,11 +647,15 @@ async def run_coordinator(message: str, session_id: str) -> dict:
     history = _SESSION_HISTORY.get(session_id, [])
     new_user_msg = {"role": "user", "content": message}
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
+        {"role": "system", "content": SYSTEM_PROMPT.format(
+            today=datetime.date.today().isoformat(),
+            focus_block=_focus_block(session_id),
+        )},
         *history,
         new_user_msg,
     ]
     turn_messages: List[dict] = [new_user_msg]
+    capture_succeeded = False
 
     reply = ""
     try:
@@ -499,6 +732,10 @@ async def run_coordinator(message: str, session_id: str) -> dict:
                     step.fail(str(e))
                     result = {"error": str(e)}
 
+                _learn_focus_from_tool(session_id, tool_name, result)
+                if tool_name == "capture_knowledge" and isinstance(result, dict) and "error" not in result:
+                    capture_succeeded = True
+
                 tr = {
                     "tool_call_id": tc.id,
                     "role": "tool",
@@ -507,7 +744,24 @@ async def run_coordinator(message: str, session_id: str) -> dict:
                 tool_results.append(tr)
                 turn_messages.append(tr)
 
+                # Hard-stop the moment a capture lands. Any subsequent
+                # tool calls the model batched in this same turn (e.g.
+                # capture + create_task) must NOT execute — the user only
+                # asked to capture.
+                if capture_succeeded:
+                    break
+
             messages.extend(tool_results)
+
+            # Hard stop after a successful capture — don't let the LLM chain
+            # into "want me to schedule it / make a task / generate flashcards"
+            # on its own. The user came to capture; respect that.
+            if capture_succeeded:
+                focus = _get_focus(session_id)
+                title = (focus or {}).get("title") if focus else None
+                reply = f"Saved '{title}' to your Inbox." if title else "Saved to your Inbox."
+                turn_messages.append({"role": "assistant", "content": reply})
+                break
 
         if not reply:
             reply = "I've completed the requested actions. Let me know if you need anything else!"
@@ -561,17 +815,58 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
         "timestamp": workflow.created_at
     })
 
+    # ── Pre-LLM intent gate ────────────────────────────────────────────────────
+    # If the user clearly wants to recall / list / open another page, redirect
+    # there instead of running the planning loop. The dedicated pages handle
+    # the search, render proper cards, and preserve focus for follow-ups.
+    nav = _classify_navigate_intent(message)
+    if nav:
+        path, prefilled = nav
+        nav_reply = {
+            "/recall":    "Opening Recall…",
+            "/tasks":     "Opening Tasks…",
+            "/calendar":  "Opening your Calendar…",
+            "/notes":     "Opening Notes…",
+            "/vault":     "Opening your Vault…",
+            "/briefing":  "Opening today's Briefing…",
+        }.get(path, "Opening…")
+        yield sse("navigate", {
+            "path": path,
+            "query": prefilled,
+            "message": nav_reply,
+        })
+        # Persist a tiny placeholder turn so chat history reflects the redirect
+        # (helps when the user switches back to /agent later).
+        _SESSION_HISTORY.setdefault(session_id, []).extend([
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": nav_reply},
+        ])
+        _trim_history(session_id)
+        workflow.complete(nav_reply)
+        yield sse("workflow_complete", {
+            "workflow_id": workflow.id,
+            "reply": nav_reply,
+            "agents_called": [],
+            "steps": [],
+            "timestamp": workflow.completed_at,
+        })
+        return
+
     client = _make_client()
     current_model = settings.OPENAI_MODEL
 
     history = _SESSION_HISTORY.get(session_id, [])
     new_user_msg = {"role": "user", "content": message}
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())},
+        {"role": "system", "content": SYSTEM_PROMPT.format(
+            today=datetime.date.today().isoformat(),
+            focus_block=_focus_block(session_id),
+        )},
         *history,
         new_user_msg,
     ]
     turn_messages: List[dict] = [new_user_msg]
+    capture_succeeded = False
 
     reply = ""
     try:
@@ -754,6 +1049,25 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                 }
                 messages.append(tr)
                 turn_messages.append(tr)
+
+                _learn_focus_from_tool(session_id, tool_name, result)
+                if tool_name == "capture_knowledge" and isinstance(result, dict) and "error" not in result:
+                    capture_succeeded = True
+                    # Don't process the rest of this turn's tool_calls — we
+                    # break out of the planning loop right after this for
+                    # loop ends, so no follow-up LLM call is made.
+                    break
+
+            # Hard stop after a successful capture (see non-streaming branch).
+            if capture_succeeded:
+                focus = _get_focus(session_id)
+                title = (focus or {}).get("title") if focus else None
+                stop_reply = f"Saved '{title}' to your Inbox." if title else "Saved to your Inbox."
+                if not reply:
+                    reply = stop_reply
+                    yield sse("token", {"text": stop_reply})
+                    turn_messages.append({"role": "assistant", "content": reply})
+                break
 
         if not reply:
             reply = "All tasks completed successfully! Let me know if you need anything else."

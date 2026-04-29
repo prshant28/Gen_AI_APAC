@@ -1,4 +1,5 @@
 import json
+import re
 import datetime
 from typing import List, Dict, Any, Optional
 from app.db import get_db
@@ -82,7 +83,36 @@ def _enrich_source(m: dict) -> dict:
     return out
 
 
-async def recall(query: str, history: Optional[List[Dict[str, str]]] = None) -> dict:
+_BATCH_RX = re.compile(
+    r"\b("
+    r"all|sare|saare|sab|saari|every|"
+    r"list|show me (all|every|my)|give me (all|every)|"
+    r"top\s*\d+|first\s*\d+|"
+    r"\d+\s+(memories|videos|articles|notes|pdfs|results|cards|items|captures)|"
+    r"several|multiple|both|"
+    r"compare|vs\.?|versus|side[- ]by[- ]side"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_batch_query(query: str) -> bool:
+    """Return True iff the user explicitly asked for a list / multiple items.
+
+    By default /recall returns ONE focal card so the answer reads like a
+    direct reply, not a search-results dump. When the user says "sare /
+    all / list / top N / compare", we widen to a batch (capped at 8).
+    """
+    if not query:
+        return False
+    return bool(_BATCH_RX.search(query))
+
+
+async def recall(
+    query: str,
+    history: Optional[List[Dict[str, str]]] = None,
+    focal_source_id: Optional[str] = None,
+) -> dict:
     """
     Semantic knowledge recall with 3-tier search + AI synthesis.
     Auto-falls back to OpenAI if primary (Gemini) rate-limits.
@@ -91,6 +121,11 @@ async def recall(query: str, history: Optional[List[Dict[str, str]]] = None) -> 
 
     `history` is an optional list of {role, content} prior turns so that
     follow-up questions ("tell me more about that") can use earlier context.
+
+    `focal_source_id` pins a specific memory as the primary (first) card so
+    that follow-up turns on the same topic keep the same focal card visible
+    instead of flipping to whatever ranks highest for the new sub-question.
+    The pinned card is deduplicated from the rest of the result set.
     """
     db = await get_db()
     memories = []
@@ -267,8 +302,29 @@ async def recall(query: str, history: Optional[List[Dict[str, str]]] = None) -> 
             "follow_ups": [],
         }
 
-    # Return up to 8 cards so the user sees breadth
-    top_memories = memories[:8]
+    # Default: return ONE focal card. The user gets a clean, single-topic
+    # answer instead of a wall of search hits. Only widen to a batch (cap 8)
+    # when the user explicitly asks for "all / sare / list / top N / compare".
+    cap = 8 if _is_batch_query(query) else 1
+
+    # Honour the focal_source_id pin: if the caller (typically the /recall
+    # follow-up flow) tells us the user is still on the same focal card,
+    # fetch it fresh and put it FIRST, then dedupe from the rest.
+    pinned: Optional[dict] = None
+    if focal_source_id:
+        try:
+            doc = await db.collection("memories").document(focal_source_id).get()
+            if doc.exists:
+                data = doc.to_dict() or {}
+                if belongs_to_current_user(data):
+                    pinned = data | {"id": doc.id}
+        except Exception as e:
+            print(f"Focal pin fetch error: {e}")
+
+    if pinned:
+        memories = [pinned] + [m for m in memories if m.get("id") != pinned.get("id")]
+
+    top_memories = memories[:cap]
     formatted = ""
     for i, m in enumerate(top_memories, 1):
         created = m.get("created_at", "")

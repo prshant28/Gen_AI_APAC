@@ -283,6 +283,7 @@ class RecallTurn(BaseModel):
 class RecallRequest(BaseModel):
     query: str
     history: Optional[List[RecallTurn]] = None
+    focal_source_id: Optional[str] = None
 
 class TaskCreateRequest(BaseModel):
     title: str
@@ -1248,7 +1249,11 @@ async def get_research_session_endpoint(session_id: str):
 @app.post("/recall")
 async def recall_endpoint(request: RecallRequest):
     history = [{"role": t.role, "content": t.content} for t in (request.history or [])]
-    result = await recall(request.query, history=history)
+    result = await recall(
+        request.query,
+        history=history,
+        focal_source_id=request.focal_source_id,
+    )
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result

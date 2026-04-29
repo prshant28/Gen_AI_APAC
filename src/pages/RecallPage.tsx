@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Brain, Send, Search, Sparkles, Clock, Bot,
   Youtube, Globe, FileText, StickyNote, Loader2,
@@ -217,6 +217,7 @@ const SourceCard: React.FC<{
 /* ----------------------------------------------------------------------- */
 const RecallView = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<RecallMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -224,6 +225,10 @@ const RecallView = () => {
   const [isListening, setIsListening] = useState(false);
   const [playingYt, setPlayingYt] = useState<Set<string>>(new Set());
   const [liveOpen, setLiveOpen] = useState(false);
+  // Pinned focal source for the current "topic" — set after the first reply
+  // and reused on every follow-up so the user keeps seeing the same primary
+  // card instead of it flipping between turns. Cleared on "New chat".
+  const [focalSourceId, setFocalSourceId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem('recall-x247-history') || '[]');
@@ -243,6 +248,23 @@ const RecallView = () => {
     if (messages.length === 0) return;
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
+
+  // ?q=… auto-send: lets the agent chat redirect users here with a prefilled
+  // query (e.g. "recall my AI Engineering World's Fair notes" → /recall?q=…).
+  // Fires once per arriving query string and then strips ?q from the URL so
+  // it doesn't re-fire on re-renders or browser back/forward.
+  const lastAutoQueryRef = useRef<string>('');
+  useEffect(() => {
+    const q = (searchParams.get('q') || '').trim();
+    if (!q) return;
+    if (q === lastAutoQueryRef.current) return;
+    lastAutoQueryRef.current = q;
+    handleSend(q);
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const conversationHistory = useMemo(() => {
     return messages
@@ -287,19 +309,33 @@ const RecallView = () => {
       const res = await fetch('/recall', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: msg, history: priorHistory })
+        body: JSON.stringify({
+          query: msg,
+          history: priorHistory,
+          // Pin the same focal card across follow-ups in the same chat. The
+          // backend will fetch + prepend it and dedupe from the rest.
+          ...(focalSourceId ? { focal_source_id: focalSourceId } : {}),
+        }),
       });
       const data = await res.json();
+      const sources: Source[] = data.sources || [];
       setMessages(prev => prev.map(m => m.id === aiId
         ? {
           ...m,
           content: data.answer || data.error || 'No response received.',
-          sources: data.sources || [],
+          sources,
           follow_ups: data.follow_ups || [],
           streaming: false,
         }
         : m
       ));
+      // First successful turn establishes the focal card. Subsequent turns
+      // keep the same focal — they don't overwrite it — so follow-ups don't
+      // flip to a different primary item just because the new sub-question
+      // happens to rank a different memory higher.
+      if (!focalSourceId && sources[0]?.id) {
+        setFocalSourceId(sources[0].id);
+      }
     } catch {
       setMessages(prev => prev.map(m => m.id === aiId
         ? { ...m, content: 'Connection error — please try again.', streaming: false }
@@ -338,7 +374,7 @@ const RecallView = () => {
             </div>
           </div>
           {messages.length > 0 && (
-            <button onClick={() => { setMessages([]); setPlayingYt(new Set()); }}
+            <button onClick={() => { setMessages([]); setPlayingYt(new Set()); setFocalSourceId(null); }}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <X size={11} /> New chat
             </button>

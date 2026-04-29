@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Send, Mic, MicOff, Loader2, Plus, Radio, MessageSquare, Trash2,
   X, Clock, Cpu, Check, AlertTriangle, ChevronDown,
@@ -399,6 +400,7 @@ const CompletionDetailsPanel: React.FC<{ steps: AgentStepData[]; panelId: string
 };
 
 const AgentHubView = () => {
+  const navigate = useNavigate();
   // ── persisted state ──
   const [messages, setMessages] = useState<AgentMsg[]>(() => {
     try {
@@ -543,7 +545,7 @@ const AgentHubView = () => {
       const response = await fetch('/agent/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, session_id: 'agent-hub' }),
+        body: JSON.stringify({ message: msg, session_id: currentSessionId }),
         signal: ac.signal,
       });
       if (!response.body) throw new Error('No response body');
@@ -624,6 +626,31 @@ const AgentHubView = () => {
         ]);
         setAgentStatuses({});
         break;
+      case 'navigate': {
+        // Backend decided this user message belongs on a dedicated page.
+        // Drop the thinking placeholder, leave a tiny breadcrumb in chat
+        // so the user knows what happened, and route there with the
+        // original query prefilled.
+        const path = (event.path as string) || '/recall';
+        const q = (event.query as string) || '';
+        const reply = (event.message as string) || 'Opening…';
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== thinkId),
+          {
+            id: `nav-${Date.now()}`,
+            role: 'assistant' as const,
+            type: 'text' as const,
+            content: reply,
+            ts: new Date().toISOString(),
+          },
+        ]);
+        setAgentStatuses({});
+        try {
+          const dest = q ? `${path}?q=${encodeURIComponent(q)}` : path;
+          navigate(dest);
+        } catch {}
+        break;
+      }
       case 'error':
         setMessages(prev => prev.map(m => m.id === thinkId ? { ...m, type: 'text', content: `Something went wrong: ${event.message}` } : m));
         break;
@@ -643,19 +670,16 @@ const AgentHubView = () => {
     }
     setIsStreaming(false);
     archiveCurrentSession();
-    try {
-      await fetch('/agent/chat/clear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: '', session_id: 'agent-hub' }),
-      });
-    } catch {}
+    // Each chat now has its own backend session_id slot — we do NOT wipe
+    // it here so the user can re-open archived chats and still have full
+    // backend context (history + focus item) intact for follow-ups.
+    // Backend has its own TTL/trim policy for old sessions.
     setCurrentSessionId(`s-${Date.now()}-${Math.random().toString(36).slice(2,6)}`);
     setMessages([buildWelcomeMsg()]);
     setAgentStatuses({});
     setExpandedSummaryMsgId(null);
     inputRef.current?.focus();
-  }, [archiveCurrentSession]);
+  }, [archiveCurrentSession, currentSessionId]);
 
   // True empty state: only the welcome message is showing.
   const isEmpty = messages.length === 1 && messages[0]?.id === 'welcome';
