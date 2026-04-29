@@ -262,7 +262,7 @@ const Sidebar = ({
   isCollapsed, setIsCollapsed, user, onSignOut,
 }: {
   isCollapsed: boolean; setIsCollapsed: (v: boolean) => void;
-  user: { displayName?: string; email?: string; photoURL?: string } | null;
+  user: { displayName?: string; email?: string; photoURL?: string; isAnonymous?: boolean; isGuest?: boolean } | null;
   onSignOut: () => void;
 }) => {
   const location = useLocation();
@@ -463,8 +463,29 @@ const Sidebar = ({
           {!isCollapsed && (
             <>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>{user?.displayName ?? 'User'}</div>
-                <div style={{ color: 'var(--text-3)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>{user?.email ?? ''}</div>
+                <div style={{ color: 'var(--text-1)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user?.isAnonymous || user?.isGuest ? 'Guest User' : (user?.displayName || (user?.email ? user.email.split('@')[0] : 'User'))}
+                  </span>
+                  {(user?.isAnonymous || user?.isGuest) && (
+                    <span
+                      title="You're using sample data. Sign up to save your own captures."
+                      style={{
+                        fontSize: 8.5, letterSpacing: '0.6px', fontWeight: 700,
+                        padding: '1px 5px', borderRadius: 4,
+                        background: 'rgba(245,158,11,0.16)',
+                        color: '#f59e0b',
+                        border: '1px solid rgba(245,158,11,0.32)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      DEMO
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: 'var(--text-3)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                  {user?.isAnonymous || user?.isGuest ? 'Sample data — sign up to save yours' : (user?.email ?? '')}
+                </div>
               </div>
               <button
                 onClick={e => { e.stopPropagation(); onSignOut(); }}
@@ -798,7 +819,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                 <ErrorBoundary>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} />} />
+                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} onSignOut={onSignOut} />} />
                   <Route path="/briefing" element={<DailyBriefingPage />} />
                   <Route path="/agent" element={<AgentPage />} />
                   <Route path="/recall" element={<RecallPage />} />

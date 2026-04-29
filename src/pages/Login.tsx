@@ -263,6 +263,13 @@ export default function Login({
             {guestLoading ? <Loader2 size={14} className="lg-spin" /> : <UserIcon size={14} />}
             <span>Continue as Guest</span>
           </button>
+          <p style={{
+            margin: '8px 4px 0', textAlign: 'center', fontSize: 11,
+            color: '#8a93a8', lineHeight: 1.45, letterSpacing: '0.01em',
+          }}>
+            Guest loads a pre-filled demo brain so you can explore.
+            Real accounts always start fresh — your data stays private to you.
+          </p>
 
           <div className="lg-trust">
             <div className="lg-trust-item">

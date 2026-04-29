@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Bot, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, ChevronRight, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy } from 'lucide-react';
+import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Bot, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, ChevronRight, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy, X } from 'lucide-react';
 import { showToast } from '../App';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
@@ -47,7 +47,7 @@ const SectionHeader = ({ icon: Icon, color, title, eyebrow, actionLabel, onActio
   </div>
 );
 
-const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
+const Dashboard = ({ isDark, user, onSignOut }: { isDark?: boolean; user?: any; onSignOut?: () => void | Promise<void> }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<Memory[]>([]);
@@ -60,9 +60,53 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
   const [adv, setAdv] = useState<DashAdvanced | null>(null);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  const isGuest = !!(user?.isAnonymous || user?.isGuest);
   const rawName = (user?.displayName ?? '').trim();
-  const firstName = rawName ? rawName.split(/\s+/)[0] : (user?.isAnonymous || user?.isGuest ? 'there' : 'there');
+  // Treat the placeholder displayName we set for anonymous Firebase guests
+  // ("Guest User") the same way as a real isGuest flag — otherwise a real
+  // sign-up that happens to have the literal name "Guest User" would also
+  // show the demo banner. Real signups always have a non-empty email.
+  const looksLikeGuestName = rawName.toLowerCase() === 'guest user';
+  const emailLocal = (user?.email ?? '').split('@')[0] || '';
+  const niceEmailName = emailLocal
+    ? emailLocal.replace(/[._-]+/g, ' ').split(/\s+/)[0].replace(/^./, (c: string) => c.toUpperCase())
+    : '';
+  const firstName = rawName && !looksLikeGuestName
+    ? rawName.split(/\s+/)[0]
+    : isGuest
+      ? 'Guest'
+      : niceEmailName || 'there';
   const greetLabel = adv?.greeting?.label || 'Welcome';
+
+  // ── First-time banner: shown ONCE per uid, dismissable ──
+  // Real accounts land on a fresh empty brain. We make that intentional
+  // (not "where is my stuff?") with a one-time welcome strip. The
+  // banner is keyed per uid AND re-evaluated whenever uid changes so
+  // a fresh sign-up on a browser where another user already dismissed
+  // their banner still gets to see their own once.
+  const bannerKey = `dash-welcome-banner-dismissed-${user?.uid || 'unknown'}`;
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState<boolean>(() => {
+    try { return !localStorage.getItem(bannerKey); } catch { return true; }
+  });
+  useEffect(() => {
+    try { setShowWelcomeBanner(!localStorage.getItem(bannerKey)); }
+    catch { setShowWelcomeBanner(true); }
+  }, [bannerKey]);
+  const dismissWelcomeBanner = () => {
+    setShowWelcomeBanner(false);
+    try { localStorage.setItem(bannerKey, '1'); } catch {}
+  };
+  const isEmptyRealUser = !isGuest && stats !== null && (stats?.total_memories ?? 0) === 0;
+
+  // ── Guest "Sign up free" CTA: signs the guest out (clears the
+  //    `recall-guest-user` localStorage key + Firebase anon session)
+  //    BEFORE navigating, so the unauth-only `/login` route is reachable
+  //    again. Without this, AppShell intercepts /login as a 404 since
+  //    /login is only mounted in the no-user branch of AppRouter.
+  const handleGuestUpgrade = async () => {
+    try { if (onSignOut) await onSignOut(); } catch {}
+    navigate('/login?mode=signup');
+  };
 
   useEffect(() => {
     Promise.all([
@@ -235,6 +279,86 @@ const Dashboard = ({ isDark, user }: { isDark?: boolean; user?: any }) => {
 
   return (
     <div style={{ color: 'var(--text-1)' }}>
+      {/* ── 0. CONTEXT BANNER (Guest demo / Fresh-start welcome) ─────────── */}
+      {showWelcomeBanner && (isGuest || isEmptyRealUser) && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            ...S.card,
+            marginBottom: 14,
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            border: isGuest ? '1px solid rgba(245,158,11,0.32)' : '1px solid var(--primary-border)',
+            background: isGuest ? 'rgba(245,158,11,0.06)' : 'var(--primary-bg)',
+          }}
+        >
+          <div
+            style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: isGuest ? 'rgba(245,158,11,0.16)' : 'var(--primary-bg)',
+              border: isGuest ? '1px solid rgba(245,158,11,0.32)' : '1px solid var(--primary-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          >
+            {isGuest
+              ? <Sparkles size={15} color="#f59e0b" />
+              : <Sparkles size={15} color="var(--primary)" />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.35 }}>
+              {isGuest ? "You're exploring with sample data" : 'Welcome to your fresh second brain'}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>
+              {isGuest
+                ? 'Memories, tasks, notes and habits below are demo content. Sign up to start with a clean slate and save your own captures.'
+                : 'Capture your first article, video or note to start building your knowledge brain. Everything you save stays private to your account.'}
+            </div>
+          </div>
+          {isGuest ? (
+            <button
+              type="button"
+              onClick={handleGuestUpgrade}
+              data-testid="button-guest-upgrade"
+              style={{
+                padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                background: '#f59e0b', color: '#fff', border: 'none', cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Sign up free
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/capture')}
+              style={{
+                padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Capture first memory
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={dismissWelcomeBanner}
+            aria-label="Dismiss"
+            title="Dismiss"
+            style={{
+              padding: 4, background: 'transparent', border: 'none', borderRadius: 6,
+              cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
+
       {/* ── 1. HEADER + AI BRIEFING ───────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 18 }}>
         <div className="dash-header-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
