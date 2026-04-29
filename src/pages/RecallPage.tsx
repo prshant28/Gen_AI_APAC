@@ -318,7 +318,7 @@ const RecallView = () => {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 5rem)', gap: 14, padding: '6px 0 28px', maxWidth: 980, margin: '0 auto', width: '100%' }}>
+    <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 5rem)', gap: 14, padding: '6px 0 0', maxWidth: 980, margin: '0 auto', width: '100%' }}>
 
       {/* Compact header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -383,6 +383,11 @@ const RecallView = () => {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Flex-1 content area: expands to fill space so the input bar is
+          always anchored to the bottom of the viewport even when the
+          conversation is empty. */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* Empty state — minimal hero + 6 prompt chips */}
       {isEmpty && (
@@ -534,9 +539,22 @@ const RecallView = () => {
         </div>
       )}
 
-      {/* Input — sticky-ish bottom but in flow */}
+      </div>{/* end flex-1 content area */}
+
+      {/* Input — always anchored at the bottom of the viewport */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-        style={{ ...card, padding: '12px 14px', position: 'sticky', bottom: 12, boxShadow: '0 -8px 32px rgba(0,0,0,0.15)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+        style={{
+          ...card,
+          padding: '12px 14px 16px',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
+          background: 'var(--surface)',
+          boxShadow: '0 -6px 24px rgba(0,0,0,0.10)',
+          borderRadius: '12px 12px 0 0',
+          borderBottom: 'none',
+          marginTop: 'auto',
+        }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--surface-2)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 12, padding: '9px 11px', transition: 'border-color 0.2s' }}>
           <Search size={14} color="#818cf8" style={{ alignSelf: 'center', flexShrink: 0 }} />
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
