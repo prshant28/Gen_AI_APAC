@@ -498,6 +498,16 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
   const userIdRef = useRef<string>("");
   const modelIdRef = useRef<string>("");
 
+  // Live voice-activity bookkeeping. We surface two things in the slim
+  // header: (1) a status word that names the active speaker, and (2) a
+  // tiny 2-bar VU meter whose height tracks the current audio level.
+  // Levels are kept smoothed so the bars don't jitter on every frame.
+  const [activeSpeaker, setActiveSpeaker] = useState<"user" | "model" | null>(null);
+  const [userLevel, setUserLevel] = useState(0);
+  const [modelLevel, setModelLevel] = useState(0);
+  const userSpeakingRef = useRef(false);
+  const modelSpeakingRef = useRef(false);
+
   const flushUser = useCallback(() => {
     const t = userBufRef.current.trim();
     if (!t) return;
@@ -555,9 +565,46 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
           },
         ]);
       }
+      if (e.type === "vad") {
+        // Smooth incoming RMS levels with a small first-order filter so
+        // the meter feels alive without flickering. When the source's
+        // speaking flag flips false we hard-snap the level to 0 — the
+        // events stop arriving immediately after, so a smoothing-only
+        // approach would leave a stale glow on the bars indefinitely.
+        // The model side is prioritized as the active speaker so mic
+        // echo (if any leaks past AGC) doesn't override it.
+        const lvl = typeof e.level === "number" ? e.level : 0;
+        const speak = !!e.speaking;
+        if (e.source === "user") {
+          userSpeakingRef.current = speak;
+          if (!speak) setUserLevel(0);
+          else setUserLevel((prev) => prev * 0.55 + lvl * 0.45);
+        } else if (e.source === "model") {
+          modelSpeakingRef.current = speak;
+          if (!speak) setModelLevel(0);
+          else setModelLevel((prev) => prev * 0.55 + lvl * 0.45);
+        }
+        const next: "user" | "model" | null = modelSpeakingRef.current
+          ? "model"
+          : userSpeakingRef.current ? "user" : null;
+        setActiveSpeaker((cur) => (cur === next ? cur : next));
+      }
     });
     return () => { off(); };
   }, [client, flushUser, flushModel]);
+
+  // When the connection drops we want the indicator to fall back to its
+  // resting "Listening" / idle state instantly — without waiting for an
+  // event that may never arrive.
+  useEffect(() => {
+    if (state !== "connected") {
+      userSpeakingRef.current = false;
+      modelSpeakingRef.current = false;
+      setActiveSpeaker(null);
+      setUserLevel(0);
+      setModelLevel(0);
+    }
+  }, [state]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -620,15 +667,34 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
   const transcriptHeight = compact ? 220 : 300;
 
   // Status dot color matches the parent Agent Hub's quiet palette: green when
-  // live, amber while connecting, red on error, otherwise muted.
-  const statusColor = isConnected ? "#22c55e"
-    : isConnecting ? "#f59e0b"
-    : state === "error" ? "#ef4444"
-    : "var(--text-3)";
-  const statusLabel = isConnected ? "Listening"
-    : isConnecting ? "Connecting…"
-    : state === "error" ? "Error"
-    : "Idle";
+  // live, amber while connecting, red on error, otherwise muted. While
+  // connected, the dot subtly shifts when the assistant is talking (violet)
+  // vs. when it's hearing the user (cyan) — but stays the same 7px size.
+  const statusColor = !isConnected
+    ? (isConnecting ? "#f59e0b" : state === "error" ? "#ef4444" : "var(--text-3)")
+    : activeSpeaker === "model" ? "#a78bfa"
+    : activeSpeaker === "user" ? "#22d3ee"
+    : "#22c55e";
+  // Header status word reflects the active speaker. Updates within ~150ms
+  // because vad events fire at ~10Hz with a crisp speaking=false edge.
+  const statusLabel = !isConnected
+    ? (isConnecting ? "Connecting…" : state === "error" ? "Error" : "Idle")
+    : activeSpeaker === "model" ? "Speaking"
+    : activeSpeaker === "user" ? "You're talking"
+    : "Listening";
+
+  // The VU bars: only shown while connected. Height tracks the *active*
+  // side's smoothed level; when nobody is talking the meter clamps to
+  // baseline so it stays visibly quiet (no stale glow from the last
+  // turn). Two bars (left/right) animate slightly out of phase for a
+  // touch of life.
+  const meterLevel = activeSpeaker === "model" ? modelLevel
+    : activeSpeaker === "user" ? userLevel
+    : 0;
+  const barBase = 3;
+  const barMax = 11;
+  const barH1 = barBase + Math.round(Math.min(1, meterLevel * 1.0) * (barMax - barBase));
+  const barH2 = barBase + Math.round(Math.min(1, meterLevel * 0.75) * (barMax - barBase));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", borderRadius: 12,
@@ -644,11 +710,34 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
             width: 7, height: 7, borderRadius: "50%",
             background: statusColor,
             boxShadow: isConnected ? `0 0 6px ${statusColor}` : "none",
-            animation: isConnecting ? "live-pulse 1.2s ease-in-out infinite" : "none",
+            animation: isConnecting
+              ? "live-pulse 1.2s ease-in-out infinite"
+              : (isConnected && activeSpeaker ? "live-dot-pulse 0.9s ease-in-out infinite" : "none"),
             flexShrink: 0,
+            transition: "background 0.15s ease",
           }} />
+          {/* Tiny 2-bar VU meter — only while connected. Height tracks the
+              live audio level so the header feels alive without bringing
+              back any of the heavy treatment we removed. */}
+          {isConnected && (
+            <span aria-hidden="true" style={{
+              display: "inline-flex", alignItems: "flex-end", gap: 1.5,
+              height: 12, width: 9, flexShrink: 0,
+              opacity: activeSpeaker ? 1 : 0.45,
+              transition: "opacity 0.15s ease",
+            }}>
+              <span style={{
+                width: 2, height: barH1, background: statusColor, borderRadius: 1,
+                transition: "height 0.08s linear, background 0.15s ease",
+              }} />
+              <span style={{
+                width: 2, height: barH2, background: statusColor, borderRadius: 1,
+                transition: "height 0.08s linear, background 0.15s ease",
+              }} />
+            </span>
+          )}
           <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)" }}>Voice mode</span>
-          <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 500,
+          <span aria-live="polite" style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 500,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             · {statusLabel}
           </span>
@@ -746,6 +835,10 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
         @keyframes live-pulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.7); }
           50% { box-shadow: 0 0 0 5px rgba(245,158,11,0); }
+        }
+        @keyframes live-dot-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%      { opacity: 0.7; transform: scale(0.85); }
         }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }

@@ -25,9 +25,13 @@ type LiveEventName =
   | "turn_complete"
   | "interrupted"
   | "error"
-  | "state";
+  | "state"
+  | "vad";
 
 type ConnState = "idle" | "connecting" | "connected" | "closing" | "closed" | "error";
+
+/** Voice-activity event source — either the local mic or the remote model audio. */
+export type VadSource = "user" | "model";
 
 export interface LiveEvent {
   type: LiveEventName;
@@ -40,6 +44,12 @@ export interface LiveEvent {
   error?: string;
   model?: string;
   user_id?: string;
+  /** vad-only — which side is making sound. */
+  source?: VadSource;
+  /** vad-only — normalized 0..1 audio level (RMS, lightly compressed). */
+  level?: number;
+  /** vad-only — true while audio is above the speaking threshold. */
+  speaking?: boolean;
 }
 
 type Listener = (e: LiveEvent) => void;
@@ -84,6 +94,23 @@ export class LiveClient {
   private videoStream: MediaStream | null = null;
   private videoEl: HTMLVideoElement | null = null;
   private videoTimer: number | null = null;
+
+  // VAD bookkeeping — throttle "vad" events to ~10 Hz so the UI can pulse
+  // without flooding React with re-renders. Each side keeps its own
+  // last-emit timestamp + a "currently speaking" flag so we can fire a
+  // crisp speaking=false edge when audio stops.
+  private lastUserVadAt = 0;
+  private lastModelVadAt = 0;
+  private userSpeaking = false;
+  private modelSpeaking = false;
+  private modelWatchdog: number | null = null;
+  private lastModelChunkAt = 0;
+  // RMS thresholds for "speaking". Tuned conservatively: mic uses raw
+  // amplitude after AGC, model audio is already loud so a smaller floor
+  // is enough.
+  private readonly USER_SPEAK_THRESHOLD = 0.025;
+  private readonly MODEL_SPEAK_THRESHOLD = 0.012;
+  private readonly VAD_EMIT_INTERVAL_MS = 100;
 
   on(listener: Listener) {
     this.listeners.add(listener);
@@ -182,8 +209,69 @@ export class LiveClient {
       const start = Math.max(now, this.playCursor);
       src.start(start);
       this.playCursor = start + buf.duration;
+
+      // Compute a quick RMS for the model's chunk and surface it as a
+      // throttled "vad" event so the UI can show a "Speaking" indicator
+      // alongside a tiny audio-level meter.
+      this.emitModelVad(f32);
     } catch (e) {
       console.warn("Live: pcm decode/play failed", e);
+    }
+  }
+
+  /** Compute RMS of a Float32 PCM frame, throttle, and emit a "vad" event. */
+  private emitUserVad(input: Float32Array) {
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    let sum = 0;
+    for (let i = 0; i < input.length; i++) {
+      const v = input[i];
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / Math.max(1, input.length));
+    // Light compression so small voice swings still move the meter visibly.
+    const level = Math.min(1, Math.sqrt(rms) * 1.6);
+    const speaking = rms > this.USER_SPEAK_THRESHOLD;
+    const speakingChanged = speaking !== this.userSpeaking;
+    if (speakingChanged || now - this.lastUserVadAt >= this.VAD_EMIT_INTERVAL_MS) {
+      this.userSpeaking = speaking;
+      this.lastUserVadAt = now;
+      this.emit({ type: "vad", source: "user", level, speaking });
+    }
+  }
+
+  private emitModelVad(input: Float32Array) {
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    this.lastModelChunkAt = now;
+    let sum = 0;
+    for (let i = 0; i < input.length; i++) {
+      const v = input[i];
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / Math.max(1, input.length));
+    const level = Math.min(1, Math.sqrt(rms) * 1.4);
+    const speaking = rms > this.MODEL_SPEAK_THRESHOLD;
+    const speakingChanged = speaking !== this.modelSpeaking;
+    if (speakingChanged || now - this.lastModelVadAt >= this.VAD_EMIT_INTERVAL_MS) {
+      this.modelSpeaking = speaking;
+      this.lastModelVadAt = now;
+      this.emit({ type: "vad", source: "model", level, speaking });
+    }
+    // Watchdog: model audio arrives in bursts; if no chunk for ~160ms we
+    // actively clear the "Speaking" flag — the playback path won't fire
+    // again until the next turn. Threshold is kept just above the
+    // typical 100ms inter-chunk gap so we don't false-clear during a
+    // sentence, but tight enough that the task's "within ~150ms"
+    // responsiveness target still holds for speaking→silent.
+    if (this.modelWatchdog == null) {
+      this.modelWatchdog = window.setInterval(() => {
+        if (!this.modelSpeaking) return;
+        const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - this.lastModelChunkAt;
+        if (elapsed > 160) {
+          this.modelSpeaking = false;
+          this.lastModelVadAt = (typeof performance !== "undefined" ? performance.now() : Date.now());
+          this.emit({ type: "vad", source: "model", level: 0, speaking: false });
+        }
+      }, 60);
     }
   }
 
@@ -204,6 +292,10 @@ export class LiveClient {
     } catch {}
     this.playCtx = null;
     this.playCursor = 0;
+    if (this.modelSpeaking) {
+      this.modelSpeaking = false;
+      this.emit({ type: "vad", source: "model", level: 0, speaking: false });
+    }
   }
 
   /** Start streaming mic at 16 kHz mono PCM. */
@@ -227,6 +319,9 @@ export class LiveClient {
     proc.onaudioprocess = (e) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
       const input = e.inputBuffer.getChannelData(0);
+      // Emit a VAD event from the original (pre-resample) buffer so the
+      // amplitude isn't affected by interpolation. Cheap to compute.
+      this.emitUserVad(input);
       const resampled = this.resample(input, ctx.sampleRate, TARGET_INPUT_RATE);
       const pcm16 = this.floatTo16BitPCM(resampled);
       const b64 = this.arrayBufferToBase64(pcm16.buffer);
@@ -250,6 +345,10 @@ export class LiveClient {
     this.workletNode = null;
     this.audioCtx = null;
     this.micStream = null;
+    if (this.userSpeaking) {
+      this.userSpeaking = false;
+      this.emit({ type: "vad", source: "user", level: 0, speaking: false });
+    }
   }
 
   /** Start camera or screen capture; sends one JPEG every `intervalMs`. */
@@ -321,6 +420,14 @@ export class LiveClient {
     try { this.playCtx?.close(); } catch {}
     this.playCtx = null;
     this.playCursor = 0;
+    if (this.modelWatchdog != null) {
+      try { clearInterval(this.modelWatchdog); } catch {}
+      this.modelWatchdog = null;
+    }
+    if (this.modelSpeaking) {
+      this.modelSpeaking = false;
+      this.emit({ type: "vad", source: "model", level: 0, speaking: false });
+    }
     this.setState("closed");
   }
 
