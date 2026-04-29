@@ -104,6 +104,7 @@ import LibraryPage from './pages/LibraryPage';
 import FocusPage from './pages/FocusPage';
 import LearnPage from './pages/LearnPage';
 import InsightsPage from './pages/InsightsPage';
+import NotFoundPage from './pages/NotFoundPage';
 import './pages/pages.css';
 
 // ── Core nav — the 5 daily-driver pages, each with a keyboard shortcut ──────
@@ -714,7 +715,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                   <Route path="/graph"      element={<RedirectWithBanner from="/graph"      to="/insights?view=graph" />} />
                   <Route path="/analytics"  element={<RedirectWithBanner from="/analytics"  to="/insights?view=analytics" />} />
 
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
                 </ErrorBoundary>
               </motion.div>

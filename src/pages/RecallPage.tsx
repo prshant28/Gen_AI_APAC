@@ -320,25 +320,68 @@ const RecallView = () => {
   return (
     <div className="recall-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 5rem)', gap: 14, padding: '6px 0 0', maxWidth: 980, margin: '0 auto', width: '100%' }}>
 
-      {/* Compact header */}
+      {/* Combined upper card — header + Ask-your-Second-Brain hero + prompt
+          chips, all in one box so the chips and recent questions never get
+          hidden under the sticky input bar at the bottom. */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '0 2px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(147,51,234,0.15))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(99,102,241,0.22)' }}>
-            <Search size={17} color="#818cf8" />
-          </div>
-          <div>
-            <h1 style={{ color: 'var(--text-1)', fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.4px', lineHeight: 1.1 }}>Neural Recall</h1>
-            <div style={{ color: 'var(--text-3)', fontSize: 11.5, marginTop: 2 }}>
-              {memCount ?? '—'} memories · ask in plain English or voice
+        style={{ ...card, padding: '14px 16px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(147,51,234,0.15))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(99,102,241,0.22)' }}>
+              <Brain size={20} color="#818cf8" />
+            </div>
+            <div>
+              <h1 style={{ color: 'var(--text-1)', fontSize: 19, fontWeight: 800, margin: 0, letterSpacing: '-0.3px', lineHeight: 1.15 }}>Ask your Second Brain</h1>
+              <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 3 }}>
+                {memCount ?? '—'} memories · type, speak, or pick a prompt below
+              </div>
             </div>
           </div>
+          {messages.length > 0 && (
+            <button onClick={() => { setMessages([]); setPlayingYt(new Set()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <X size={11} /> New chat
+            </button>
+          )}
         </div>
-        {messages.length > 0 && (
-          <button onClick={() => { setMessages([]); setPlayingYt(new Set()); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <X size={11} /> New chat
-          </button>
+
+        {/* Prompt chips — only shown when conversation is empty. Live INSIDE
+            the upper card so they're always visible without scrolling. */}
+        {isEmpty && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 14 }}>
+            {QUICK_PROMPTS.map((p) => {
+              const Icon = p.icon;
+              return (
+                <button key={p.label} onClick={() => handleSend(p.q)}
+                  className="recall-prompt-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.45)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.08)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.14)', border: '1px solid rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={13} color="#818cf8" />
+                  </div>
+                  <span style={{ color: 'var(--text-2)', fontSize: 13, fontWeight: 600 }}>{p.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Recent questions — also inside the upper card */}
+        {isEmpty && history.length > 0 && (
+          <div style={{ paddingTop: 12, marginTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 11, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              <History size={11} /> Recent questions
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {history.slice(0, 5).map((q, i) => (
+                <button key={`${q}-${i}`} onClick={() => handleSend(q)} title={q}
+                  style={{ padding: '6px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </motion.div>
 
@@ -390,56 +433,8 @@ const RecallView = () => {
           row of content is never hidden behind the sticky input bar. */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 108 }}>
 
-      {/* Empty state — minimal hero + 6 prompt chips */}
-      {isEmpty && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          style={{ ...card, padding: '28px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
-          <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
-            style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99,102,241,0.22), rgba(147,51,234,0.12))', border: '1px solid rgba(99,102,241,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px rgba(99,102,241,0.22)' }}>
-            <Brain size={26} color="#818cf8" />
-          </motion.div>
-          <div>
-            <div style={{ color: 'var(--text-1)', fontSize: 22, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.3px' }}>Ask your Second Brain</div>
-            <div style={{ color: 'var(--text-3)', fontSize: 13.5, marginTop: 6, maxWidth: 460 }}>
-              Type, speak, or pick a prompt — get instant answers from everything you've saved.
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, width: '100%', maxWidth: 720, marginTop: 4 }}>
-            {QUICK_PROMPTS.map((p) => {
-              const Icon = p.icon;
-              return (
-                <button key={p.label} onClick={() => handleSend(p.q)}
-                  className="recall-prompt-btn"
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.45)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.08)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(99,102,241,0.14)', border: '1px solid rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={13} color="#818cf8" />
-                  </div>
-                  <span style={{ color: 'var(--text-2)', fontSize: 13, fontWeight: 600 }}>{p.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {history.length > 0 && (
-            <div style={{ width: '100%', maxWidth: 720, paddingTop: 4, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 9, alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 11, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: 12 }}>
-                <History size={11} /> Recent questions
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                {history.slice(0, 5).map((q, i) => (
-                  <button key={`${q}-${i}`} onClick={() => handleSend(q)} title={q}
-                    style={{ padding: '6px 11px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
+      {/* Empty state hero, prompt chips and recent questions now live INSIDE
+          the upper card above. Only the message thread renders down here. */}
 
       {/* Messages thread */}
       {messages.length > 0 && (
