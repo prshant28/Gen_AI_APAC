@@ -454,6 +454,11 @@ const AgentHubView = () => {
   const recognitionRef = useRef<any>(null);
   const abortRef = useRef<AbortController | null>(null);
   const activeRequestRef = useRef<string | null>(null);
+  // When a `navigate` event arrives we already insert a final assistant
+  // bubble + clear streaming state. Some backend paths also yield a
+  // `workflow_complete` with the same `reply` text — track the last
+  // navigate so we can ignore that follow-up and avoid duplicate bubbles.
+  const lastNavigateRef = useRef<{ workflowId?: string; reply?: string; ts: number } | null>(null);
 
   // ── auto-scroll on new messages (skip first welcome paint to avoid jumping past header on mobile) ──
   useEffect(() => {
@@ -543,6 +548,9 @@ const AgentHubView = () => {
     ]);
     setInput(''); setIsStreaming(true);
     setAgentStatuses({ Orchestrator: 'running' });
+    // Each new send invalidates the previous navigate-dedup window so
+    // a legitimate next-turn reply is never accidentally suppressed.
+    lastNavigateRef.current = null;
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -626,13 +634,34 @@ const AgentHubView = () => {
       case 'token':
         setMessages(prev => prev.map(m => m.id === thinkId ? { ...m, type: 'streaming' as const, content: (m.content || '') + event.text } : m));
         break;
-      case 'workflow_complete':
+      case 'workflow_complete': {
+        // Skip if a `navigate` event was just emitted for this same
+        // workflow — the navigate handler already added the final bubble
+        // and a duplicate workflow_complete with the same reply text would
+        // render the same message twice in a row.
+        // Strict guard: dedup only when same workflow_id, OR (same reply
+        // text within 5s). This avoids accidentally swallowing a
+        // legitimate next-turn reply that just happens to arrive quickly.
+        const lastNav = lastNavigateRef.current;
+        const sameWorkflow = !!(lastNav?.workflowId && event.workflow_id && lastNav.workflowId === event.workflow_id);
+        const sameReplyRecent = !!(
+          lastNav &&
+          lastNav.reply &&
+          event.reply &&
+          lastNav.reply === event.reply &&
+          (Date.now() - lastNav.ts) < 5000
+        );
+        if (sameWorkflow || sameReplyRecent) {
+          setAgentStatuses({});
+          break;
+        }
         setMessages(prev => [
           ...prev.filter(m => m.id !== thinkId),
           { id: event.workflow_id, role: 'assistant' as const, type: 'text' as const, content: event.reply, steps: event.steps, agents: event.agents_called, workflow_id: event.workflow_id, ts: event.timestamp || new Date().toISOString() },
         ]);
         setAgentStatuses({});
         break;
+      }
       case 'navigate': {
         // Backend decided this user message belongs on a dedicated page.
         // Drop the thinking placeholder, leave a tiny breadcrumb in chat
@@ -641,6 +670,9 @@ const AgentHubView = () => {
         const path = (event.path as string) || '/recall';
         const q = (event.query as string) || '';
         const reply = (event.message as string) || 'Opening…';
+        // Record so any follow-up workflow_complete with the same reply
+        // text gets ignored and we don't render the message twice.
+        lastNavigateRef.current = { workflowId: event.workflow_id, reply, ts: Date.now() };
         setMessages(prev => [
           ...prev.filter(m => m.id !== thinkId),
           {

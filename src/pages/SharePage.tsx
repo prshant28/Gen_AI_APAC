@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Brain, Sparkles, Tag, Calendar as CalendarIcon, Globe, ArrowLeft, AlertTriangle, Hexagon, Link2 } from 'lucide-react';
+import {
+  Brain, Sparkles, Tag, Calendar as CalendarIcon, Globe, ArrowLeft,
+  AlertTriangle, Link2, Check, Copy, Clock, FileText, Eye, ArrowUpRight,
+} from 'lucide-react';
+import x247Logo from '../assets/x247-logo.png';
 
 interface SharedMemory {
   id: string;
@@ -20,6 +24,7 @@ const SharePage: React.FC = () => {
   const [memory, setMemory] = useState<SharedMemory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -35,113 +40,228 @@ const SharePage: React.FC = () => {
     }).catch(() => { setError('Network error'); setLoading(false); });
   }, [token]);
 
+  // Lightweight reading-time estimate from summary + key points (~220 wpm).
+  const readingMinutes = useMemo(() => {
+    if (!memory) return 0;
+    const text = [memory.summary || '', ...(memory.key_points || [])].join(' ');
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.round(words / 220));
+  }, [memory]);
+
+  // Only render a clickable source link if it's a safe http(s) URL —
+  // otherwise we silently drop it to avoid javascript:/data: scheme XSS.
+  const safeSourceUrl = useMemo(() => {
+    if (!memory?.source_url) return '';
+    try {
+      const u = new URL(memory.source_url);
+      return (u.protocol === 'http:' || u.protocol === 'https:') ? u.toString() : '';
+    } catch { return ''; }
+  }, [memory]);
+  const sourceHost = useMemo(() => {
+    if (!safeSourceUrl) return '';
+    try { return new URL(safeSourceUrl).hostname.replace(/^www\./, ''); }
+    catch { return ''; }
+  }, [safeSourceUrl]);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* ignore */ }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text-1)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="share-page">
+      {/* Ambient gradient glow behind the hero */}
+      <div className="share-glow" aria-hidden="true" />
 
       {/* Top bar */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, padding: '14px 24px', background: 'var(--surface)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text-1)' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg, var(--primary) 0%, #818cf8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Hexagon size={16} color="#fff" />
-          </div>
-          <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.4px' }}>Recall <span style={{ color: 'var(--primary)' }}>X247</span></span>
+      <header className="share-topbar">
+        <Link to="/" className="share-brand" data-testid="link-share-brand">
+          <img src={x247Logo} alt="" className="share-brand-logo" draggable={false} />
+          <span className="share-brand-text">Recall <span>X247</span></span>
         </Link>
-        <Link to="/login" style={{ padding: '7px 14px', background: 'var(--primary)', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 14px var(--primary-bg)' }}>
-          Get Recall X247
-        </Link>
+        <div className="share-topbar-actions">
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="share-copy-btn"
+            data-testid="button-copy-link"
+            aria-label={copied ? 'Link copied to clipboard' : 'Copy share link'}
+          >
+            {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy link</>}
+          </button>
+          <span className="sr-only" role="status" aria-live="polite">
+            {copied ? 'Link copied to clipboard' : ''}
+          </span>
+          <Link to="/login" className="share-cta-btn" data-testid="link-get-app">
+            Get Recall X247 <ArrowUpRight size={13} />
+          </Link>
+        </div>
       </header>
 
-      <main style={{ maxWidth: 760, margin: '0 auto', padding: '40px 24px 80px' }}>
+      <main className="share-main">
         {loading ? (
-          <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-3)' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'spin 1s linear infinite', margin: '0 auto 14px' }} />
-            <p style={{ fontSize: 13 }}>Loading shared memory…</p>
+          <div className="share-loading">
+            <div className="share-spinner" />
+            <p>Loading shared memory…</p>
           </div>
         ) : error ? (
-          <div style={{ padding: '50px 30px', textAlign: 'center', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16 }}>
-            <AlertTriangle size={36} color="#ef4444" style={{ margin: '0 auto 14px' }} />
-            <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>Memory not found</h2>
-            <p style={{ margin: '0 0 20px', color: 'var(--text-3)', fontSize: 13 }}>{error}</p>
-            <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>
+          <div className="share-error" data-testid="share-error">
+            <AlertTriangle size={36} color="#ef4444" />
+            <h2>Memory not found</h2>
+            <p>{error}</p>
+            <Link to="/" className="share-back-btn">
               <ArrowLeft size={12} /> Back to home
             </Link>
           </div>
         ) : memory && (
           <>
-            {/* Hero */}
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 20, marginBottom: 16 }}>
-                <Sparkles size={11} color="var(--primary)" />
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.5px' }}>SHARED MEMORY · PUBLIC VIEW</span>
+            {/* HERO */}
+            <section className="share-hero">
+              <div className="share-pill" data-testid="badge-shared">
+                <Sparkles size={11} />
+                <span>SHARED MEMORY · PUBLIC VIEW</span>
               </div>
-              <h1 style={{ fontSize: 'clamp(22px, 4vw, 30px)', fontWeight: 900, color: 'var(--text-1)', margin: '0 0 14px', lineHeight: 1.15, letterSpacing: '-0.6px' }}>
-                {memory.title}
-              </h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: 'var(--text-3)', fontSize: 12.5, flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarIcon size={12} /> {new Date(memory.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                {memory.domain && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Globe size={12} /> {memory.domain}</span>}
-                <span style={{ padding: '2px 9px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-2)' }}>{memory.source_type}</span>
+              <h1 className="share-title">{memory.title}</h1>
+
+              <div className="share-meta">
+                <span className="share-meta-item">
+                  <CalendarIcon size={12} />
+                  {new Date(memory.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
+                {memory.domain && (
+                  <span className="share-meta-item">
+                    <Globe size={12} /> {memory.domain}
+                  </span>
+                )}
+                <span className="share-meta-item">
+                  <Clock size={12} /> {readingMinutes} min read
+                </span>
+                <span className="share-meta-tag">{memory.source_type}</span>
               </div>
-              {memory.source_url && (
-                <a href={memory.source_url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, fontSize: 11.5, color: 'var(--primary)', textDecoration: 'none' }}>
-                  <Link2 size={11} /> {memory.source_url.slice(0, 80)}{memory.source_url.length > 80 ? '…' : ''}
+
+              {safeSourceUrl && (
+                <a
+                  href={safeSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="share-source"
+                  data-testid="link-source"
+                >
+                  <Link2 size={12} />
+                  <span className="share-source-host">{sourceHost || 'View source'}</span>
+                  <span className="share-source-path">{safeSourceUrl.length > 80 ? `${safeSourceUrl.slice(0, 80)}…` : safeSourceUrl}</span>
+                  <ArrowUpRight size={11} />
                 </a>
               )}
-            </div>
-
-            {/* Summary */}
-            <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', marginBottom: 18 }}>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                <Brain size={14} color="var(--primary)" /> AI Summary
-              </h2>
-              <p style={{ color: 'var(--text-2)', fontSize: 15, lineHeight: 1.75, margin: 0 }}>{memory.summary}</p>
             </section>
 
-            {/* Key insights */}
-            {memory.key_points?.length > 0 && (
-              <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', marginBottom: 18 }}>
-                <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  <Sparkles size={14} color="var(--primary)" /> Key Insights
-                </h2>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {memory.key_points.map((pt, i) => (
-                    <li key={i} style={{ display: 'flex', gap: 12, padding: '12px 16px', background: 'var(--surface-2)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                      <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 800, color: 'var(--primary)' }}>{i + 1}</span>
-                      <span style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.65 }}>{pt}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            <div className="share-grid">
+              {/* MAIN COLUMN */}
+              <div className="share-main-col">
+                {/* AI Summary */}
+                <section className="share-card share-card-summary">
+                  <div className="share-card-head">
+                    <span className="share-card-icon"><Brain size={14} /></span>
+                    <h2>AI Summary</h2>
+                  </div>
+                  <p className="share-summary-text">{memory.summary}</p>
+                </section>
 
-            {/* Tags */}
-            {memory.tags?.length > 0 && (
-              <section style={{ marginBottom: 28 }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px', fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  <Tag size={12} /> Tags
-                </h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  {memory.tags.map(t => (
-                    <span key={t} style={{ padding: '4px 11px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 11, color: 'var(--primary)', fontSize: 11.5, fontWeight: 700 }}>#{t}</span>
-                  ))}
-                </div>
-              </section>
-            )}
+                {/* Key insights */}
+                {memory.key_points?.length > 0 && (
+                  <section className="share-card">
+                    <div className="share-card-head">
+                      <span className="share-card-icon"><Sparkles size={14} /></span>
+                      <h2>Key Insights</h2>
+                      <span className="share-card-count">{memory.key_points.length}</span>
+                    </div>
+                    <ol className="share-keys" data-testid="list-key-points">
+                      {memory.key_points.map((pt, i) => (
+                        <li key={i} className="share-key">
+                          <span className="share-key-num">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="share-key-text">{pt}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
+              </div>
+
+              {/* SIDEBAR */}
+              <aside className="share-side">
+                {/* Tags */}
+                {memory.tags?.length > 0 && (
+                  <section className="share-side-card">
+                    <div className="share-side-head">
+                      <Tag size={11} /> <span>TAGS</span>
+                    </div>
+                    <div className="share-tags" data-testid="list-tags">
+                      {memory.tags.map(t => (
+                        <span key={t} className="share-tag">#{t}</span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Stats */}
+                <section className="share-side-card">
+                  <div className="share-side-head">
+                    <Eye size={11} /> <span>AT A GLANCE</span>
+                  </div>
+                  <div className="share-stats">
+                    <div className="share-stat">
+                      <FileText size={12} />
+                      <div>
+                        <div className="share-stat-val">{memory.source_type}</div>
+                        <div className="share-stat-lab">Source type</div>
+                      </div>
+                    </div>
+                    <div className="share-stat">
+                      <Clock size={12} />
+                      <div>
+                        <div className="share-stat-val">{readingMinutes} min</div>
+                        <div className="share-stat-lab">Reading time</div>
+                      </div>
+                    </div>
+                    {memory.shared_at && (
+                      <div className="share-stat">
+                        <CalendarIcon size={12} />
+                        <div>
+                          <div className="share-stat-val">{new Date(memory.shared_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                          <div className="share-stat-lab">Shared on</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </aside>
+            </div>
 
             {/* CTA */}
-            <div style={{ marginTop: 40, padding: '24px 28px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 16, textAlign: 'center' }}>
-              <Brain size={28} color="var(--primary)" style={{ margin: '0 auto 8px' }} />
-              <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Build your own second brain</h3>
-              <p style={{ margin: '0 0 14px', color: 'var(--text-2)', fontSize: 13 }}>Capture, summarise, and recall everything that matters — with AI agents that remember for you.</p>
-              <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: 'var(--primary)', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 16px var(--primary-bg)' }}>
-                Try Recall X247 free
+            <section className="share-cta">
+              <div className="share-cta-glow" aria-hidden="true" />
+              <img src={x247Logo} alt="" className="share-cta-logo" draggable={false} />
+              <h3>Build your own second brain</h3>
+              <p>Capture, summarise, and recall everything that matters — with AI agents that remember for you.</p>
+              <Link to="/login" className="share-cta-link" data-testid="link-cta-signup">
+                Try Recall X247 free <ArrowUpRight size={14} />
               </Link>
-            </div>
+              <div className="share-cta-perks">
+                <span><Check size={11} /> Free to start</span>
+                <span><Check size={11} /> No card required</span>
+                <span><Check size={11} /> Guest mode available</span>
+              </div>
+            </section>
+
+            <footer className="share-footer">
+              Powered by <Link to="/" className="share-footer-link">Recall X247</Link>
+            </footer>
           </>
         )}
       </main>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

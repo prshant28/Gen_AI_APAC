@@ -834,6 +834,8 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
             "path": path,
             "query": prefilled,
             "message": nav_reply,
+            "workflow_id": workflow.id,
+            "reply": nav_reply,
         })
         # Persist a tiny placeholder turn so chat history reflects the redirect
         # (helps when the user switches back to /agent later).
@@ -843,13 +845,11 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
         ])
         _trim_history(session_id)
         workflow.complete(nav_reply)
-        yield sse("workflow_complete", {
-            "workflow_id": workflow.id,
-            "reply": nav_reply,
-            "agents_called": [],
-            "steps": [],
-            "timestamp": workflow.completed_at,
-        })
+        # NOTE: intentionally NOT yielding workflow_complete here. The
+        # `navigate` event already inserts the assistant bubble and clears
+        # the streaming/agent state on the client; emitting another
+        # workflow_complete with the same `reply` text caused the same
+        # message ("Opening today's Briefing…") to render twice in chat.
         return
 
     client = _make_client()
