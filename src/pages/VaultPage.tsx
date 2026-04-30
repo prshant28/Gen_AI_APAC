@@ -8,13 +8,36 @@ import { card } from '../lib/ui';
 import ViewModeToggle, { type ViewMode, type Density } from '../components/ViewModeToggle';
 import { showToast } from '../App';
 
-const VIEW_KEY = 'recall:vault:viewMode';
-const DENSITY_KEY = 'recall:vault:density';
-const loadViewMode = (): ViewMode => {
-  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
+// Legacy keys: prior versions stored a single global view+density preference
+// shared across the standalone /vault page and both Library tabs. We keep
+// reading them as a one-time fallback so users don't lose their choice when
+// the per-surface keys are introduced.
+const LEGACY_VIEW_KEY = 'recall:vault:viewMode';
+const LEGACY_DENSITY_KEY = 'recall:vault:density';
+
+const loadViewMode = (key: string): ViewMode => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'list' || v === 'grid') return v;
+    const legacy = localStorage.getItem(LEGACY_VIEW_KEY);
+    if (legacy === 'list' || legacy === 'grid') {
+      try { localStorage.setItem(key, legacy); } catch { /* ignore */ }
+      return legacy;
+    }
+    return 'grid';
+  } catch { return 'grid'; }
 };
-const loadDensity = (): Density => {
-  try { return localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable'; } catch { return 'comfortable'; }
+const loadDensity = (key: string): Density => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'comfortable' || v === 'compact') return v;
+    const legacy = localStorage.getItem(LEGACY_DENSITY_KEY);
+    if (legacy === 'comfortable' || legacy === 'compact') {
+      try { localStorage.setItem(key, legacy); } catch { /* ignore */ }
+      return legacy;
+    }
+    return 'comfortable';
+  } catch { return 'comfortable'; }
 };
 
 interface StudyCard extends Flashcard { status: 'unseen' | 'known' | 'unknown'; }
@@ -123,8 +146,20 @@ const SRC_ICON: Record<string, { icon: React.ElementType; color: string }> = {
 const DOMAINS = ['', 'AI', 'Technology', 'Science', 'Business', 'Health', 'History', 'Philosophy', 'Engineering', 'Productivity', 'Other'];
 const SORT_OPTS = [{ value: 'newest', label: 'Newest' }, { value: 'oldest', label: 'Oldest' }, { value: 'title', label: 'A–Z' }];
 
-interface VaultViewProps { embedded?: boolean; initialSourceFilter?: string }
-const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFilter = '' }) => {
+interface VaultViewProps {
+  embedded?: boolean;
+  initialSourceFilter?: string;
+  /**
+   * Base localStorage key for persisting view mode + density. The component
+   * stores `${storageKey}:viewMode` and `${storageKey}:density`, so each
+   * surface (standalone Vault, Library Vault tab, Library Files tab) can
+   * remember its own choice independently. Defaults to the legacy global key.
+   */
+  storageKey?: string;
+}
+const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFilter = '', storageKey = 'recall:vault' }) => {
+  const viewKey = `${storageKey}:viewMode`;
+  const densityKey = `${storageKey}:density`;
   const navigate = useNavigate();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [filter, setFilter] = useState('');
@@ -135,8 +170,8 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [flashcardsMemory, setFlashcardsMemory] = useState<Memory | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
-  const [density, setDensity] = useState<Density>(loadDensity);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode(viewKey));
+  const [density, setDensity] = useState<Density>(() => loadDensity(densityKey));
 
   // Library power-ups
   const [showArchived, setShowArchived] = useState(false);
@@ -157,8 +192,13 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
   const [saveCollOpen, setSaveCollOpen] = useState(false);
   const [collName, setCollName] = useState('');
 
-  useEffect(() => { try { localStorage.setItem(VIEW_KEY, viewMode); } catch { /* ignore */ } }, [viewMode]);
-  useEffect(() => { try { localStorage.setItem(DENSITY_KEY, density); } catch { /* ignore */ } }, [density]);
+  // Persist view+density to the per-surface localStorage keys derived from
+  // `storageKey`. Each Library tab gets its own key, so changes on one tab
+  // do not bleed into another. The component is remounted (via TabbedPage's
+  // `key={active}`) when the user switches tabs, which re-runs the
+  // initialiser and rehydrates from the newly-active surface's key.
+  useEffect(() => { try { localStorage.setItem(viewKey, viewMode); } catch { /* ignore */ } }, [viewMode, viewKey]);
+  useEffect(() => { try { localStorage.setItem(densityKey, density); } catch { /* ignore */ } }, [density, densityKey]);
 
   const fetchMemories = useCallback(() => {
     setIsLoading(true);

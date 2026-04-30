@@ -24,10 +24,10 @@ const LibraryPage: React.FC = () => {
       paramKey="tab"
       defaultTab="vault"
       tabs={[
-        { id: 'vault',      label: 'Vault',      icon: Database,        render: () => <VaultPage embedded /> },
+        { id: 'vault',      label: 'Vault',      icon: Database,        render: () => <VaultPage embedded storageKey="recall:library:vault" /> },
         { id: 'notes',      label: 'Notes',      icon: StickyNote,      render: () => <NotesPage embedded /> },
         { id: 'bookmarks',  label: 'Bookmarks',  icon: Bookmark,        render: () => <BookmarksPage embedded /> },
-        { id: 'files',      label: 'Files',      icon: FileText,        render: () => <VaultPage embedded initialSourceFilter="pdf" /> },
+        { id: 'files',      label: 'Files',      icon: FileText,        render: () => <VaultPage embedded initialSourceFilter="pdf" storageKey="recall:library:files" /> },
         { id: 'inbox',      label: 'Inbox',      icon: Inbox,           render: () => <LibraryInboxTab /> },
         { id: 'tags',       label: 'Tags',       icon: Tag,             render: () => <TagsManagerPage /> },
         { id: 'tasks',      label: 'Tasks',      icon: CheckSquare,     render: () => <TasksPage embedded /> },
