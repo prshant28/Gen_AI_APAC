@@ -5116,3 +5116,121 @@
     order: -1;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   MOBILE POLISH — Projects, Calendar, Discover, Settings
+   Phone-width fixes for the 5 main desktop-first surfaces. The
+   target is iPhone-width (≈ 390px) but the breakpoints below
+   cover small tablets too. Each block is scoped to its surface
+   so we don't accidentally mangle other pages that share the
+   same primitives.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Projects (/workspace) — Workspace Recall search row ───────── */
+@media (max-width: 600px) {
+  .workspace-recall-row {
+    align-items: stretch !important;
+  }
+  .workspace-recall-row > input.workspace-recall-input {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    order: 5;
+  }
+  .workspace-recall-row > button:last-of-type {
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+    order: 6;
+    padding: 9px 14px !important;
+  }
+}
+
+/* ── Projects (/workspace) — keep grid tracks within viewport ────
+   Grid `1fr` columns won't shrink past their min-content (often
+   the natural width of long text or wide tables) unless the grid
+   item is explicitly `min-width: 0`. Without this, the project
+   detail column blows past the viewport and the hero buttons get
+   clipped off-screen even though body has overflow-x: hidden. */
+@media (max-width: 899px) {
+  .workspace-layout > * { min-width: 0 !important; }
+  .workspace-inner > * { min-width: 0 !important; }
+}
+
+/* ── Projects (/workspace) — project hero action row ───────────── */
+@media (max-width: 600px) {
+  .workspace-hero-actions {
+    gap: 7px !important;
+  }
+  /* The dot stays inline with the title; the title takes the rest of
+     row 1 (calc keeps room for the 10px dot + 10px gap). Buttons then
+     share rows 2/3 as 50/50 chips with the icon-only delete at the
+     end fixed at 36px so nothing gets clipped at 390px viewports. */
+  .workspace-hero-actions > h2 {
+    flex: 1 1 calc(100% - 22px) !important;
+    min-width: 0 !important;
+    font-size: 15px !important;
+    word-break: break-word;
+  }
+  .workspace-hero-actions > button {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+    font-size: 11px !important;
+    padding: 7px 8px !important;
+  }
+  /* Last button is the icon-only delete — keep it small */
+  .workspace-hero-actions > button:last-child {
+    flex: 0 0 36px !important;
+    padding: 7px 0 !important;
+  }
+}
+
+/* ── Discover (/discover) — search input + button stack on phones */
+@media (max-width: 480px) {
+  .discover-search-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    position: relative !important;
+  }
+  /* Keep the magnifier icon pinned to the input on the first row. */
+  .discover-search-wrap > .discover-search-icon {
+    top: 28px !important;
+    transform: none !important;
+  }
+  .discover-search-wrap > .discover-search-input {
+    padding-right: 16px !important;
+    font-size: 13px !important;
+  }
+  .discover-search-wrap > .discover-search-btn {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 16px !important;
+  }
+}
+
+/* ── Settings (/settings) — config rows wrap long values cleanly */
+@media (max-width: 520px) {
+  .settings-config-row {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    row-gap: 4px !important;
+  }
+  .settings-config-value {
+    width: 100% !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+  .settings-config-value > span:last-child,
+  .settings-config-value {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+  .settings-config-extra {
+    display: block;
+    margin-left: 0 !important;
+    margin-top: 2px;
+  }
+}

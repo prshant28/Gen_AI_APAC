@@ -361,13 +361,15 @@ const DiscoverPage: React.FC = () => {
       {/* Search */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         style={{ ...card, padding: '20px 22px', marginBottom: 14 }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={17} color="var(--text-3)" style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+        <div className="discover-search-wrap" style={{ position: 'relative' }}>
+          <Search size={17} color="var(--text-3)" className="discover-search-icon" style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input type="text" value={topic} onChange={e => setTopic(e.target.value)}
             placeholder="What do you want to learn? e.g., Transformer architecture, RAG…"
+            className="discover-search-input"
             style={inputStyle}
             onKeyDown={e => { if (e.key === 'Enter') runDiscover(topic); }} />
           <button onClick={() => runDiscover(topic)} disabled={!topic.trim() || isLoading}
+            className="discover-search-btn"
             style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '8px 16px', background: 'linear-gradient(135deg,#06b6d4,#0891b2)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700, cursor: (!topic.trim() || isLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: (!topic.trim() || isLoading) ? 0.6 : 1, boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
             {isLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
             Discover

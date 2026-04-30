@@ -574,7 +574,7 @@ const WorkspacePage: React.FC = () => {
       {projects.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
           style={{ ...card, padding: '12px 14px', marginBottom: 14, borderColor: 'rgba(99,102,241,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(124,58,237,0.03))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="workspace-recall-row" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Search size={14} color="#6366f1" />
             <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 700 }}>Workspace Recall</span>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -588,7 +588,8 @@ const WorkspacePage: React.FC = () => {
             <input value={recallQuery} onChange={e => setRecallQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') runRecall(); }}
               placeholder='Ask anything — "what did I learn about retrieval pipelines?"'
-              style={{ flex: 1, minWidth: 220, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, padding: '7px 11px', outline: 'none', fontFamily: 'inherit' }} />
+              className="workspace-recall-input"
+              style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-1)', fontSize: 12, padding: '7px 11px', outline: 'none', fontFamily: 'inherit' }} />
             <button onClick={runRecall} disabled={recallLoading || !recallQuery.trim()}
               style={{ padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#7c3aed)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: recallLoading ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5, opacity: (recallLoading || !recallQuery.trim()) ? 0.6 : 1 }}>
               {recallLoading ? <><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Recalling…</> : <>Ask <ArrowRight size={11} /></>}
@@ -749,7 +750,7 @@ const WorkspacePage: React.FC = () => {
               {/* Project hero */}
               <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 style={{ ...card, padding: '16px 20px', border: `1px solid ${project.color}30` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div className="workspace-hero-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: project.color, boxShadow: `0 0 12px ${project.color}`, flexShrink: 0 }} />
                   <h2 style={{ color: 'var(--text-1)', fontSize: 16, fontWeight: 800, margin: 0, flex: 1, minWidth: 120 }}>{project.name}</h2>
                   <button onClick={runAiOrganize} disabled={organizing}

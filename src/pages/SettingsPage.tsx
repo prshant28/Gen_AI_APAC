@@ -179,10 +179,10 @@ const SettingsView = () => {
   );
 
   const row = (label: string, val: boolean, extra?: string) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-      <div>
+    <div className="settings-config-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
         <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{label}</span>
-        {extra && <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>{extra}</span>}
+        {extra && <span className="settings-config-extra" style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6, wordBreak: 'break-all' }}>{extra}</span>}
       </div>
       {badge(val)}
     </div>
@@ -236,13 +236,13 @@ const SettingsView = () => {
               {row('Google Gemini Key', cfg?.gemini_api_key_set, cfg?.gemini_model)}
               {row('OpenAI / Fallback Key', cfg?.openai_api_key_set)}
               {row('OpenRouter / GEN APAC Key', cfg?.gen_apac_api_key_set)}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              <div className="settings-config-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>Google Calendar</span>
                 {badge(cfg?.google_calendar_configured)}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>GCP Project</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'monospace' }}>{cfg?.gcp_project_id || 'N/A'}</span>
+              <div className="settings-config-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 10 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, flexShrink: 0 }}>GCP Project</span>
+                <span className="settings-config-value" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'monospace', wordBreak: 'break-all', textAlign: 'right', minWidth: 0 }}>{cfg?.gcp_project_id || 'N/A'}</span>
               </div>
             </div>
           )}
@@ -288,11 +288,11 @@ const SettingsView = () => {
                 { label: 'Fallback AI', value: cfg?.fallback_provider ? `${cfg.fallback_provider} · Ready` : 'Not configured', color: cfg?.fallback_provider ? '#10b981' : 'var(--text-3)', pulse: false },
                 { label: 'App Version', value: 'v2.0.0 HACKATHON', color: 'var(--text-3)', pulse: false },
               ].map((item, idx, arr) => (
-                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{item.label}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: item.color, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {item.pulse && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block' }} />}
-                    {item.value}
+                <div key={item.label} className="settings-config-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, flexShrink: 0 }}>{item.label}</span>
+                  <span className="settings-config-value" style={{ fontSize: 11, fontWeight: 700, color: item.color, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, wordBreak: 'break-word', textAlign: 'right', justifyContent: 'flex-end' }}>
+                    {item.pulse && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />}
+                    <span style={{ minWidth: 0, wordBreak: 'break-word' }}>{item.value}</span>
                   </span>
                 </div>
               ))}

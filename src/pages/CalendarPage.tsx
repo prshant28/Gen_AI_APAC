@@ -54,7 +54,12 @@ const CalendarModule: React.FC = () => {
 
   // View state
   const [cursor, setCursor] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [view, setView] = useState<'month' | 'agenda'>('month');
+  // Default to "agenda" on phone-sized screens — the 7-column month grid
+  // becomes too cramped (~50px per day cell) at 390px-wide viewports.
+  // Users can still flip back to "month" via the toggle.
+  const [view, setView] = useState<'month' | 'agenda'>(() =>
+    typeof window !== 'undefined' && window.innerWidth <= 640 ? 'agenda' : 'month'
+  );
   const [activeTopics, setActiveTopics] = useState<Set<string>>(new Set());
 
   // Modals
