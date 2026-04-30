@@ -1,0 +1,565 @@
+
+> react-example@0.0.0 dev
+> fuser -k 8000/tcp 2>/dev/null; sleep 0.5; concurrently "python main.py" "vite"
+
+[1G[0K[0m[1][0m 
+[0m[1][0m   [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m318[22m[2m[0m ms[22m
+[0m[1][0m 
+[0m[1][0m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5000[22m/[39m
+[0m[1][0m   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.31.85.194:[1m5000[22m/[39m
+[0m[1][0m [2m12:16:01 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/vitals[39m
+[0m[1][0m Error: connect ECONNREFUSED 127.0.0.1:8000
+[0m[1][0m     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+[0m[0][0m WARNING:recall-x247:brotli compression unavailable (No module named 'brotli_asgi'); falling back to gzip only
+[0m[0][0m /home/runner/workspace/main.py:410: DeprecationWarning: 
+[0m[0][0m         on_event is deprecated, use lifespan event handlers instead.
+[0m[0][0m 
+[0m[0][0m         Read more about it in the
+[0m[0][0m         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+[0m[0][0m         
+[0m[0][0m   @app.on_event("startup")
+[0m[0][0m INFO:     Started server process [37199]
+[0m[0][0m INFO:     Waiting for application startup.
+[0m[0][0m INFO:recall-x247:Recall X247 v2.0 started. AI: OpenRouter (openai/gpt-4o-mini). GCP Project: balmy-vertex-478515-m4
+[0m[0][0m INFO:recall-x247:Demo data seeded successfully.
+[0m[0][0m INFO:recall-x247:Extras (notes, bookmarks, habits) seeded.
+[0m[0][0m INFO:recall-x247:Daily briefing notification scheduler started.
+[0m[0][0m INFO:recall-x247:Startup complete.
+[0m[0][0m INFO:app.briefing_scheduler:briefing_scheduler started (tick every 300s)
+[0m[0][0m INFO:     Application startup complete.
+[0m[0][0m INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.59ms
+[0m[0][0m AI Provider: OpenRouter (openai/gpt-4o-mini)
+[0m[0][0m Warning: No fallback AI key configured (set OPENAI_API_KEY for 429 resilience)
+[0m[0][0m db: GOOGLE_APPLICATION_CREDENTIALS='./service_account.json' missing; falling back to ADC.
+[0m[0][0m db: No creds file and GCE metadata server unreachable (local dev). Using in-memory mock — DATA WILL NOT PERSIST. On Cloud Run, ADC will succeed automatically.
+[0m[0][0m Demo data seeded for guest: 12 memories, 12 tasks, 8 calendar events, 6 revisits, 3 workspace projects.
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.74ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.99ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.98ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.82ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.52ms
+[0m[0][0m INFO:     10.83.16.188:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 2.16ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.77ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.17ms
+[0m[0][0m INFO:     10.83.8.84:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.01ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.95ms
+[0m[0][0m INFO:     10.83.19.75:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.78ms
+[0m[0][0m INFO:     10.83.19.75:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.85ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[1][0m [2m12:17:41 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/toolchain.json[22m
+[0m[1][0m [2m12:17:41 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest[22m
+[0m[1][0m [2m12:17:41 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest.json[22m
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.10ms
+[0m[0][0m INFO:     10.83.8.84:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.98ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.06ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.89ms
+[0m[0][0m INFO:     10.83.19.75:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[1][0m [2m12:18:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.agents/agent_assets_metadata.toml[22m
+[0m[1][0m [2m12:18:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mreplit.md[22m
+[0m[1][0m [2m12:18:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mpublic/deck/index.html[22m
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.02ms
+[0m[0][0m INFO:     10.83.19.75:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.09ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.82ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 2.09ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.38ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.53ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 265.17ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 4.43ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.94ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.37ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 3.84ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 3.02ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.64ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.47ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 4.08ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.57ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.58ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 11.45ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 7.15ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.53ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 3.37ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.59ms
+[0m[0][0m INFO:     10.83.0.207:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 3051.44ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.00ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.93ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.93ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.03ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 5.75ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 4.71ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 4.28ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 5.48ms
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 4.14ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 4.54ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 3.11ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.22ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.17ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 2.88ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 3.35ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 2.72ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 3.77ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.30ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.47ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 3.97ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 3.97ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.58ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 4.22ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.11ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.45ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 1.94ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 2.25ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.22ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.08ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.09ms
+[0m[0][0m INFO:     10.83.16.188:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.91ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.35ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.95ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.09ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.83ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.20ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.11ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 1.80ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 1.53ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 0.95ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 1.67ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 2.47ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 1.77ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.02ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.85ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.86ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.91ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.12ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.17ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[1][0m [2m12:28:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mpublic/deck/index.html[22m
+[0m[1][0m [2m12:28:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mpackage.json[22m
+[0m[1][0m [2m12:28:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mreplit.md[22m
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.12ms
+[0m[0][0m INFO:     10.83.6.22:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.81ms
+[0m[0][0m INFO:     10.83.10.203:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.82ms
+[0m[0][0m INFO:     10.83.10.203:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 0.84ms
+[0m[0][0m INFO:     10.83.4.181:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 1.36ms
+[0m[0][0m INFO:     10.83.10.203:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 1.34ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 1.01ms
+[0m[0][0m INFO:     10.83.4.181:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 3.59ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 3.71ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.07ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.89ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.93ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.88ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.50ms
+[0m[0][0m INFO:     10.83.13.200:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.94ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.23ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.93ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 4.65ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 5.18ms
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 12.23ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 2.79ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 4.75ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 6.05ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 5.23ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 4.81ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 5.51ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.77ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.90ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 9.38ms
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 6.27ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 6.22ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 8.29ms
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.02ms
+[0m[0][0m INFO:     10.83.13.200:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.41ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 2.03ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.09ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.33ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 2.65ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.15ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 4299.51ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 2.02ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 1.36ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 3.39ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.04ms
+[0m[0][0m INFO:     10.83.7.168:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.15ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.36ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 2.27ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.87ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 5.06ms
+[0m[0][0m INFO:     10.83.4.181:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 5.90ms
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 7.70ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.49ms
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 3.72ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 2.30ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.40ms
+[0m[0][0m INFO:     10.83.4.181:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 5.73ms
+[0m[0][0m INFO:     10.83.1.106:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 5.15ms
+[0m[0][0m INFO:     10.83.8.84:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 5.45ms
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 2.28ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:     10.83.16.188:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 2.31ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.89ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.11ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.71ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.85ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.07ms
+[0m[0][0m INFO:     10.83.2.107:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.20ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.15ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.83ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.95ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.75ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.00ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.16ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 2.61ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.08ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.88ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.05ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.02ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.97ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.83ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.86ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.04ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.87ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.99ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.11ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.92ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.09ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.86ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.77ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.87ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.77ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.91ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.92ms
+[0m[0][0m INFO:     10.83.2.107:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.14ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/AIAssistant_1775659326336.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/App_1775660775263.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/AuthPage_1775659326337.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/CaptureOverview_1775659326356.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/Dashboard_1775659326366.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/Guidelines_1775660712625.md[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/HomeDashboard_1775659326367.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/KnowledgeCapture_1775659326367.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/KnowledgeGraph_1775659326368.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/LandingPage_1775659326369.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/Layout_1775659326369.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/MemoryTimeline_1775659326370.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/NeuralBackground_1775659326370.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/PrivacyPanel_1775659326371.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/ProjectWorkspace_1775659326371.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/ProtectedRoute_1775659326372.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/README_1775660697225.md[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/Settings_1775659326372.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/button-group_1775710561998.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/button_1775710561997.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/index_1775660697222.html[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/main_1775660729883.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/package_1775660697223.json[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/postcss.config_1775660697224.mjs[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/routes_1775660775264.tsx[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/vite.config_1775660697238.ts[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/Pasted-import-useEffect-useState-from-react-import-Link-useLoc_1776963672618.txt[22m
+[0m[1][0m [2m12:39:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mattached_assets/branding-1776968376044.json[22m
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.35ms
+[0m[0][0m INFO:     10.83.6.36:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.09ms
+[0m[0][0m INFO:     10.83.6.22:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.86ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.76ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.02ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.80ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.39ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 2.24ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.01ms
+[0m[0][0m INFO:     10.83.4.197:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.77ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.04ms
+[0m[0][0m INFO:     10.83.12.44:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 3.31ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 4.12ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 2.53ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 2.40ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.26ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.17ms
+[0m[0][0m INFO:     10.83.12.44:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.44ms
+[0m[0][0m INFO:     10.83.4.197:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[0m[0][0m INFO:recall-x247:GET /schedule - 200 - 2.42ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /schedule?days=120 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /calendar/topics - 200 - 2.32ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /calendar/topics HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /tasks - 200 - 0.96ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /tasks?status=pending&limit=100 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.79ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.79ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 3175.13ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.96ms
+[0m[0][0m INFO:     10.83.1.133:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 1.92ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.44ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 2.14ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.73ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.89ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 1.53ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.17ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 2.72ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /logs - 200 - 1.17ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /logs?limit=5 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories - 200 - 1.37ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /memories?limit=6 HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /stats - 200 - 1.43ms
+[0m[0][0m INFO:     10.83.4.196:0 - "GET /stats HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /habits - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.12.66:0 - "GET /habits HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing - 200 - 1.45ms
+[0m[0][0m INFO:     10.83.19.82:0 - "GET /briefing HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /dashboard/advanced - 200 - 4.45ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /dashboard/advanced HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.91ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.38ms
+[0m[0][0m INFO:     10.83.23.27:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.77ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.01ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 1.16ms
+[0m[0][0m INFO:     10.83.16.175:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.82ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:POST /api/vitals - 204 - 1.05ms
+[0m[0][0m INFO:     10.83.16.175:0 - "POST /api/vitals HTTP/1.1" 204 No Content
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.99ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.18ms
+[0m[0][0m INFO:     10.83.6.22:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:recall-x247:GET /memories/inbox-count - 200 - 0.75ms
+[0m[0][0m INFO:     10.83.23.27:0 - "GET /memories/inbox-count HTTP/1.1" 200 OK

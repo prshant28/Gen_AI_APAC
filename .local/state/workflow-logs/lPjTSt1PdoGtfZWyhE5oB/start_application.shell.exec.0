@@ -1,0 +1,49 @@
+
+> react-example@0.0.0 dev
+> fuser -k 8000/tcp 2>/dev/null; sleep 0.5; concurrently "python main.py" "vite"
+
+[1G[0K[0m[1][0m 
+[0m[1][0m   [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m308[22m[2m[0m ms[22m
+[0m[1][0m 
+[0m[1][0m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5000[22m/[39m
+[0m[1][0m   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.31.85.194:[1m5000[22m/[39m
+[0m[1][0m [2m12:09:37 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/vitals[39m
+[0m[1][0m Error: connect ECONNREFUSED 127.0.0.1:8000
+[0m[1][0m     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+[0m[0][0m WARNING:recall-x247:brotli compression unavailable (No module named 'brotli_asgi'); falling back to gzip only
+[0m[0][0m /home/runner/workspace/main.py:410: DeprecationWarning: 
+[0m[0][0m         on_event is deprecated, use lifespan event handlers instead.
+[0m[0][0m 
+[0m[0][0m         Read more about it in the
+[0m[0][0m         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+[0m[0][0m         
+[0m[0][0m   @app.on_event("startup")
+[0m[0][0m INFO:     Started server process [36387]
+[0m[0][0m INFO:     Waiting for application startup.
+[0m[0][0m INFO:recall-x247:Recall X247 v2.0 started. AI: OpenRouter (openai/gpt-4o-mini). GCP Project: balmy-vertex-478515-m4
+[0m[0][0m INFO:recall-x247:Demo data seeded successfully.
+[0m[0][0m INFO:recall-x247:Extras (notes, bookmarks, habits) seeded.
+[0m[0][0m INFO:recall-x247:Daily briefing notification scheduler started.
+[0m[0][0m INFO:recall-x247:Startup complete.
+[0m[0][0m INFO:app.briefing_scheduler:briefing_scheduler started (tick every 300s)
+[0m[0][0m INFO:     Application startup complete.
+[0m[0][0m INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 1.87ms
+[0m[0][0m AI Provider: OpenRouter (openai/gpt-4o-mini)
+[0m[0][0m Warning: No fallback AI key configured (set OPENAI_API_KEY for 429 resilience)
+[0m[0][0m db: GOOGLE_APPLICATION_CREDENTIALS='./service_account.json' missing; falling back to ADC.
+[0m[0][0m db: No creds file and GCE metadata server unreachable (local dev). Using in-memory mock — DATA WILL NOT PERSIST. On Cloud Run, ADC will succeed automatically.
+[0m[0][0m Demo data seeded for guest: 12 memories, 12 tasks, 8 calendar events, 6 revisits, 3 workspace projects.
+[0m[0][0m INFO:     10.83.10.203:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[1][0m [2m12:10:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/toolchain.json[22m
+[0m[1][0m [2m12:10:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest[22m
+[0m[1][0m [2m12:10:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.cache/replit/env/latest.json[22m
+[0m[0][0m INFO:recall-x247:GET /briefing/notification - 200 - 0.94ms
+[0m[0][0m INFO:     10.83.0.207:0 - "GET /briefing/notification HTTP/1.1" 200 OK
+[0m[0][0m INFO:     Shutting down
+[0m[0][0m INFO:     Waiting for application shutdown.
+[0m[0][0m INFO:     Application shutdown complete.
+[0m[0][0m INFO:     Finished server process [36387]
+[0m[0][0m [0mpython main.py exited with code SIGTERM[0m
+[0m[1][0m [0mvite exited with code SIGTERM[0m
+[1G[0K⠙[1G[0K

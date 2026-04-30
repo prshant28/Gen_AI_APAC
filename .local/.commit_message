@@ -1,0 +1,48 @@
+Fix Agent Hub response for natural calendar/tasks questions
+
+User asked "What is on my calendar this week?" on /agent and got a
+useless answer: a generic "EVENT SCHEDULED — CalendarAgent" card with
+"Open Calendar" button, no actual events, no preview. Two root causes:
+
+1. _SCHEDULE_LIST_PATTERNS regex `\b(what.?s|kya hai)\b...` matched
+   "what's" / "kya hai" but missed "what is" — the user's exact wording.
+   So the navigate-intent classifier missed and the message fell through
+   to the LLM loop.
+2. The LLM is told NOT to list inline (lists are routed by the app),
+   so it gave a terse "What would you like to focus on next?" reply,
+   while ActionResultCards rendered the misleading "EVENT SCHEDULED"
+   label using only ROUTE_MAP[agent].label, regardless of whether the
+   tool actually scheduled or merely listed.
+
+Changes
+- app/coordinator.py
+  - Broadened _SCHEDULE_LIST_PATTERNS and _TASKS_LIST_PATTERNS to
+    cover "what is on my calendar", "any meetings tomorrow",
+    "do I have anything", "what's coming up", "kal kya hai",
+    "is week mein kya hai", etc.
+  - New _build_inline_preview() emits up to 3 preview rows for
+    list_schedule, list_tasks, list_memories, recall_knowledge in
+    the agent_complete SSE event so the chat can render real items
+    even when the orchestrator runs the tool itself.
+- src/lib/types.ts: AgentStepData gains optional `inline_preview`.
+- src/components/ActionResultCards.tsx
+  - Tool-aware label override: list_schedule shows "8 events this
+    week" instead of "EVENT SCHEDULED"; equivalent for tasks/memories.
+  - Renders preview rows inline (title + subtitle + icon).
+- src/pages/AgentPage.tsx
+  - Wires inline_preview from agent_complete into AgentStepData.
+  - New CONTEXTUAL_FOLLOWUPS map + getContextualFollowups(msg) that
+    derives follow-up chips from either a completed list-tool step OR
+    the destination path of a nav-redirect message (NAV_PATH_FOLLOWUPS),
+    so chips appear after both code paths.
+  - Renders a "Next:" chip strip under any list-result reply.
+
+Validation
+- tsc --noEmit clean.
+- Vendor-leaks check passes.
+- Curl smoke: "What is on my calendar this week?" → SSE emits
+  navigate event for /calendar with a 3-event preview block.
+- Architect review: approved ("regex/inline previews/UX coherence").
+- E2E test confirmed NavRedirectCard renders for the broken phrasings
+  with no false "EVENT SCHEDULED" labels; chip-strip fix added after
+  the test surfaced that nav-routed messages had no steps to read.
