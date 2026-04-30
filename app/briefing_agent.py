@@ -270,15 +270,45 @@ async def todays_timeline() -> List[Dict[str, Any]]:
         tasks = []
     for t in tasks:
         due = (t.get("due_date") or "").strip()
-        if due and due != today_iso:
-            continue
+        # Today-focused timeline: include OVERDUE + due-today + no-date tasks.
+        # Future-dated tasks belong in the "Upcoming" card, not here.
+        no_date = not due
+        is_overdue = False
+        overdue_days = 0
+        if due:
+            if due > today_iso:
+                continue
+            if due < today_iso:
+                is_overdue = True
+                try:
+                    od = (today - datetime.date.fromisoformat(due)).days
+                    overdue_days = max(1, od)
+                except Exception:
+                    overdue_days = 1
+        priority = (t.get("priority") or "medium").lower()
+        if priority not in ("high", "medium", "low"):
+            priority = "medium"
         items.append({
             "kind": "task",
             "id": t.get("id", ""),
             "title": t.get("title", "Untitled"),
-            "subtitle": f"Priority: {t.get('priority', 'medium')}",
+            "subtitle": (
+                f"{overdue_days}d overdue" if is_overdue
+                else "No due date" if no_date
+                else "Due today"
+            ),
             "time_iso": t.get("due_at") or "",
-            "color": "#9333ea",
+            "color": "#9333ea" if not is_overdue else "#ef4444",
+            "priority": priority,
+            "overdue": is_overdue,
+            "overdue_days": overdue_days,
+            "no_date": no_date,
+            "due_date": due or None,
+            # Tasks store the link as `linked_memory_id` — surface it under
+            # `memory_id` so the timeline UI can render the "Linked memory"
+            # chip and route to /memory/{id}.
+            "memory_id": t.get("linked_memory_id") or t.get("memory_id") or "",
+            "category": t.get("category") or "",
         })
 
     try:
@@ -300,11 +330,24 @@ async def todays_timeline() -> List[Dict[str, Any]]:
     try:
         evts = await list_upcoming_events(days=1)
         for e in evts:
-            start_raw = e.get("start_iso") or e.get("date") or ""
+            # Calendar events store `date` (YYYY-MM-DD) and `time` (HH:MM)
+            # separately. Combine them into a real ISO timestamp so the
+            # frontend can bucket the event into Morning / Afternoon / Evening.
+            ev_date = (e.get("date") or "").strip()
+            ev_time = (e.get("time") or "").strip()
+            start_raw = e.get("start_iso") or ""
+            if not start_raw and ev_date:
+                if ev_time:
+                    start_raw = f"{ev_date}T{ev_time}:00"
+                else:
+                    start_raw = ev_date
             start_dt = _parse_iso(start_raw)
             if start_dt is None:
                 continue
             try:
+                # Treat naive datetimes as IST (events are typed in local time)
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=IST)
                 if start_dt.astimezone(IST).date() != today:
                     continue
             except Exception:
@@ -316,12 +359,23 @@ async def todays_timeline() -> List[Dict[str, Any]]:
                 "subtitle": e.get("topic") or "Calendar",
                 "time_iso": start_raw,
                 "color": "#06b6d4",
+                # Surface linked memory so the timeline can deep-link to it.
+                "memory_id": e.get("linked_memory_id") or "",
             })
     except Exception:
         pass
 
-    def sort_key(it: Dict[str, Any]) -> str:
-        return it.get("time_iso") or "z"
+    # Sort: overdue first (most overdue → least), then chronological by time,
+    # then untimed/anytime items at the bottom. Habits and no-date tasks
+    # naturally fall into the "anytime" bucket.
+    def sort_key(it: Dict[str, Any]):
+        if it.get("overdue"):
+            # Negative so most-overdue (largest overdue_days) comes first
+            return (0, -int(it.get("overdue_days") or 0), "")
+        time_iso = it.get("time_iso") or ""
+        if time_iso:
+            return (1, 0, time_iso)
+        return (2, 0, "")
     items.sort(key=sort_key)
     return items
 

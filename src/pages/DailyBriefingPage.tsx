@@ -5,7 +5,8 @@ import {
   Sparkles, Volume2, Square, Pause, Play, RefreshCw, ListChecks, Clock,
   Calendar as CalendarIcon, BookOpen, History, Brain, ChevronRight, ExternalLink,
   CheckCircle2, Circle, Tag, Activity, TrendingUp, Hash, Bell, RotateCcw,
-  Target, Sparkle, AlertTriangle, Zap, CheckSquare, ArrowUpRight
+  Target, Sparkle, AlertTriangle, Zap, CheckSquare, ArrowUpRight,
+  Sunrise, Sun, Sunset, Infinity as InfinityIcon, RotateCw, Link2, Flame
 } from 'lucide-react';
 import { showToast } from '../App';
 
@@ -62,6 +63,13 @@ type TimelineItem = {
   url?: string;
   memory_id?: string;
   color: string;
+  // Backend-supplied (tasks only): priority + overdue flags + flexibility hint
+  priority?: 'high' | 'medium' | 'low';
+  overdue?: boolean;
+  overdue_days?: number;
+  no_date?: boolean;
+  due_date?: string | null;
+  category?: string;
 };
 
 type PastBriefing = {
@@ -286,21 +294,68 @@ export default function DailyBriefingPage() {
     return () => { cancelled = true; };
   }, [tab]);
 
-  // Tasks due today already appear in TODAY'S TIMELINE (the backend
-  // includes them via /briefing/timeline). To avoid showing the same
-  // task in two places, the PENDING TASKS card hides anything dated
-  // today — overdue and future-dated tasks still belong here. Tasks
-  // with no due date stay visible (they're "open, no schedule").
-  const nonTodayPendingTasks = useMemo(() => {
+  // Today's load (overdue + due-today + no-date tasks, plus revisits, habits,
+  // events) is unified into TODAY'S TIMELINE. The "Upcoming" card below the
+  // timeline only shows tasks dated AFTER today (strictly the next 7 days)
+  // so nothing duplicates.
+  const upcomingTasks = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayMs = today.getTime();
-    return pendingTasks.filter((t) => {
-      if (!t?.due_date) return true;
-      const d = new Date(`${t.due_date}T00:00:00`);
-      if (Number.isNaN(d.getTime())) return true;
-      return d.getTime() !== todayMs;
-    });
+    const horizonMs = todayMs + 7 * 86400000;
+    return pendingTasks
+      .filter((t) => {
+        if (!t?.due_date) return false;
+        const d = new Date(`${t.due_date}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return false;
+        const ms = d.getTime();
+        return ms > todayMs && ms <= horizonMs;
+      })
+      .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
   }, [pendingTasks]);
+
+  // Bucket the unified timeline into Overdue / Morning / Afternoon / Evening
+  // / Anytime so the user can see the shape of their day at a glance.
+  type Bucket = {
+    key: 'overdue' | 'morning' | 'afternoon' | 'evening' | 'anytime';
+    label: string;
+    sub: string;
+    Icon: React.ComponentType<{ size?: number }>;
+    items: TimelineItem[];
+  };
+  const timelineGroups = useMemo<Bucket[]>(() => {
+    const groups: Record<Bucket['key'], Bucket> = {
+      overdue:   { key: 'overdue',   label: 'Overdue',   sub: 'pending from earlier days', Icon: AlertTriangle, items: [] },
+      morning:   { key: 'morning',   label: 'Morning',   sub: 'before 12 pm',              Icon: Sunrise,        items: [] },
+      afternoon: { key: 'afternoon', label: 'Afternoon', sub: '12 pm – 5 pm',              Icon: Sun,            items: [] },
+      evening:   { key: 'evening',   label: 'Evening',   sub: 'after 5 pm',                Icon: Sunset,         items: [] },
+      anytime:   { key: 'anytime',   label: 'Anytime',   sub: 'no fixed time',             Icon: InfinityIcon,   items: [] },
+    };
+    for (const t of timeline) {
+      if (t.overdue) { groups.overdue.items.push(t); continue; }
+      if (!t.time_iso) { groups.anytime.items.push(t); continue; }
+      const d = new Date(t.time_iso);
+      if (Number.isNaN(d.getTime())) { groups.anytime.items.push(t); continue; }
+      const h = d.getHours();
+      if (h < 12)      groups.morning.items.push(t);
+      else if (h < 17) groups.afternoon.items.push(t);
+      else             groups.evening.items.push(t);
+    }
+    return (Object.values(groups) as Bucket[]).filter((g) => g.items.length > 0);
+  }, [timeline]);
+
+  // Progress strip — how many of today's items are already off the plate.
+  // Tasks that are still "pending" haven't been completed; revisits/events
+  // are time-based; habits hide themselves once completed_today (backend).
+  // We only count the *unfinished* count today to keep the math honest.
+  const todayProgress = useMemo(() => {
+    const totalToday = timeline.length;
+    const overdueCount = timeline.filter((t) => t.overdue).length;
+    const taskCount = timeline.filter((t) => t.kind === 'task').length;
+    const revisitCount = timeline.filter((t) => t.kind === 'revisit').length;
+    const eventCount = timeline.filter((t) => t.kind === 'event').length;
+    const habitCount = timeline.filter((t) => t.kind === 'habit').length;
+    return { totalToday, overdueCount, taskCount, revisitCount, eventCount, habitCount };
+  }, [timeline]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -439,6 +494,35 @@ export default function DailyBriefingPage() {
       return;
     }
     if (next) showToast('Action completed');
+  };
+
+  // ── Mark a timeline task complete inline (without leaving the page) ───────
+  const completeTimelineTask = async (taskId: string) => {
+    if (!taskId) return;
+    // Snapshot only the *one* removed item so concurrent completions don't
+    // resurrect each other on a single rollback.
+    let removed: TimelineItem | null = null;
+    setTimeline((prev) => {
+      const idx = prev.findIndex((it) => it.kind === 'task' && it.id === taskId);
+      if (idx === -1) return prev;
+      removed = prev[idx];
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
+    });
+    try {
+      const res = await fetch(`/tasks/${encodeURIComponent(taskId)}/complete`, { method: 'POST' });
+      if (!res.ok) throw new Error('failed');
+      showToast('Task done');
+    } catch {
+      // Re-insert *only* the removed item (idempotent, safe across concurrent
+      // completions). If a fresh refresh has already brought it back, skip.
+      if (removed) {
+        setTimeline((prev) => {
+          if (prev.some((it) => it.kind === 'task' && it.id === taskId)) return prev;
+          return [...prev, removed!];
+        });
+      }
+      showToast('Could not save — try again', 'error');
+    }
   };
 
   // ── Smart insights — same shape as the Dashboard cards ────────────────────
@@ -726,39 +810,32 @@ export default function DailyBriefingPage() {
                 )}
               </section>
 
-              {/* Pending tasks — deep-link cards. Tasks dated today are
-                  intentionally excluded here; they show up in
-                  TODAY'S TIMELINE in the side column. */}
+              {/* Upcoming — only shows tasks dated AFTER today. Today + overdue
+                  + no-date tasks have all been folded into TODAY'S TIMELINE. */}
               <section className="briefing-card">
                 <div className="briefing-card-head">
-                  <div className="briefing-card-eyebrow"><CheckSquare size={12} /> PENDING TASKS</div>
-                  <span className="briefing-count">{nonTodayPendingTasks.length} open</span>
+                  <div className="briefing-card-eyebrow"><CalendarIcon size={12} /> UPCOMING (NEXT 7 DAYS)</div>
+                  <span className="briefing-count">{upcomingTasks.length} planned</span>
                 </div>
-                {nonTodayPendingTasks.length === 0 ? (
+                {upcomingTasks.length === 0 ? (
                   <div className="briefing-empty">
-                    {pendingTasks.length === 0
-                      ? "No pending tasks — you're all caught up. Add one from the Tasks page."
-                      : "Today's tasks are in the timeline on the right. No other pending tasks right now."}
+                    Nothing scheduled ahead. Today's load is in the timeline on the right.
                   </div>
                 ) : (
                   <div className="briefing-pending-list">
-                    {nonTodayPendingTasks.slice(0, 5).map((t) => {
+                    {upcomingTasks.slice(0, 5).map((t) => {
                       const priKey = (t.priority === 'high' || t.priority === 'low') ? t.priority : 'medium';
                       const priColor = priKey === 'high' ? '#ef4444' : priKey === 'low' ? '#10b981' : '#f59e0b';
                       const priBg = priKey === 'high' ? 'rgba(239,68,68,0.12)' : priKey === 'low' ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';
                       const dueInfo = (() => {
-                        if (!t.due_date) return { label: '', overdue: false };
+                        if (!t.due_date) return '';
                         const d = new Date(`${t.due_date}T00:00:00`);
-                        if (Number.isNaN(d.getTime())) return { label: '', overdue: false };
+                        if (Number.isNaN(d.getTime())) return '';
                         const today = new Date(); today.setHours(0,0,0,0);
                         const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
-                        let label = '';
-                        if (diff < 0) label = `${Math.abs(diff)}d overdue`;
-                        else if (diff === 0) label = 'Due today';
-                        else if (diff === 1) label = 'Due tomorrow';
-                        else if (diff < 7) label = `Due in ${diff}d`;
-                        else label = `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                        return { label, overdue: diff < 0 };
+                        if (diff === 1) return 'Due tomorrow';
+                        if (diff < 7) return `Due in ${diff}d`;
+                        return `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
                       })();
                       return (
                         <button
@@ -771,11 +848,11 @@ export default function DailyBriefingPage() {
                             <div className="briefing-pending-task-title">{t.title}</div>
                             <div className="briefing-pending-task-meta">
                               <span className="briefing-pending-task-pri" style={{ color: priColor, background: priBg }}>{priKey}</span>
-                              {dueInfo.label && <span style={{ color: dueInfo.overdue ? '#ef4444' : 'var(--text-3)' }}>{dueInfo.label}</span>}
+                              {dueInfo && <span>{dueInfo}</span>}
                               {t.category && <span>· {t.category}</span>}
                             </div>
                           </div>
-                          <span className="briefing-pending-task-go">Go to <ArrowUpRight size={11} /></span>
+                          <span className="briefing-pending-task-go">Open <ArrowUpRight size={11} /></span>
                         </button>
                       );
                     })}
@@ -786,48 +863,167 @@ export default function DailyBriefingPage() {
 
             {/* Side column */}
             <div className="briefing-side">
-              {/* Timeline */}
-              <section className="briefing-card">
+              {/* Today's Timeline — unified, bucketed view of everything that
+                  needs the user's attention today (overdue + due-today tasks,
+                  no-date tasks, due revisits, scheduled events, due habits).
+                  Each item supports inline completion (tasks) and deep-links
+                  to the linked memory or the task editor. */}
+              <section className="briefing-card briefing-timeline-card">
                 <div className="briefing-card-head">
                   <div className="briefing-card-eyebrow"><Clock size={12} /> TODAY'S TIMELINE</div>
+                  {todayProgress.totalToday > 0 && (
+                    <span className="briefing-count">{todayProgress.totalToday} on plate</span>
+                  )}
                 </div>
+
                 {timeline.length === 0 ? (
-                  <div className="briefing-empty small">A clear day — nothing scheduled.</div>
+                  <div className="briefing-empty small">A clear day — nothing pending across the vault.</div>
                 ) : (
-                  <ul className="briefing-timeline">
-                    {timeline.map((t, i) => (
-                      <li key={`${t.kind}-${t.id || i}`} className="briefing-tl-item">
-                        <span className="briefing-tl-dot" style={{ background: t.color }} />
-                        <div className="briefing-tl-body">
-                          <div className="briefing-tl-row">
-                            <span className="briefing-tl-time">{formatTime(t.time_iso) || 'Anytime'}</span>
-                            <span className="briefing-tl-kind">
-                              {t.kind === 'habit' ? <Zap size={9} /> : null}
-                              {t.kind}
-                            </span>
+                  <>
+                    {/* Progress / type-breakdown strip */}
+                    <div className="briefing-tl-strip">
+                      {todayProgress.overdueCount > 0 && (
+                        <span className="briefing-tl-chip overdue" data-testid="chip-overdue">
+                          <AlertTriangle size={10} /> {todayProgress.overdueCount} overdue
+                        </span>
+                      )}
+                      {todayProgress.taskCount > 0 && (
+                        <span className="briefing-tl-chip task">
+                          <CheckSquare size={10} /> {todayProgress.taskCount} {todayProgress.taskCount === 1 ? 'task' : 'tasks'}
+                        </span>
+                      )}
+                      {todayProgress.revisitCount > 0 && (
+                        <span className="briefing-tl-chip revisit">
+                          <RotateCw size={10} /> {todayProgress.revisitCount} revisit{todayProgress.revisitCount === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      {todayProgress.eventCount > 0 && (
+                        <span className="briefing-tl-chip event">
+                          <CalendarIcon size={10} /> {todayProgress.eventCount} event{todayProgress.eventCount === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      {todayProgress.habitCount > 0 && (
+                        <span className="briefing-tl-chip habit">
+                          <Flame size={10} /> {todayProgress.habitCount} habit{todayProgress.habitCount === 1 ? '' : 's'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bucketed groups */}
+                    <div className="briefing-tl-groups">
+                      {timelineGroups.map((g) => {
+                        const GroupIcon = g.Icon;
+                        return (
+                          <div key={g.key} className={`briefing-tl-group group-${g.key}`} data-testid={`tl-group-${g.key}`}>
+                            <div className="briefing-tl-group-head">
+                              <span className="briefing-tl-group-icon"><GroupIcon size={11} /></span>
+                              <span className="briefing-tl-group-label">{g.label}</span>
+                              <span className="briefing-tl-group-sub">· {g.sub}</span>
+                              <span className="briefing-tl-group-count">{g.items.length}</span>
+                            </div>
+                            <ul className="briefing-tl-list">
+                              {g.items.map((t, i) => {
+                                const priKey = (t.priority === 'high' || t.priority === 'low') ? t.priority : (t.priority ? 'medium' : null);
+                                const priColor = priKey === 'high' ? '#ef4444' : priKey === 'low' ? '#10b981' : '#f59e0b';
+                                const priBg = priKey === 'high' ? 'rgba(239,68,68,0.12)' : priKey === 'low' ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';
+                                const timeLabel = t.time_iso ? formatTime(t.time_iso) : '';
+                                const KindIcon = t.kind === 'habit' ? Flame
+                                  : t.kind === 'revisit' ? RotateCw
+                                  : t.kind === 'event' ? CalendarIcon
+                                  : CheckSquare;
+                                const goToTarget = () => {
+                                  if (t.kind === 'task' && t.id) {
+                                    navigate(`/tasks?focus=${encodeURIComponent(t.id)}`);
+                                  } else if (t.memory_id) {
+                                    navigate(`/memory/${t.memory_id}`);
+                                  } else if (t.url) {
+                                    window.open(t.url, '_blank', 'noopener,noreferrer');
+                                  } else if (t.kind === 'event') {
+                                    navigate('/calendar');
+                                  } else if (t.kind === 'habit') {
+                                    navigate('/dashboard');
+                                  }
+                                };
+                                return (
+                                  <li
+                                    key={`${t.kind}-${t.id || i}`}
+                                    className={`briefing-tl-card kind-${t.kind} ${t.overdue ? 'is-overdue' : ''}`}
+                                    data-testid={`tl-item-${t.kind}-${t.id || i}`}
+                                  >
+                                    <span
+                                      className="briefing-tl-rail"
+                                      style={{ background: t.color }}
+                                      aria-hidden="true"
+                                    />
+                                    {t.kind === 'task' ? (
+                                      <button
+                                        type="button"
+                                        className="briefing-tl-check"
+                                        onClick={(e) => { e.stopPropagation(); completeTimelineTask(t.id); }}
+                                        aria-label={`Mark "${t.title}" as done`}
+                                        title="Mark done"
+                                        data-testid={`tl-complete-${t.id}`}
+                                      >
+                                        <Circle size={16} />
+                                      </button>
+                                    ) : (
+                                      <span className="briefing-tl-kindicon" style={{ color: t.color }} aria-hidden="true">
+                                        <KindIcon size={14} />
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="briefing-tl-main"
+                                      onClick={goToTarget}
+                                    >
+                                      <div className="briefing-tl-card-row">
+                                        {timeLabel && <span className="briefing-tl-time">{timeLabel}</span>}
+                                        {t.overdue && t.overdue_days ? (
+                                          <span className="briefing-tl-overdue-pill">
+                                            <AlertTriangle size={9} /> {t.overdue_days}d overdue
+                                          </span>
+                                        ) : null}
+                                        {priKey && (
+                                          <span className="briefing-tl-pri" style={{ color: priColor, background: priBg }}>
+                                            {priKey}
+                                          </span>
+                                        )}
+                                        <span className="briefing-tl-kindlabel">{t.kind}</span>
+                                      </div>
+                                      <div className="briefing-tl-title">{t.title}</div>
+                                      {t.subtitle && t.subtitle !== 'Due today' && (
+                                        <div className="briefing-tl-sub">{t.subtitle}</div>
+                                      )}
+                                      <div className="briefing-tl-actions">
+                                        {t.memory_id && (
+                                          <span className="briefing-tl-link-chip" data-testid="tl-memory-link">
+                                            <Link2 size={10} /> Linked memory
+                                          </span>
+                                        )}
+                                        {t.url && !t.memory_id && (
+                                          <span className="briefing-tl-link-chip">
+                                            <ExternalLink size={10} /> Source link
+                                          </span>
+                                        )}
+                                        {t.category && (
+                                          <span className="briefing-tl-cat">{t.category}</span>
+                                        )}
+                                      </div>
+                                    </button>
+                                    {(t.memory_id || t.url || t.kind === 'task') && (
+                                      <span className="briefing-tl-go" aria-hidden="true">
+                                        <ArrowUpRight size={12} />
+                                      </span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
                           </div>
-                          <div className="briefing-tl-title">
-                            {t.url ? (
-                              <a href={t.url} target="_blank" rel="noreferrer" className="briefing-tl-link">
-                                {t.title} <ExternalLink size={10} />
-                              </a>
-                            ) : t.memory_id ? (
-                              <button
-                                type="button"
-                                className="briefing-tl-link as-btn"
-                                onClick={() => navigate(`/memory/${t.memory_id}`)}
-                              >
-                                {t.title}
-                              </button>
-                            ) : (
-                              <span>{t.title}</span>
-                            )}
-                          </div>
-                          <div className="briefing-tl-sub">{t.subtitle}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </section>
 
