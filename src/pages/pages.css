@@ -3812,14 +3812,11 @@
     font-size: 17px !important;
   }
 }
-@media (max-width: 420px) {
-  /* Even tighter: hide button text labels in the header, keep icons only. */
-  .agent-hub-v2 .agent-hero button > svg ~ * { display: none; }
-  .agent-hub-v2 .agent-hero button {
-    width: 36px; height: 36px; padding: 0 !important;
-    justify-content: center;
-  }
-}
+/* Note: the previous <=420px rule used `button > svg ~ *` to hide labels,
+   which was broken for plain text-node labels AND now would also hide the
+   wrapped count badge sibling. Replaced by the scoped
+   `.agent-hero-btn-label` rule appended further down (search for
+   "AGENT HUB — header phone fix"). */
 
 /* ─────────────────────────────────────────────────────────────────
    DASHBOARD — phone polish
@@ -4964,4 +4961,223 @@
 .briefing-pending-task:hover .briefing-pending-task-go {
   background: var(--primary);
   color: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AGENT HUB — header phone fix
+   The previous icon-only rule used `svg ~ *` which only matched
+   element siblings, but the button labels were raw text nodes so
+   they kept showing and the New chat pill wrapped onto two lines.
+   Wrapping the labels in `.agent-hero-btn-label` lets us hide just
+   the label text on phones while keeping the icon and the count
+   badge visible.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .agent-hub-v2 .agent-hero { gap: 8px; }
+  .agent-hub-v2 .agent-hero-actions { gap: 6px; }
+  .agent-hub-v2 .agent-hero .agent-hero-btn {
+    padding: 7px 11px !important;
+    font-size: 11.5px !important;
+  }
+  .agent-hub-v2 .agent-hero h2 {
+    font-size: 17px !important;
+  }
+}
+@media (max-width: 480px) {
+  .agent-hub-v2 .agent-hero .agent-hero-btn-label { display: none; }
+  .agent-hub-v2 .agent-hero .agent-hero-btn {
+    width: 38px; height: 38px; padding: 0 !important;
+    justify-content: center;
+    gap: 0 !important;
+  }
+  /* Keep the count badge visible (e.g. "3 saved chats") even when
+     we've collapsed History to icon-only — slide it onto the corner
+     of the icon button. */
+  .agent-hub-v2 .agent-hero .agent-hero-btn .agent-hero-btn-badge {
+    position: absolute;
+    top: -4px; right: -4px;
+    margin: 0 !important;
+    padding: 1px 5px !important;
+    font-size: 9.5px !important;
+    background: linear-gradient(135deg,#a78bfa,#7c3aed) !important;
+    color: #fff !important;
+    border: 1px solid var(--surface) !important;
+  }
+  .agent-hub-v2 .agent-hero .agent-hero-btn { position: relative; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AGENT HUB — empty-state quick-action grid
+   Colorful one-tap suggestion cards on the welcome screen. On
+   phones we collapse to a single column and trim the eyebrow.
+   ───────────────────────────────────────────────────────────────── */
+.agent-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(99,102,241,0.06), rgba(139,92,246,0.02));
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: 14px;
+}
+.agent-quick-actions-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.agent-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.agent-quick-action-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.agent-quick-action-card:hover {
+  border-color: var(--qa-color, rgba(99,102,241,0.45));
+  transform: translateY(-1px);
+}
+.agent-quick-action-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.agent-quick-action-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .agent-quick-actions { padding: 10px; }
+  .agent-quick-actions-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .agent-quick-action-card { padding: 8px 10px; font-size: 11.5px; gap: 8px; }
+  .agent-quick-action-icon { width: 26px; height: 26px; border-radius: 7px; }
+}
+@media (max-width: 360px) {
+  .agent-quick-actions-grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AGENT HUB — persistent quick-prompt chip strip
+   Shows above the input once the conversation has started.
+   Horizontally scrollable on phones with a soft right-edge fade.
+   ───────────────────────────────────────────────────────────────── */
+.agent-quick-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.agent-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.agent-quick-chip:hover {
+  border-color: var(--qa-color, rgba(99,102,241,0.45));
+  color: var(--text-1);
+}
+@media (max-width: 600px) {
+  .agent-quick-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+  }
+  .agent-quick-strip::-webkit-scrollbar { display: none; }
+  .agent-quick-chip { flex-shrink: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LIBRARY INBOX TAB — phone polish
+   The toolbar packs source chips, date chips, a domain dropdown
+   and a search input on one row. On phones we let it wrap and
+   force the search input to take the full width on its own row so
+   it stays usable.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  [data-testid="toolbar-inbox-filters"] {
+    padding: 8px !important;
+    gap: 6px !important;
+  }
+  /* The vertical separator dividers waste horizontal room on phones */
+  [data-testid="toolbar-inbox-filters"] > div[style*="width: 1px"] { display: none !important; }
+  /* Search input row grows to full width */
+  [data-testid="toolbar-inbox-filters"] > div:has(> [data-testid="input-inbox-search"]) {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+  [data-testid="input-inbox-search"] {
+    font-size: 13px !important;
+    padding: 8px 10px 8px 28px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   REVISITS — phone polish
+   The card grid uses `1fr auto` so the actions column gets squeezed
+   on small screens. On phones we stack the body and actions, and
+   the actions row becomes a wrap-friendly flex strip with the
+   primary "Go to" CTA staying full-width on the leftmost line.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .revisit-card {
+    grid-template-columns: 1fr !important;
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+  .revisit-card-title {
+    max-width: 100% !important;
+    font-size: 13.5px !important;
+  }
+  .revisit-card-actions {
+    width: 100%;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+  }
+  .revisit-card-primary-action {
+    flex: 1 1 100%;
+    justify-content: center !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    order: -1;
+  }
 }

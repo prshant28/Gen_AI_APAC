@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Send, Mic, MicOff, Loader2, Plus, Radio, MessageSquare, Trash2,
   X, Clock, Cpu, Check, AlertTriangle, ChevronDown,
+  Sparkles, ListChecks, Search as SearchIcon, GraduationCap, CalendarDays, Brain,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg, AgentStepData } from '../lib/types';
@@ -52,13 +53,18 @@ const buildWelcomeMsg = (): AgentMsg => ({
   content: `Hi — I'm your assistant. Ask me to plan your day, find something you saved, capture a link, or schedule study time.`,
 });
 
-// Empty-state suggestion chips. Plain labels, no model colors, no agent tags.
-// Hidden as soon as the user sends a first message.
-const SUGGESTIONS: Array<{ label: string; msg: string }> = [
-  { label: 'Plan my day',         msg: 'Give me my daily briefing with what I should focus on today.' },
-  { label: 'Show my tasks',       msg: 'Show me all my pending tasks and help me prioritise them.' },
-  { label: 'Recall recent saves', msg: 'Recall the most important things I have saved recently.' },
-  { label: 'Build a study plan',  msg: 'Create a study plan for this week and put it on my calendar.' },
+// Empty-state suggestion chips. Each chip is a one-tap quick prompt that
+// fires a real message — surfaced as colorful action cards on the welcome
+// screen and as a compact chip strip above the input once a conversation
+// is in flight (so common follow-ups stay one tap away).
+type Suggestion = { label: string; msg: string; icon: LucideIcon; color: string };
+const SUGGESTIONS: Suggestion[] = [
+  { label: 'Plan my day',         msg: 'Give me my daily briefing with what I should focus on today.',         icon: Sparkles,      color: '#f59e0b' },
+  { label: 'Show my tasks',       msg: 'Show me all my pending tasks and help me prioritise them.',            icon: ListChecks,    color: '#22d3ee' },
+  { label: 'Recall recent saves', msg: 'Recall the most important things I have saved recently.',              icon: SearchIcon,    color: '#a78bfa' },
+  { label: 'Build a study plan',  msg: 'Create a study plan for this week and put it on my calendar.',         icon: GraduationCap, color: '#10b981' },
+  { label: 'What is on my calendar?', msg: 'What is on my calendar this week?',                                icon: CalendarDays,  color: '#f472b6' },
+  { label: 'Quiz me',             msg: 'Quiz me on what I have been learning this week using my flashcards.',  icon: Brain,         color: '#6366f1' },
 ];
 
 // Friendly display labels — never surface raw "FooAgent" identifiers in UI.
@@ -705,21 +711,25 @@ const AgentHubView = () => {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="agent-hero-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <button onClick={() => setHistoryOpen(true)}
             title="Open chat history"
             aria-label="Open chat history"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <MessageSquare size={13} /> History
+            className="agent-hero-btn"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 13px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', lineHeight: 1 }}>
+            <MessageSquare size={13} />
+            <span className="agent-hero-btn-label">History</span>
             {chatSessions.length > 0 && (
-              <span style={{ marginLeft: 2, padding: '1px 7px', borderRadius: 10, background: 'var(--surface-3)', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700 }}>{chatSessions.length}</span>
+              <span className="agent-hero-btn-badge" style={{ marginLeft: 2, padding: '1px 7px', borderRadius: 10, background: 'var(--surface-3)', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700 }}>{chatSessions.length}</span>
             )}
           </button>
           <button onClick={startNewChat}
             title="Start a fresh chat — your current chat is saved to history"
             aria-label="Start a new chat"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, color: '#a78bfa', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <Plus size={13} /> New chat
+            className="agent-hero-btn agent-hero-btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, color: '#a78bfa', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', lineHeight: 1 }}>
+            <Plus size={13} />
+            <span className="agent-hero-btn-label">New chat</span>
           </button>
         </div>
       </header>
@@ -778,17 +788,46 @@ const AgentHubView = () => {
           );
         })()}
 
-        {/* Empty-state suggestion chips — visible only before the first user message */}
+        {/* Empty-state quick-action grid — colorful cards for first-time chats */}
         {isEmpty && !isStreaming && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, paddingTop: 4 }}>
-            {SUGGESTIONS.map(s => (
-              <button key={s.label} onClick={() => handleSend(s.msg)}
-                style={{ padding: '7px 13px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.45)'; e.currentTarget.style.color = '#a78bfa'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-2)'; }}>
-                {s.label}
-              </button>
-            ))}
+          <div className="agent-quick-actions">
+            <div className="agent-quick-actions-eyebrow">
+              <Sparkles size={11} color="#a78bfa" /> TRY ONE OF THESE
+            </div>
+            <div className="agent-quick-actions-grid">
+              {SUGGESTIONS.map(s => {
+                const Icon = s.icon;
+                return (
+                  <button key={s.label} onClick={() => handleSend(s.msg)}
+                    className="agent-quick-action-card"
+                    style={{ ['--qa-color' as any]: s.color }}>
+                    <span className="agent-quick-action-icon" style={{ background: `${s.color}1f`, border: `1px solid ${s.color}40`, color: s.color }}>
+                      <Icon size={14} />
+                    </span>
+                    <span className="agent-quick-action-label">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Persistent quick-prompt strip — once the chat has content, keep
+            the four most useful prompts available as a horizontally
+            scrollable chip row so common follow-ups stay one tap away. */}
+        {!isEmpty && !isStreaming && (
+          <div className="agent-quick-strip" aria-label="Quick prompts">
+            {SUGGESTIONS.slice(0, 5).map(s => {
+              const Icon = s.icon;
+              return (
+                <button key={s.label} onClick={() => handleSend(s.msg)}
+                  className="agent-quick-chip"
+                  style={{ ['--qa-color' as any]: s.color }}>
+                  <Icon size={11} color={s.color} />
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
