@@ -4618,3 +4618,81 @@
   background: none; border: 0; padding: 0; cursor: pointer;
   color: var(--primary); font: inherit; text-decoration: underline;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   MEMORY DETAIL PAGE — phone responsiveness
+   The layout is a 1fr / 340px CSS grid with hard-coded inline
+   styles. On a 375px phone the 340px right column eats nearly
+   the whole width and the left column gets ~30px, forcing the
+   summary text to render one word per line. We collapse to a
+   single column at <=768px and tighten the hero + section
+   padding so content actually fits. ───────────────────────────── */
+@media (max-width: 768px) {
+  /* Outer wrapper: pull in horizontal padding so the hero gradient
+     reaches the screen edges instead of leaving a sad 14px gutter. */
+  .mdetail-shell { padding: 0 !important; }
+  .mdetail-crumb { padding: 4px 12px 12px !important; }
+
+  /* Hero: shrink padding, stack the action buttons under the title
+     so they don't squeeze the title to one word per line. */
+  .mdetail-hero {
+    padding: 16px 16px !important;
+    border-radius: 14px 14px 0 0 !important;
+  }
+  .mdetail-hero-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .mdetail-hero-actions {
+    flex-shrink: 1 !important;
+    flex-wrap: wrap !important;
+    width: 100%;
+  }
+  .mdetail-hero-actions > button { flex: 1 1 auto; justify-content: center; }
+
+  /* THE big fix — collapse the 1fr/340px grid to a single column
+     so the body content is full-width and the right Smart Actions
+     panel slides under it. */
+  .mdetail-grid {
+    grid-template-columns: 1fr !important;
+    border-radius: 0 0 14px 14px !important;
+  }
+  .mdetail-col-left {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Inner section padding — was 22px 24px, way too much on a phone.
+     Drop it so headings + body actually have room for 3-4 words per
+     line. We can't override every inline style cleanly, so we hit
+     all direct DIV children of the columns. */
+  .mdetail-col-left > div,
+  .mdetail-col-right > div {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  /* Smart Actions buttons + research-agent header have their own
+     padding chain — keep them comfortable. */
+  .mdetail-col-right button {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  /* Quick-prompt chip strip: let chips wrap into multiple short
+     rows instead of overflowing horizontally. */
+  .mdetail-col-left button { max-width: 100%; }
+}
+
+@media (max-width: 480px) {
+  /* On the smallest phones, kill the hero source-link tail truncation
+     so the URL doesn't push the action button row off-screen. */
+  .mdetail-hero a { word-break: break-all; }
+  /* Even tighter section padding on very narrow phones. */
+  .mdetail-col-left > div,
+  .mdetail-col-right > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+  }
+}

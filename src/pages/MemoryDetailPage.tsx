@@ -209,10 +209,10 @@ export default function MemoryDetailPage() {
   const actions = detectActions(memory);
 
   return (
-    <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', flexDirection:'column', gap:0 }}>
+    <div className="mdetail-shell" style={{ maxWidth:1100, margin:'0 auto', display:'flex', flexDirection:'column', gap:0 }}>
 
       {/* ── Back + Breadcrumb ─────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0 18px' }}>
+      <div className="mdetail-crumb" style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0 18px' }}>
         <button onClick={() => navigate(-1)}
           style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text-2)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
@@ -225,9 +225,9 @@ export default function MemoryDetailPage() {
       </div>
 
       {/* ── Hero Header ──────────────────────────────────────────── */}
-      <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+      <motion.div className="mdetail-hero" initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
         style={{ borderRadius:'18px 18px 0 0', overflow:'hidden', background:'linear-gradient(135deg,#03080f 0%,#061230 55%,#0a1a50 100%)', padding:'24px 28px', borderBottom:'1px solid var(--border)', marginBottom:0 }}>
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
+        <div className="mdetail-hero-row" style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
               <div style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', background:`color-mix(in srgb,${src.color} 20%,transparent)`, border:`1px solid color-mix(in srgb,${src.color} 35%,transparent)`, borderRadius:20 }}>
@@ -253,7 +253,7 @@ export default function MemoryDetailPage() {
               </a>
             )}
           </div>
-          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+          <div className="mdetail-hero-actions" style={{ display:'flex', gap:6, flexShrink:0 }}>
             <button onClick={async () => {
               setActionLoading('share');
               try {
@@ -305,10 +305,10 @@ export default function MemoryDetailPage() {
       </AnimatePresence>
 
       {/* ── Body: Two Columns ─────────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:0, alignItems:'start', border:'1px solid var(--border)', borderTop:'none', borderRadius:'0 0 18px 18px', overflow:'hidden' }}>
+      <div className="mdetail-grid" style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:0, alignItems:'start', border:'1px solid var(--border)', borderTop:'none', borderRadius:'0 0 18px 18px', overflow:'hidden' }}>
 
         {/* ── LEFT COLUMN ──────────────────────────────────────────── */}
-        <div style={{ display:'flex', flexDirection:'column', gap:0, borderRight:'1px solid var(--border)', minWidth:0 }}>
+        <div className="mdetail-col-left" style={{ display:'flex', flexDirection:'column', gap:0, borderRight:'1px solid var(--border)', minWidth:0 }}>
 
           {/* YouTube embed */}
           {memory.source_type === 'youtube' && memory.source_url && (
@@ -568,7 +568,7 @@ export default function MemoryDetailPage() {
         </div>
 
         {/* ── RIGHT COLUMN — Smart Actions ──────────────────────── */}
-        <div style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', minWidth:0 }}>
+        <div className="mdetail-col-right" style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', minWidth:0 }}>
 
           <div style={{ padding:'16px 18px 12px', borderBottom:'1px solid var(--border)' }}>
             <p style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>
