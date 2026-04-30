@@ -38,6 +38,7 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Auto-tagging:** AI suggests and merges tags.
 - **SPA Deep-Link Hardening:** HTTP middleware serves `index.html` for SPA routes.
 - **Firestore Persistence Strategy:** Prioritizes explicit credentials, then Application Default Credentials, with an in-memory mock as a fallback for development.
+- **Product Slide Deck:** Standalone, light-theme HTML presentation served at `/deck/index.html` (source: `public/deck/index.html`). Self-contained — no app code dependency. Covers problem, solution loop, personas, journey, all feature deep-dives, what's new, roadmap, architecture, and CTA. Keyboard navigation (← / → / Space / N for speaker notes / P for print / F for fullscreen).
 - **Daily Briefing:** AI-generated briefing grounded in recent memories and user stats, with an opt-in scheduler for in-app banner delivery.
 - **Per-User Data Scoping:** Multi-tenant isolation across all collections using `X-User-Id` header.
 - **Capture Page Upgrades:** Dedicated `/capture` route supporting various file uploads (including `.pdf`, `.txt`, `.md`, `.markdown` up to 25 MB) with inline previews and intelligent title generation.
