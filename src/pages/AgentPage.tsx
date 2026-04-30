@@ -972,7 +972,8 @@ const AgentHubView = () => {
               disabled={isStreaming}
               rows={1}
               maxHeight={200}
-              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', lineHeight: 1.5, padding: '8px 6px', minHeight: 24 }}
+              className="bare-input"
+              style={{ flex: 1, color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', lineHeight: 1.5, padding: '8px 6px', minHeight: 24 }}
               title="Press Enter to send, Shift + Enter for a new line"
             />
             <button onClick={toggleVoice}

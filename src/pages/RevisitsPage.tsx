@@ -193,7 +193,8 @@ const RevisitsPage: React.FC<RevisitsPageProps> = ({ embedded = false }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, minWidth: 200 }}>
           <Search size={12} color="var(--text-3)" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 12, fontFamily: 'inherit' }} />
+            className="bare-input"
+            style={{ flex: 1, color: 'var(--text-1)', fontSize: 12, fontFamily: 'inherit' }} />
         </div>
       </div>
 

@@ -178,18 +178,20 @@ h1, h2, h3, h4, h5, h6 {
 [data-theme="dark"] .border-red-200 { border-color: rgba(239,68,68,0.28) !important; }
 
 /* ── Dark input/form overrides ────────────────────────────────────────────── */
-[data-theme="dark"] input:not([type='range']):not(.lg-input),
-[data-theme="dark"] textarea:not(.lg-input),
-[data-theme="dark"] select:not(.lg-input) {
+/* `.bare-input` is excluded so wrapped chat composers stay transparent
+   in dark mode (see the matching note next to the global input rules). */
+[data-theme="dark"] input:not([type='range']):not(.lg-input):not(.bare-input),
+[data-theme="dark"] textarea:not(.lg-input):not(.bare-input),
+[data-theme="dark"] select:not(.lg-input):not(.bare-input) {
   background-color: #192236 !important;
   border-color: rgba(255,255,255,0.1) !important;
   color: #e8edf5 !important;
 }
-[data-theme="dark"] input:not(.lg-input)::placeholder,
-[data-theme="dark"] textarea:not(.lg-input)::placeholder { color: #6b7d93 !important; }
-[data-theme="dark"] input:not(.lg-input):focus,
-[data-theme="dark"] textarea:not(.lg-input):focus,
-[data-theme="dark"] select:not(.lg-input):focus {
+[data-theme="dark"] input:not(.lg-input):not(.bare-input)::placeholder,
+[data-theme="dark"] textarea:not(.lg-input):not(.bare-input)::placeholder { color: #6b7d93 !important; }
+[data-theme="dark"] input:not(.lg-input):not(.bare-input):focus,
+[data-theme="dark"] textarea:not(.lg-input):not(.bare-input):focus,
+[data-theme="dark"] select:not(.lg-input):not(.bare-input):focus {
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(129,140,248,0.18) !important;
   background-color: #1e2a42 !important;
@@ -312,18 +314,54 @@ h1, h2, h3, h4, h5, h6 {
 .shadow-2xl { box-shadow: 0 20px 48px rgba(0,0,0,0.12) !important; }
 
 /* ── Input theme overrides ────────────────────────────────────────────────── */
-input:not([type='range']):not([type='file']):not([type='checkbox']):not([type='radio']),
-textarea, select {
+/* These global rules give every standalone <input>/<textarea>/<select> a
+   sane themed look (background, border, focus ring) without each call site
+   restyling from scratch. They are intentionally !important so they win
+   over Tailwind utility classes that only target light-mode colors.
+
+   IMPORTANT: when an input lives INSIDE a styled wrapper that already
+   provides its own border/background/focus state (chat composers,
+   search-in-pill, inline edit cells, etc.), apply the `.bare-input`
+   opt-out class on the inner input/textarea. Without it the global
+   focus rule below paints a 3px outer ring on top of the wrapper,
+   producing a visible "box within a box". */
+input:not([type='range']):not([type='file']):not([type='checkbox']):not([type='radio']):not(.bare-input),
+textarea:not(.bare-input), select:not(.bare-input) {
   background-color: var(--surface-2) !important;
   border-color: var(--border) !important;
   color: var(--text-1) !important;
 }
-input::placeholder, textarea::placeholder { color: var(--text-3) !important; }
-input:focus, textarea:focus, select:focus {
+input:not(.bare-input)::placeholder,
+textarea:not(.bare-input)::placeholder { color: var(--text-3) !important; }
+input:not(.bare-input):focus,
+textarea:not(.bare-input):focus,
+select:not(.bare-input):focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px rgba(37,99,235,0.14) !important;
   background-color: var(--surface) !important;
 }
+
+/* `.bare-input` — opt-out for inputs nested inside their own styled wrapper.
+   Fully transparent, no border, no focus ring. The wrapper handles all
+   visible chrome (background, border, focus state). */
+.bare-input,
+.bare-input:focus,
+.bare-input:hover,
+[data-theme="dark"] .bare-input,
+[data-theme="dark"] .bare-input:focus,
+[data-theme="dark"] .bare-input:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+/* Placeholder color is the only "theming" we keep on .bare-input so the hint
+   stays readable in both light and dark mode. */
+.bare-input::placeholder { color: var(--text-3) !important; opacity: 1 !important; }
+[data-theme="dark"] .bare-input::placeholder { color: #6b7d93 !important; opacity: 1 !important; }
 
 .rounded-3xl { border-radius: 18px !important; }
 .rounded-2xl { border-radius: 14px !important; }

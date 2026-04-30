@@ -685,7 +685,8 @@ const RecallView = () => {
             disabled={isLoading}
             rows={1}
             maxHeight={160}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5, minHeight: 22 }}
+            className="bare-input"
+            style={{ flex: 1, color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5, minHeight: 22 }}
             title="Enter to send, Shift+Enter for newline"
           />
           <button onClick={toggleVoice}

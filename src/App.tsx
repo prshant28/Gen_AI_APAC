@@ -902,7 +902,8 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
               <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Search size={15} color="var(--primary)" />
                 <input autoFocus type="text" placeholder="Type a command or navigate..."
-                  style={{ flex: 1, background: 'none', border: 'none', color: 'var(--text-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+                  className="bare-input"
+                  style={{ flex: 1, color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit' }} />
                 <div style={{ padding: '3px 8px', background: 'var(--surface-3)', borderRadius: 6, color: 'var(--text-3)', fontSize: 10, fontWeight: 700 }}>ESC</div>
               </div>
               <div style={{ padding: '6px', maxHeight: '55vh', overflowY: 'auto' }} className="scroll-custom">

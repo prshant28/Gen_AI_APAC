@@ -405,9 +405,10 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
               {/* toolbar */}
               <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })}
-                  style={{ flex: 1, minWidth: 180, padding: '6px 10px', background: 'transparent', border: '1px solid transparent', borderRadius: 8, color: 'var(--text-1)', fontSize: 16, fontWeight: 800, outline: 'none', fontFamily: 'inherit', letterSpacing: '-0.3px' }}
-                  onFocus={e => (e.target as HTMLInputElement).style.borderColor = 'var(--border)'}
-                  onBlur={e => (e.target as HTMLInputElement).style.borderColor = 'transparent'} />
+                  className="bare-input"
+                  style={{ flex: 1, minWidth: 180, padding: '6px 10px', borderRadius: 8, color: 'var(--text-1)', fontSize: 16, fontWeight: 800, fontFamily: 'inherit', letterSpacing: '-0.3px', border: '1px solid transparent', transition: 'border-color 0.15s' }}
+                  onFocus={e => { (e.target as HTMLInputElement).style.border = '1px solid var(--border)'; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.border = '1px solid transparent'; }} />
                 <div style={{ display: 'flex', background: 'var(--surface-2)', borderRadius: 9, padding: 3, gap: 1 }}>
                   {([
                     { v: 'edit', icon: Code, label: 'Edit' },
@@ -449,7 +450,8 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                 {(view === 'edit' || view === 'split') && (
                   <textarea value={draft.content} onChange={e => setDraft({ ...draft, content: e.target.value })}
                     placeholder="Start writing in markdown..."
-                    style={{ width: '100%', height: '100%', padding: '16px 18px', background: 'transparent', border: 'none', borderRight: view === 'split' ? '1px solid var(--border)' : 'none', color: 'var(--text-1)', fontSize: 13.5, outline: 'none', fontFamily: "'JetBrains Mono', monospace", resize: 'none', boxSizing: 'border-box', lineHeight: 1.65 }} />
+                    className="bare-input"
+                    style={{ width: '100%', height: '100%', padding: '16px 18px', borderRight: view === 'split' ? '1px solid var(--border)' : 'none', color: 'var(--text-1)', fontSize: 13.5, fontFamily: "'JetBrains Mono', monospace", resize: 'none', boxSizing: 'border-box', lineHeight: 1.65 }} />
                 )}
                 {(view === 'preview' || view === 'split') && (
                   <div style={{ padding: '16px 20px', overflow: 'auto', fontSize: 13.5 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(draft.content) }} />

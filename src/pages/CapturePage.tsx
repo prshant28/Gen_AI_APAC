@@ -2537,7 +2537,8 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                     }}
                     placeholder="add tag"
                     aria-label="Add a new tag"
-                    style={{ width: 80, padding: '2px 4px', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+                    className="bare-input"
+                    style={{ width: 80, padding: '2px 4px', color: 'var(--text-1)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
                   />
                   <button type="button" onClick={() => addTag(tagDraft)} disabled={!tagDraft.trim()}
                     aria-label="Add tag"
