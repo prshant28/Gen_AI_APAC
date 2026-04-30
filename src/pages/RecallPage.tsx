@@ -7,7 +7,7 @@ import {
   ChevronUp, ChevronDown, ExternalLink, Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import MarkdownMessage from '../components/MarkdownMessage';
+import { LazyMarkdownMessage as MarkdownMessage } from '../components/LazyMarkdownMessage';
 import { LiveInlineGate } from '../components/LiveChatPanel';
 import AutoGrowTextarea from '../components/AutoGrowTextarea';
 

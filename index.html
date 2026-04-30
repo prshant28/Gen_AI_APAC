@@ -3,11 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="preload" as="image" href="/x247-logo.png" />
+    <!-- Preconnect to the auth + data hosts the app contacts on first paint
+         so the TLS handshake overlaps with parsing rather than blocking it. -->
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://www.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <!-- Hero/splash logo. WebP is ~20× smaller than the original PNG. -->
+    <link rel="preload" as="image" href="/x247-logo.webp" type="image/webp" fetchpriority="high" />
     <title>Recall X247 — Neural OS v2.0</title>
     <script>
       (function() {
@@ -28,6 +34,7 @@
       #x247-splash img {
         width: clamp(140px, 18vw, 220px);
         height: auto;
+        aspect-ratio: 785 / 421;
         opacity: 0;
         animation: x247-fadein 0.6s ease-out 0.05s forwards;
         user-select: none;
@@ -61,28 +68,17 @@
   </head>
   <body>
     <div id="x247-splash" aria-hidden="true">
-      <img src="/x247-logo.png" alt="x247 AI" />
+      <img
+        src="/x247-logo.webp"
+        alt="x247 AI"
+        width="785"
+        height="421"
+        decoding="async"
+        fetchpriority="high"
+      />
       <div class="x247-dots"><span></span><span></span><span></span></div>
     </div>
     <div id="root"></div>
-    <script>
-      // If a JS chunk 404s (stale hash after Vite rebuild), force a hard reload
-      // so the browser fetches fresh HTML and the correct chunk names.
-      (function () {
-        var _reloadScheduled = false;
-        window.addEventListener('error', function (e) {
-          var el = e.target;
-          if (!el || _reloadScheduled) return;
-          var src = el.src || el.href || '';
-          var isScript = el.tagName === 'SCRIPT' || el.tagName === 'LINK';
-          var isChunk = isScript && /\.(js|ts|tsx|jsx|css)(\?|$)/.test(src);
-          if (isChunk) {
-            _reloadScheduled = true;
-            window.location.reload();
-          }
-        }, true);
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       window.hideSplash = function () {

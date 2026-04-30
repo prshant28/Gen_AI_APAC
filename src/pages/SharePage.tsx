@@ -4,7 +4,7 @@ import {
   Brain, Sparkles, Tag, Calendar as CalendarIcon, Globe, ArrowLeft,
   AlertTriangle, Link2, Check, Copy, Clock, FileText, Eye, ArrowUpRight,
 } from 'lucide-react';
-import x247Logo from '../assets/x247-logo.png';
+import x247Logo from '../assets/x247-logo.webp';
 
 interface SharedMemory {
   id: string;

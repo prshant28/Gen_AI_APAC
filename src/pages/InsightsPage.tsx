@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { BarChart2, GitBranch, Network } from 'lucide-react';
 import TabbedPage from '../components/TabbedPage';
-import TimelinePage from './TimelinePage';
-import GraphPage from './GraphPage';
-import AnalyticsPage from './AnalyticsPage';
+
+const TimelinePage = lazy(() => import('./TimelinePage'));
+const GraphPage = lazy(() => import('./GraphPage'));
+const AnalyticsPage = lazy(() => import('./AnalyticsPage'));
 
 const InsightsPage: React.FC = () => {
   return (

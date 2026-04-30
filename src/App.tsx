@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Component } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Component, Suspense, lazy } from 'react';
 
 // ── Global Error Boundary ────────────────────────────────────────────────────
 // Catches React render errors that would otherwise blank the entire page.
@@ -59,8 +59,11 @@ import {
   Plug, Bookmark, Flame, GraduationCap, Compass, Bell, Kanban, Pin,
   Library, Target, Sparkles
 } from 'lucide-react';
-import OnboardingTour from './components/OnboardingTour';
-import BriefingNotifier from './components/BriefingNotifier';
+// Heavy, conditionally-rendered components are lazy-loaded so they don't
+// land in the entry chunk. The tour only mounts when the user opens it,
+// the briefing notifier polls in the background.
+const OnboardingTour = lazy(() => import('./components/OnboardingTour'));
+const BriefingNotifier = lazy(() => import('./components/BriefingNotifier'));
 import AutoGrowTextarea from './components/AutoGrowTextarea';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -73,41 +76,112 @@ import {
   signOut as firebaseSignOut,
 } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import DashboardPage from './pages/DashboardPage';
-import DailyBriefingPage from './pages/DailyBriefingPage';
-import AgentPage from './pages/AgentPage';
-import CapturePage from './pages/CapturePage';
-import VaultPage from './pages/VaultPage';
-import RecallPage from './pages/RecallPage';
-import TasksPage from './pages/TasksPage';
-import FlashcardsPage from './pages/FlashcardsPage';
-import CalendarPage from './pages/CalendarPage';
-import SettingsPage from './pages/SettingsPage';
-import TimelinePage from './pages/TimelinePage';
-import GraphPage from './pages/GraphPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import WorkspacePage from './pages/WorkspacePage';
-import MemoryDetailPage from './pages/MemoryDetailPage';
-import SessionDetailPage from './pages/SessionDetailPage';
-import DeckPage from './pages/DeckPage';
-import ProfilePage from './pages/ProfilePage';
-import IntegrationsPage from './pages/IntegrationsPage';
-import NotesPage from './pages/NotesPage';
-import BookmarksPage from './pages/BookmarksPage';
-import HabitsPage from './pages/HabitsPage';
-import RevisitsPage from './pages/RevisitsPage';
-import SharePage from './pages/SharePage';
-import StudyPlanPage from './pages/StudyPlanPage';
-import DiscoverPage from './pages/DiscoverPage';
-import LibraryPage from './pages/LibraryPage';
-import FocusPage from './pages/FocusPage';
-import LearnPage from './pages/LearnPage';
-import InsightsPage from './pages/InsightsPage';
-import NotFoundPage from './pages/NotFoundPage';
+// ── Route-level code splitting ─────────────────────────────────────────────
+// Every page is its own lazy chunk so first-paint only ships the route the
+// user actually landed on (plus shared vendor chunks). Navigating to a new
+// page fetches that page's chunk on demand; <RouteSuspense> below paints a
+// thin progress strip while the chunk is in flight.
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/Login'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const DailyBriefingPage = lazy(() => import('./pages/DailyBriefingPage'));
+const AgentPage = lazy(() => import('./pages/AgentPage'));
+const CapturePage = lazy(() => import('./pages/CapturePage'));
+// Note: VaultPage, NotesPage, BookmarksPage, TasksPage, HabitsPage,
+// FlashcardsPage, RevisitsPage, TimelinePage, GraphPage, AnalyticsPage,
+// StudyPlanPage are all reached via /library, /focus, /learn, /insights
+// hubs — they no longer have their own top-level <Route> entries. Anything
+// not used directly here is imported lazily inside its hub.
+const RecallPage = lazy(() => import('./pages/RecallPage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
+const MemoryDetailPage = lazy(() => import('./pages/MemoryDetailPage'));
+const SessionDetailPage = lazy(() => import('./pages/SessionDetailPage'));
+const DeckPage = lazy(() => import('./pages/DeckPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
+const SharePage = lazy(() => import('./pages/SharePage'));
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const FocusPage = lazy(() => import('./pages/FocusPage'));
+const LearnPage = lazy(() => import('./pages/LearnPage'));
+const InsightsPage = lazy(() => import('./pages/InsightsPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 import PageBreadcrumbs from './components/PageBreadcrumbs';
 import './pages/pages.css';
+
+// ── ChunkErrorBoundary ──────────────────────────────────────────────────────
+// When a deploy ships a new build, hashed chunk filenames change. Tabs that
+// were already open will request a stale chunk that 404s. Catch the resulting
+// dynamic-import error here and trigger a single hard reload so the browser
+// re-fetches the new index.html and resolves the new chunk names. Without
+// this, the user just sees a blank page after a deploy.
+class ChunkErrorBoundary extends Component<
+  React.PropsWithChildren,
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/Loading chunk|Failed to fetch dynamically imported module|ChunkLoadError|Importing a module script failed/i.test(msg)) {
+      // Reload once per session so we don't loop forever on a real error.
+      try {
+        if (!sessionStorage.getItem('chunk-reload-once')) {
+          sessionStorage.setItem('chunk-reload-once', '1');
+          window.location.reload();
+          return { hasError: true };
+        }
+      } catch {
+        window.location.reload();
+        return { hasError: true };
+      }
+    }
+    return { hasError: true };
+  }
+  componentDidCatch(err: unknown) {
+    console.error('[ChunkErrorBoundary]', err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-2)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>This page didn't load.</div>
+          <button
+            onClick={() => { try { sessionStorage.removeItem('chunk-reload-once'); } catch {} window.location.reload(); }}
+            style={{ padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--primary)', color: '#fff', fontWeight: 600 }}
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── RouteSuspense fallback ──────────────────────────────────────────────────
+// A 2px progress strip pinned to the top of the content area. Keeps the
+// page visually intact instead of flashing the full-screen splash on every
+// navigation between lazy routes.
+const RouteSuspenseFallback = () => (
+  <div
+    aria-hidden
+    style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+      overflow: 'hidden', pointerEvents: 'none', zIndex: 5,
+    }}
+  >
+    <div
+      style={{
+        height: '100%', width: '40%',
+        background: 'linear-gradient(90deg, transparent, var(--primary), transparent)',
+        animation: 'route-progress 1.1s ease-in-out infinite',
+      }}
+    />
+    <style>{`@keyframes route-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }`}</style>
+  </div>
+);
 
 // ── Core nav — the 5 daily-driver pages, each with a keyboard shortcut ──────
 const CORE_NAV = [
@@ -411,7 +485,7 @@ const Sidebar = ({
           </>
         ) : (
           <>
-            <img src="/x247-logo.png" alt="x247 AI" className="x247-logo-img" draggable={false} style={{ height: 22, width: 'auto' }} />
+            <img src="/x247-logo.webp" alt="x247 AI" className="x247-logo-img" draggable={false} width={785} height={421} decoding="async" style={{ height: 22, width: 'auto' }} />
             <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
               data-testid="sidebar-collapse-toggle"
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
@@ -885,7 +959,9 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
             <AnimatePresence mode="wait">
               <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
                 <ErrorBoundary>
+                <ChunkErrorBoundary>
                 <PageBreadcrumbs />
+                <Suspense fallback={<RouteSuspenseFallback />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   {/* Auth pages aren't reachable for an already-signed-in user.
@@ -934,6 +1010,8 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
 
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>
+                </Suspense>
+                </ChunkErrorBoundary>
                 </ErrorBoundary>
               </motion.div>
             </AnimatePresence>
@@ -944,10 +1022,17 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
       {/* Global Toast + FAB */}
       <GlobalToast />
       <QuickCaptureFAB />
-      <BriefingNotifier />
+      <Suspense fallback={null}>
+        <BriefingNotifier />
+      </Suspense>
 
-      {/* Onboarding Tour */}
-      <OnboardingTour open={showTour} onClose={() => setShowTour(false)} />
+      {/* Onboarding Tour — only mount the chunk when actually shown so the
+          tour's animations + content don't land in the entry chunk. */}
+      {showTour && (
+        <Suspense fallback={null}>
+          <OnboardingTour open={showTour} onClose={() => setShowTour(false)} />
+        </Suspense>
+      )}
 
       {/* Command Palette */}
       <AnimatePresence>
@@ -1087,9 +1172,11 @@ function AppRouter() {
   const isSharePath = window.location.pathname.startsWith('/share/');
   if (isSharePath) {
     return (
-      <Routes>
-        <Route path="/share/:token" element={<SharePage />} />
-      </Routes>
+      <Suspense fallback={<RouteSuspenseFallback />}>
+        <Routes>
+          <Route path="/share/:token" element={<SharePage />} />
+        </Routes>
+      </Suspense>
     );
   }
 
@@ -1097,7 +1184,7 @@ function AppRouter() {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#03080f' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-          <img src="/x247-logo.png" alt="x247 AI" style={{ width: 'clamp(120px,15vw,180px)', height: 'auto', userSelect: 'none' }} draggable={false} />
+          <img src="/x247-logo.webp" alt="x247 AI" width={785} height={421} decoding="async" fetchPriority="high" style={{ width: 'clamp(120px,15vw,180px)', height: 'auto', userSelect: 'none' }} draggable={false} />
           <div style={{ display: 'flex', gap: 6 }}>
             {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.42)', animation: `bounce 1.1s ease-in-out ${i*0.15}s infinite` }} />)}
           </div>
@@ -1108,24 +1195,28 @@ function AppRouter() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/" element={<Landing navigate={navigate} isDark={isDark} toggleTheme={toggleTheme} />} />
-        <Route path="/login" element={
-          <Login
-            navigate={navigate}
-            initialMode={window.location.search.includes('mode=signup') ? 'sign-up' : 'sign-in'}
-            onGoogleSignIn={signInWithGoogle}
-            onEmailSignIn={signInWithEmail}
-            onEmailSignUp={signUpWithEmail}
-            onResetPassword={resetPassword}
-            onAnonymousSignIn={handleGuestSignIn}
-          />
-        } />
-        <Route path="/auth" element={<Navigate to="/login" replace />} />
-        <Route path="/signin" element={<Navigate to="/login" replace />} />
-        <Route path="/signup" element={<Navigate to="/login?mode=signup" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<RouteSuspenseFallback />}>
+          <Routes>
+            <Route path="/" element={<Landing navigate={navigate} isDark={isDark} toggleTheme={toggleTheme} />} />
+            <Route path="/login" element={
+              <Login
+                navigate={navigate}
+                initialMode={window.location.search.includes('mode=signup') ? 'sign-up' : 'sign-in'}
+                onGoogleSignIn={signInWithGoogle}
+                onEmailSignIn={signInWithEmail}
+                onEmailSignUp={signUpWithEmail}
+                onResetPassword={resetPassword}
+                onAnonymousSignIn={handleGuestSignIn}
+              />
+            } />
+            <Route path="/auth" element={<Navigate to="/login" replace />} />
+            <Route path="/signin" element={<Navigate to="/login" replace />} />
+            <Route path="/signup" element={<Navigate to="/login?mode=signup" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
     );
   }
 

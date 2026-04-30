@@ -1,16 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BarChart2, Brain, TrendingUp, Zap, Target } from 'lucide-react';
 import { motion } from 'motion/react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, CartesianGrid, Area, AreaChart } from 'recharts';
 import type { Memory } from '../lib/types';
 import { card } from '../lib/ui';
 
 const COLORS = ['#00d4ff', '#8b5cf6', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
 
-const TOOLTIP_STYLE = {
-  contentStyle: { background: '#0d0d1a', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 11, color: '#e2e8f0', fontFamily: "'Poppins', sans-serif" },
-  cursor: { fill: 'rgba(255,255,255,0.03)' }
-};
+// Defer recharts (~250 KB) until the analytics view actually paints.
+// The two chart blocks live in their own component module so recharts
+// stays out of the page chunk.
+const CapturesAreaChart = lazy(() =>
+  import('../components/charts/AnalyticsCharts').then(m => ({ default: m.CapturesAreaChart }))
+);
+const DomainsBarChart = lazy(() =>
+  import('../components/charts/AnalyticsCharts').then(m => ({ default: m.DomainsBarChart }))
+);
+const ChartFallback = ({ height }: { height: number }) => (
+  <div aria-hidden style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 11, opacity: 0.5 }}>
+    Loading chart…
+  </div>
+);
 
 interface AnalyticsViewProps { embedded?: boolean }
 const AnalyticsView: React.FC<AnalyticsViewProps> = ({ embedded = false }) => {
@@ -106,21 +115,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ embedded = false }) => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }} style={{ ...card, padding: '16px 18px' }}>
           <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Captures by Day</div>
           <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginBottom: 14 }}>Day-of-week distribution</div>
-          <ResponsiveContainer width="100%" height={130}>
-            <AreaChart data={actData} margin={{ top: 0, right: 0, left: -26, bottom: 0 }}>
-              <defs>
-                <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-              <XAxis dataKey="day" tick={{ fill: 'var(--text-3, #6b7280)', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: 'var(--text-3, #6b7280)', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip {...TOOLTIP_STYLE} />
-              <Area type="monotone" dataKey="captures" stroke="#00d4ff" strokeWidth={2} fill="url(#capGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<ChartFallback height={130} />}>
+            <CapturesAreaChart data={actData} />
+          </Suspense>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.33 }} style={{ ...card, padding: '16px 18px' }}>
@@ -152,16 +149,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ embedded = false }) => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} style={{ ...card, padding: '16px 18px' }}>
           <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Knowledge Domains</div>
           {domains.length > 0 ? (
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={domains.slice(0, 8)} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                <XAxis type="number" tick={{ fill: 'var(--text-3, #6b7280)', fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fill: 'var(--text-2, #9ca3af)', fontSize: 10 }} axisLine={false} tickLine={false} width={80} />
-                <Tooltip {...TOOLTIP_STYLE} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                  {domains.slice(0, 8).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<ChartFallback height={160} />}>
+              <DomainsBarChart data={domains.slice(0, 8)} colors={COLORS} />
+            </Suspense>
           ) : (
             <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '24px 0 0', textAlign: 'center' }}>No domain data yet</p>
           )}

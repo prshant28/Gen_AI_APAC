@@ -93,6 +93,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Compression: prefer brotli (≈15-25 % smaller than gzip on JS/CSS) and fall
+# back to gzip for clients that don't advertise br. Both middlewares are safe
+# to stack — BrotliMiddleware only acts when the client sends
+# `Accept-Encoding: br`, otherwise it passes the response through and
+# GZipMiddleware compresses with gzip. This is the single biggest first-load
+# win behind code-splitting and is fronted-proxy-safe.
+from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
+try:
+    from brotli_asgi import BrotliMiddleware  # type: ignore
+    app.add_middleware(BrotliMiddleware, minimum_size=1024, quality=5)
+except Exception as _br_err:  # pragma: no cover — never fail boot on missing dep
+    logging.getLogger("recall-x247").warning(
+        "brotli compression unavailable (%s); falling back to gzip only", _br_err,
+    )
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 # Per-request user_id from the X-User-Id header → ContextVar
 app.add_middleware(UserContextMiddleware)
 
@@ -191,6 +207,25 @@ async def live_status():
     return {"enabled": is_live_configured(), "model": GEMINI_LIVE_MODEL}
 
 
+# Real-User Monitoring sink for Core Web Vitals. The browser ships small
+# JSON beacons here on tab hide; we accept-and-discard so the network
+# request always lands (sendBeacon needs a 2xx) but we don't pay storage
+# for it. Logged at debug level so ops can grep when we want a snapshot;
+# wire to a real datastore later without touching the client.
+@app.post("/api/vitals", status_code=204)
+async def report_web_vitals(request: Request):
+    try:
+        body = await request.body()
+        if body and len(body) < 16_384:  # cap to avoid log floods
+            logging.getLogger("recall-x247.vitals").debug(
+                "vitals %s", body.decode("utf-8", errors="replace"),
+            )
+    except Exception:
+        pass
+    # 204 No Content — sendBeacon doesn't read the response anyway.
+    return Response(status_code=204)
+
+
 @app.middleware("http")
 async def spa_navigation_guard(request: Request, call_next):
     """Intercept ANY browser document navigation that isn't clearly an API
@@ -207,12 +242,44 @@ async def spa_navigation_guard(request: Request, call_next):
     index_html = os.path.join(_dist, "index.html")
     if os.path.isfile(index_html):
         return FileResponse(index_html, headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache",
             "X-SPA-Shell": "1",
         })
     # SPA bundle isn't built — fall through; the catch-all below will serve
     # the friendly inline-styled fallback HTML.
     return await call_next(request)
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    """Set strong, immutable caching for fingerprinted Vite assets and a
+    safe no-cache for the SPA shell. The frontend builds with content
+    hashes in every filename under `/assets/<name>-<hash>.js` so a
+    one-year `immutable` cache is correct — the URL changes whenever the
+    bytes change. Without this, repeat visits redownload everything and
+    Lighthouse penalises us under "Serve static assets with an efficient
+    cache policy"."""
+    response = await call_next(request)
+    path = request.url.path or ""
+    # Skip if the response already set Cache-Control (e.g. SPA shell).
+    if response.headers.get("cache-control"):
+        return response
+    if path.startswith("/assets/"):
+        # Vite hashes every file under /assets, so we can cache forever.
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path == "/" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache"
+    else:
+        # Root-level static files that aren't hashed (logos, favicon,
+        # manifest, robots) — short cache so we can rotate them but
+        # browsers don't refetch every page nav.
+        last = path.rsplit("/", 1)[-1].lower()
+        if "." in last:
+            ext = "." + last.rsplit(".", 1)[-1]
+            if ext in {".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico",
+                      ".woff", ".woff2", ".ttf", ".webmanifest"}:
+                response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -2908,7 +2975,7 @@ async def serve_root():
     index_html = os.path.join(dist_path, "index.html")
     if os.path.isfile(index_html):
         return FileResponse(index_html, headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache",
         })
     return Response(content=_FALLBACK_HTML, media_type="text/html",
                     status_code=200)
@@ -2954,7 +3021,7 @@ async def serve_spa(full_path: str):
     index_html = os.path.join(dist_path, "index.html")
     if os.path.isfile(index_html):
         return FileResponse(index_html, headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache",
         })
     return Response(content=_FALLBACK_HTML, media_type="text/html",
                     status_code=200)

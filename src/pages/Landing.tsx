@@ -354,7 +354,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             <Menu size={18} />
           </button>
           <button className="lx-nav-logo" onClick={() => navigate('/')} aria-label="Recall X247 home">
-            <img src="/x247-logo.png" alt="x247 AI" className="lx-brand-img" draggable={false} />
+            <img src="/x247-logo.webp" alt="x247 AI" className="lx-brand-img" width={785} height={421} decoding="async" fetchPriority="high" draggable={false} />
           </button>
           <nav className="lx-nav-links">
             <a href="#how" className="lx-nav-link">How it works</a>
@@ -1328,7 +1328,7 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
         <div className="lx-footer-top">
           <div className="lx-footer-brand">
             <button className="lx-nav-logo" onClick={() => navigate('/')}>
-              <img src="/x247-logo.png" alt="x247 AI" className="lx-brand-img" draggable={false} />
+              <img src="/x247-logo.webp" alt="x247 AI" className="lx-brand-img" width={785} height={421} loading="lazy" decoding="async" draggable={false} />
             </button>
             <p className="lx-footer-tag">Your AI-powered second brain. Multi-agent. Always on.</p>
             <div className="lx-footer-social">

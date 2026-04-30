@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import type { AgentMsg, AgentStepData } from '../lib/types';
 import type { LucideIcon } from 'lucide-react';
-import MarkdownMessage from '../components/MarkdownMessage';
+import { LazyMarkdownMessage as MarkdownMessage } from '../components/LazyMarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards, { ROUTE_MAP } from '../components/ActionResultCards';
 import { LiveInlineGate } from '../components/LiveChatPanel';

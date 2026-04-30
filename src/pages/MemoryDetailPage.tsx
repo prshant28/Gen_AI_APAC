@@ -14,7 +14,7 @@ import { YouTubeEmbed } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
 import { RevisitScheduler } from '../components/RevisitScheduler';
-import { MarkdownMessage } from '../components/MarkdownMessage';
+import { LazyMarkdownMessage as MarkdownMessage } from '../components/LazyMarkdownMessage';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 const SRC = {

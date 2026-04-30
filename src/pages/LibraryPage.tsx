@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { Library, Database, StickyNote, Bookmark, FileText, Inbox, CheckSquare, Flame, FlipHorizontal, Bell, Tag, Trash2 } from 'lucide-react';
 import TabbedPage from '../components/TabbedPage';
-import VaultPage from './VaultPage';
-import NotesPage from './NotesPage';
-import BookmarksPage from './BookmarksPage';
-import TasksPage from './TasksPage';
-import HabitsPage from './HabitsPage';
-import FlashcardsPage from './FlashcardsPage';
-import RevisitsPage from './RevisitsPage';
-import LibraryInboxTab from '../components/LibraryInboxTab';
-import TrashPage from './TrashPage';
-import TagsManagerPage from './TagsManagerPage';
+
+const VaultPage = lazy(() => import('./VaultPage'));
+const NotesPage = lazy(() => import('./NotesPage'));
+const BookmarksPage = lazy(() => import('./BookmarksPage'));
+const TasksPage = lazy(() => import('./TasksPage'));
+const HabitsPage = lazy(() => import('./HabitsPage'));
+const FlashcardsPage = lazy(() => import('./FlashcardsPage'));
+const RevisitsPage = lazy(() => import('./RevisitsPage'));
+const LibraryInboxTab = lazy(() => import('../components/LibraryInboxTab'));
+const TrashPage = lazy(() => import('./TrashPage'));
+const TagsManagerPage = lazy(() => import('./TagsManagerPage'));
 
 const LibraryPage: React.FC = () => {
   return (

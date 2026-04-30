@@ -39,6 +39,12 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: npm run build
 
+      - name: Bundle-size budget
+        # Fails the build if the entry chunk grows past 250 KB gzipped or
+        # any non-vendor route chunk past 200 KB gzipped — the prerequisite
+        # for hitting Lighthouse 90+ on mobile.
+        run: npm run check:bundle-budget
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

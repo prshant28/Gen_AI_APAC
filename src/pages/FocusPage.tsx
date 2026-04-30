@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Target, CheckSquare, Flame } from 'lucide-react';
 import { motion } from 'motion/react';
-import TasksPage from './TasksPage';
-import HabitsPage from './HabitsPage';
 import LegacyRedirectBanner from '../components/LegacyRedirectBanner';
+
+const TasksPage = lazy(() => import('./TasksPage'));
+const HabitsPage = lazy(() => import('./HabitsPage'));
+const SectionFallback = () => (
+  <div aria-hidden style={{ minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 12, opacity: 0.6 }}>
+    Loading…
+  </div>
+);
 
 const FocusPage: React.FC = () => {
   return (
@@ -54,7 +60,9 @@ const FocusPage: React.FC = () => {
           <Flame size={12} color="#f59e0b" />
           Daily rituals
         </div>
-        <HabitsPage embedded />
+        <Suspense fallback={<SectionFallback />}>
+          <HabitsPage embedded />
+        </Suspense>
       </section>
 
       {/* ── Tasks ────────────────────────────────────────────────────────── */}
@@ -69,7 +77,9 @@ const FocusPage: React.FC = () => {
           <CheckSquare size={12} color="#10b981" />
           Tasks
         </div>
-        <TasksPage embedded />
+        <Suspense fallback={<SectionFallback />}>
+          <TasksPage embedded />
+        </Suspense>
       </section>
     </div>
   );

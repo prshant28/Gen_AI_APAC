@@ -7,6 +7,8 @@
     "dev": "fuser -k 8000/tcp 2>/dev/null; sleep 0.5; concurrently \"python main.py\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
+    "analyze": "vite build && open dist/stats.html 2>/dev/null || xdg-open dist/stats.html 2>/dev/null || echo 'Bundle treemap written to dist/stats.html'",
+    "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "check:vendor-leaks": "bash scripts/check-no-vendor-leaks.sh",
@@ -17,9 +19,11 @@
   "dependencies": {
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.2.4",
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@vitejs/plugin-react": "^5.2.0",
     "clsx": "^2.1.1",
+    "compression": "^1.8.1",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
@@ -35,6 +39,7 @@
     "react-router-dom": "^7.14.2",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "rollup-plugin-visualizer": "^6.0.11",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },

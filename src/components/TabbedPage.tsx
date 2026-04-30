@@ -1,7 +1,24 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import LegacyRedirectBanner from './LegacyRedirectBanner';
+
+const TabSuspenseFallback = () => (
+  <div
+    aria-hidden
+    style={{
+      minHeight: 200,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--text-3)',
+      fontSize: 12,
+      opacity: 0.7,
+    }}
+  >
+    Loading…
+  </div>
+);
 
 export interface TabDef {
   id: string;
@@ -132,7 +149,9 @@ const TabbedPage: React.FC<Props> = ({
       </motion.div>
 
       <div key={active}>
-        {current?.render()}
+        <Suspense fallback={<TabSuspenseFallback />}>
+          {current?.render()}
+        </Suspense>
       </div>
     </div>
   );

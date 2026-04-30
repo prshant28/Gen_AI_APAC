@@ -3,9 +3,9 @@ import {
   ArrowRight, ArrowLeft, Eye, EyeOff, Mail, Lock, User as UserIcon,
   ShieldCheck, Sparkles, Loader2,
 } from 'lucide-react';
-import keyholeImg from '@/src/assets/login-keyhole.png';
-import x247Logo from '@/src/assets/x247-logo.png';
-import auraImg from '@/src/assets/login-aura.png';
+import keyholeImg from '@/src/assets/login-keyhole.webp';
+import x247Logo from '@/src/assets/x247-logo.webp';
+import auraImg from '@/src/assets/login-aura.webp';
 
 type AuthFns = {
   onGoogleSignIn: () => Promise<any>;
@@ -97,7 +97,7 @@ export default function Login({
   return (
     <div className="lg-page">
       <div className="lg-box">
-        <img src={auraImg} alt="" className="lg-box-aura" aria-hidden="true" draggable={false} />
+        <img src={auraImg} alt="" className="lg-box-aura" aria-hidden="true" draggable={false} width={1200} height={800} loading="lazy" decoding="async" />
 
         <button
           type="button"
@@ -287,12 +287,12 @@ export default function Login({
 
         {/* ── RIGHT: 3D padlock visual inside the box ─────── */}
         <div className="lg-box-right" aria-hidden="true">
-          <img src={keyholeImg} alt="" className="lg-right-img" />
+          <img src={keyholeImg} alt="" className="lg-right-img" width={620} height={620} loading="lazy" decoding="async" />
           <div className="lg-right-vignette" />
         </div>
 
         {/* ── Corner brand logo ───────────────────────────── */}
-        <img src={x247Logo} alt="x247 AI" className="lg-corner-logo" draggable={false} />
+        <img src={x247Logo} alt="x247 AI" className="lg-corner-logo" draggable={false} width={120} height={32} decoding="async" fetchPriority="high" />
       </div>
     </div>
   );

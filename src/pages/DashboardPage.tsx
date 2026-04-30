@@ -1,10 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brain, Sparkles, CheckSquare, Network, GraduationCap, Zap, Timer, TrendingUp, Bot, Activity, ArrowUpRight, Youtube, Globe, FileText, StickyNote, Flame, Check, ChevronRight, Bell, ExternalLink, RotateCw, PauseCircle, Target, Hash, History, CalendarClock, Tag, Trophy, X } from 'lucide-react';
 import { showToast } from '../App';
 import { motion } from 'motion/react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import type { Memory } from '../lib/types';
+
+// Recharts is ~250 KB. Lazy-load just the two chart blocks we need so
+// the dashboard's initial chunk doesn't pay for it. A lightweight
+// "Loading chart…" placeholder fills the slot while the chunk arrives.
+const ForecastBarChart = lazy(() =>
+  import('../components/charts/DashboardCharts').then(m => ({ default: m.ForecastBarChart }))
+);
+const DomainsRadarChart = lazy(() =>
+  import('../components/charts/DashboardCharts').then(m => ({ default: m.DomainsRadarChart }))
+);
+const ChartPlaceholder = ({ height }: { height: number }) => (
+  <div
+    aria-hidden
+    style={{
+      height, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'var(--text-3)', fontSize: 11, opacity: 0.5,
+    }}
+  >
+    Loading chart…
+  </div>
+);
 
 type DashAdvanced = {
   greeting?: { period: string; label: string; hour_ist: number; iso: string };
@@ -773,22 +793,9 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
                   <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Coming up · next 7 days</div>
                 </div>
                 <div style={{ color: 'var(--text-3)', fontSize: 11, marginBottom: 10 }}>Revisits + tasks scheduled</div>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={adv.forecast_7d} margin={{ top: 5, right: 6, left: -22, bottom: 0 }}>
-                    <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text-1)', boxShadow: 'var(--shadow-md)' }}
-                      cursor={{ fill: 'rgba(147,51,234,0.06)' }}
-                      labelFormatter={(_l, payload) => {
-                        const p = payload?.[0]?.payload;
-                        return p ? `${p.label} ${p.day}` : '';
-                      }}
-                    />
-                    <Bar dataKey="revisits" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} name="Revisits" />
-                    <Bar dataKey="tasks" stackId="a" fill="#9333ea" radius={[3, 3, 0, 0]} name="Tasks" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Suspense fallback={<ChartPlaceholder height={160} />}>
+                  <ForecastBarChart data={adv.forecast_7d} />
+                </Suspense>
                 <div style={{ display: 'flex', gap: 14, marginTop: 4, fontSize: 11 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 2, background: '#f59e0b' }} /> Revisits
@@ -860,14 +867,9 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
             </div>
             {domains.length > 0 ? (
               <div className="dash-domains-grid" style={{ display: 'grid', gridTemplateColumns: '140px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
-                <ResponsiveContainer width="100%" height={140}>
-                  <RadarChart data={radarData} margin={{ top: 5, right: 8, bottom: 5, left: 8 }}>
-                    <PolarGrid stroke="var(--border)" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
-                    <PolarRadiusAxis tick={false} axisLine={false} />
-                    <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} strokeWidth={2} dot={{ r: 2, fill: '#6366f1' }} />
-                  </RadarChart>
-                </ResponsiveContainer>
+                <Suspense fallback={<ChartPlaceholder height={140} />}>
+                  <DomainsRadarChart data={radarData} />
+                </Suspense>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                   {domains.slice(0, 5).map((d: any, i: number) => {
                     const pct = Math.round((d.value / (totalMem || 1)) * 100);

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { GraduationCap, Sparkles, FlipHorizontal, Bell } from 'lucide-react';
 import TabbedPage from '../components/TabbedPage';
-import StudyPlanPage from './StudyPlanPage';
-import FlashcardsPage from './FlashcardsPage';
-import RevisitsPage from './RevisitsPage';
+
+const StudyPlanPage = lazy(() => import('./StudyPlanPage'));
+const FlashcardsPage = lazy(() => import('./FlashcardsPage'));
+const RevisitsPage = lazy(() => import('./RevisitsPage'));
 
 const LearnPage: React.FC = () => {
   return (
