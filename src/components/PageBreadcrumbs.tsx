@@ -21,6 +21,44 @@ const ROUTE_LABELS: Record<string, string> = {
   discover: 'Discover',
   workspace: 'Workspace',
   deck: 'Deck',
+  // Legacy single-page routes that now live as tabs inside a hub. Keep the
+  // labels here so the breadcrumb still reads cleanly if a deep link ever
+  // lands on /vault, /tasks, etc. before the legacy redirect kicks in.
+  vault: 'Vault',
+  notes: 'Notes',
+  bookmarks: 'Bookmarks',
+  tasks: 'Tasks',
+  habits: 'Habits',
+  flashcards: 'Flashcards',
+  plan: 'Study Plan',
+  revisits: 'Revisits',
+  timeline: 'Timeline',
+  graph: 'Mind Graph',
+  analytics: 'Analytics',
+};
+
+// Canonical destination for a route segment when it doesn't render its OWN
+// page but is actually a tab inside a hub (or a synthetic parent for
+// dynamic routes like /memory/:id). Keys MUST stay in sync with the
+// LegacyRedirectBanner map in src/components/LegacyRedirectBanner.tsx.
+//
+// Example: on /memory/abc123 the breadcrumb wants to render
+// "Dashboard > Vault > <title>". Without this map, the "Vault" crumb would
+// link to "/memory" (built by joining url segments) which 404s — there is
+// no list page at /memory, the Vault list lives at /library?tab=vault.
+const CANONICAL_PATH: Record<string, string> = {
+  memory:     '/library?tab=vault',
+  vault:      '/library?tab=vault',
+  notes:      '/library?tab=notes',
+  bookmarks:  '/library?tab=bookmarks',
+  tasks:      '/focus',
+  habits:     '/focus',
+  flashcards: '/learn?tab=flashcards',
+  plan:       '/learn?tab=plan',
+  revisits:   '/learn?tab=revisits',
+  timeline:   '/insights?view=timeline',
+  graph:      '/insights?view=graph',
+  analytics:  '/insights?view=analytics',
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -67,7 +105,10 @@ const PageBreadcrumbs: React.FC = () => {
         continue;
       }
       const label = ROUTE_LABELS[seg] || seg.charAt(0).toUpperCase() + seg.slice(1);
-      const partial = '/' + segs.slice(0, i + 1).join('/');
+      // Prefer the canonical hub-tab URL over the literal joined-segments
+      // URL. Without this, a crumb like "Vault" on /memory/abc would link
+      // to "/memory" (404) instead of "/library?tab=vault".
+      const partial = CANONICAL_PATH[seg] || '/' + segs.slice(0, i + 1).join('/');
       // For terminal segments don't include link (current page)
       const isLast = i === segs.length - 1;
       trail.push({ label, to: isLast ? undefined : partial });
