@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AutoGrowTextarea from '../components/AutoGrowTextarea';
 import {
   User as UserIcon, Mail, Calendar as CalendarIcon, MapPin, Briefcase,
   Edit3, Save, X, Camera, Shield, Bell, Globe, Lock, Key, Trash2,
@@ -301,8 +302,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onSignOut }) => {
                       <f.icon size={11} /> {f.label}
                     </label>
                     {f.key === 'bio' ? (
-                      <textarea value={(formData as any)[f.key]} onChange={e => setFormData({ ...formData, [f.key]: e.target.value })} disabled={!isEditing} rows={3}
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', opacity: isEditing ? 1 : 0.7 }} />
+                      <AutoGrowTextarea value={(formData as any)[f.key]} onChange={e => setFormData({ ...formData, [f.key]: e.target.value })} disabled={!isEditing} rows={3}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', opacity: isEditing ? 1 : 0.7 }} />
                     ) : (
                       <input value={(formData as any)[f.key]} onChange={e => setFormData({ ...formData, [f.key]: e.target.value })} disabled={!isEditing}
                         style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', opacity: isEditing ? 1 : 0.7 }} />

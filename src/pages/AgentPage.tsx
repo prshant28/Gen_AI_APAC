@@ -11,6 +11,7 @@ import MarkdownMessage from '../components/MarkdownMessage';
 import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards, { ROUTE_MAP } from '../components/ActionResultCards';
 import { LiveInlineGate } from '../components/LiveChatPanel';
+import AutoGrowTextarea from '../components/AutoGrowTextarea';
 
 // ─── Persisted chat storage (cleared on sign-out by App.handleSignOut) ────
 const STORAGE_KEY_CURRENT = 'agent-hub-current-chat-v1';
@@ -927,11 +928,12 @@ const AgentHubView = () => {
           WebkitBackdropFilter: 'blur(8px)',
         }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            <AutoGrowTextarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
               placeholder={isListening ? 'Listening…' : isStreaming ? 'Working…' : 'Message your assistant…'}
               disabled={isStreaming}
               rows={1}
-              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 140, overflow: 'auto', padding: '8px 6px', minHeight: 24 }}
+              maxHeight={200}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', lineHeight: 1.5, padding: '8px 6px', minHeight: 24 }}
               title="Press Enter to send, Shift + Enter for a new line"
             />
             <button onClick={toggleVoice}

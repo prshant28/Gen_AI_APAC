@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AutoGrowTextarea from '../components/AutoGrowTextarea';
 import {
   Calendar as CalIcon, Plus, Loader2, GraduationCap, X, Compass, Link as LinkIcon,
   Check, Copy, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, Upload, Download,
@@ -517,9 +518,10 @@ const CalendarModule: React.FC = () => {
               </div>
               <div>
                 <label style={labelStyle}>Notes (optional)</label>
-                <textarea value={newEvent.description} onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                <AutoGrowTextarea value={newEvent.description} onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
                   placeholder="Anything you want to remember about this event…"
-                  style={{ ...inputStyle, minHeight: 70, resize: 'vertical' as const }} />
+                  rows={3}
+                  style={{ ...inputStyle, minHeight: 70 }} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, Sparkles, Check, X, Loader2, RotateCw, Calendar as CalIcon, Wand2 } from 'lucide-react';
 import { showToast } from '../App';
+import AutoGrowTextarea from './AutoGrowTextarea';
 
 export type Frequency =
   | 'once' | 'daily' | 'twice_weekly' | 'weekly' | 'biweekly'
@@ -272,12 +273,12 @@ export const RevisitScheduler: React.FC<Props> = ({
       )}
 
       {!compact && (
-        <textarea
+        <AutoGrowTextarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Notes (optional) — what do you want to do when this fires?"
           rows={2}
-          style={{ ...inputStyle, marginTop: 10, resize: 'vertical', fontFamily: 'inherit' }}
+          style={{ ...inputStyle, marginTop: 10, fontFamily: 'inherit' }}
         />
       )}
 

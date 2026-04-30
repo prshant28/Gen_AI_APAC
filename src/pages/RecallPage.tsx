@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import MarkdownMessage from '../components/MarkdownMessage';
 import { LiveInlineGate } from '../components/LiveChatPanel';
+import AutoGrowTextarea from '../components/AutoGrowTextarea';
 
 interface Source {
   id: string;
@@ -679,11 +680,12 @@ const RecallView = () => {
         }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--surface-2)', border: `1px solid ${isListening ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 12, padding: '9px 11px', transition: 'border-color 0.2s' }}>
           <Search size={14} color="#818cf8" style={{ alignSelf: 'center', flexShrink: 0 }} />
-          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+          <AutoGrowTextarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
             placeholder={isListening ? 'Listening…' : isEmpty ? 'Ask your Second Brain anything…' : 'Ask a follow-up…'}
             disabled={isLoading}
             rows={1}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto', minHeight: 22 }}
+            maxHeight={160}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5, minHeight: 22 }}
             title="Enter to send, Shift+Enter for newline"
           />
           <button onClick={toggleVoice}

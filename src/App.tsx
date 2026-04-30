@@ -61,6 +61,7 @@ import {
 } from 'lucide-react';
 import OnboardingTour from './components/OnboardingTour';
 import BriefingNotifier from './components/BriefingNotifier';
+import AutoGrowTextarea from './components/AutoGrowTextarea';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   auth,
@@ -679,10 +680,10 @@ const QuickCaptureFAB = () => {
                 <span style={{ color: '#06b6d4', fontSize: 12, fontWeight: 700 }}>Quick Note</span>
                 <button onClick={() => setShowNote(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><X size={14} /></button>
               </div>
-              <textarea value={note} onChange={e => setNote(e.target.value)} autoFocus
+              <AutoGrowTextarea value={note} onChange={e => setNote(e.target.value)} autoFocus
                 placeholder="Capture an idea, thought, or insight..."
                 rows={4}
-                style={{ width: '100%', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box', lineHeight: 1.55 }}
+                style={{ width: '100%', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-1)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.55, minHeight: 96 }}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote(); }}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>

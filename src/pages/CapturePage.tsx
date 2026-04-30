@@ -13,6 +13,7 @@ import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
 import { RevisitScheduler } from '../components/RevisitScheduler';
+import AutoGrowTextarea from '../components/AutoGrowTextarea';
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 const safeHostname = (raw: string): string | null => {
@@ -1356,8 +1357,9 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                             {isEditing ? (
                               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
                                 {it.kind === 'note' || it.kind === 'voice' ? (
-                                  <textarea value={editingDraft} onChange={e => setEditingDraft(e.target.value)} rows={3}
-                                    style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+                                  <AutoGrowTextarea value={editingDraft} onChange={e => setEditingDraft(e.target.value)} rows={3}
+                                    maxHeight={300}
+                                    style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                                 ) : (
                                   <input type={it.kind === 'link' ? 'url' : 'text'} value={editingDraft} onChange={e => setEditingDraft(e.target.value)}
                                     style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'inherit', boxSizing: 'border-box' }} />
@@ -1938,9 +1940,10 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                       </button>
                     )}
                   </div>
-                  <textarea value={input} onChange={e => setInput(e.target.value)}
+                  <AutoGrowTextarea value={input} onChange={e => setInput(e.target.value)}
                     placeholder={inputPlaceholder} rows={source === 'code' ? 8 : 6}
-                    style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: source === 'code' ? 12.5 : 14, fontFamily: source === 'code' ? "'JetBrains Mono',monospace" : 'inherit', outline: 'none', resize: 'vertical', transition: 'all 0.15s', boxSizing: 'border-box', lineHeight: 1.65 }}
+                    maxHeight={420}
+                    style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: source === 'code' ? 12.5 : 14, fontFamily: source === 'code' ? "'JetBrains Mono',monospace" : 'inherit', outline: 'none', transition: 'all 0.15s', boxSizing: 'border-box', lineHeight: 1.65 }}
                     onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px var(--primary-bg)'; }}
                     onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
                   />
@@ -1977,9 +1980,10 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                     </div>
                   </div>
                   {voice.transcript && (
-                    <textarea value={voice.transcript} onChange={e => voice.setTranscript(e.target.value)}
+                    <AutoGrowTextarea value={voice.transcript} onChange={e => voice.setTranscript(e.target.value)}
                       rows={5} placeholder="Transcript appears here..."
-                      style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                      maxHeight={420}
+                      style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
                   )}
                 </div>
               )}
