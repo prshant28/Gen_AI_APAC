@@ -27,7 +27,7 @@ const SRC = {
 /* ── Smart Action Detector ───────────────────────────────────────── */
 function detectActions(memory: Memory) {
   const text = [memory.title, memory.summary, ...memory.key_points].join(' ').toLowerCase();
-  const actions: { id: string; label: string; desc: string; icon: LucideIcon; color: string; agent: string }[] = [];
+  const actions: { id: string; label: string; desc: string; icon: LucideIcon; color: string; agent: string; comingSoon?: boolean }[] = [];
 
   const kw = (words: string[]) => words.some(w => text.includes(w));
 
@@ -38,7 +38,7 @@ function detectActions(memory: Memory) {
     actions.push({ id:'task', label:'Create Task', desc:'TaskAgent will add to your list', icon:CheckSquare, color:'#10b981', agent:'TaskAgent' });
 
   if (kw(['buy','purchase','price','$','order','product','tool','software','app','subscribe','plan','cost','deal']))
-    actions.push({ id:'shop', label:'Shopping List', desc:'Save items to review later', icon:ShoppingCart, color:'#f472b6', agent:'CaptureAgent' });
+    actions.push({ id:'shop', label:'Shopping List', desc:'Save items to review later', icon:ShoppingCart, color:'#f472b6', agent:'CaptureAgent', comingSoon:true });
 
   if (kw(['email','send','share','team','colleague','forward','newsletter','notify','message','contact']))
     actions.push({ id:'email', label:'Draft & Share', desc:'Draft email summary with AI', icon:Mail, color:'#60a5fa', agent:'Orchestrator' });
@@ -159,15 +159,30 @@ export default function MemoryDetailPage() {
     try {
       if (actionId === 'task') {
         const title = taskTitle.trim() || memory.title;
-        await fetch('/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, description: memory.summary, source_memory_id: memory.id }) });
-        showToast('Task created!'); setActiveAction(null); setTaskTitle('');
+        const res = await fetch('/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, linked_memory_id: memory.id }) });
+        if (!res.ok) {
+          showToast('Couldn\'t create task — try again', 'error');
+          return;
+        }
+        const created = await res.json().catch(() => null);
+        const newId: string | undefined = created?.id;
+        if (newId) {
+          showToast('Task created!', 'success', {
+            label: 'View task',
+            onClick: () => navigate(`/tasks?focus=${encodeURIComponent(newId)}`),
+            testId: 'button-toast-view-task',
+          });
+        } else {
+          showToast('Task created!');
+        }
+        setActiveAction(null); setTaskTitle('');
       } else if (actionId === 'calendar') {
         const title = eventTitle.trim() || memory.title;
         const date = eventDate || new Date(Date.now() + 86400000).toISOString().split('T')[0];
         await fetch('/calendar/events', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, date, notes: memory.summary }) });
         showToast('Event scheduled!'); setActiveAction(null); setEventTitle(''); setEventDate('');
       } else if (actionId === 'flashcards') {
-        navigate(`/flashcards?memory_id=${memory.id}`);
+        navigate(`/learn?tab=flashcards&memory_id=${encodeURIComponent(memory.id)}`);
       } else if (actionId === 'research') {
         sendChat(`Give me a deep-dive analysis of "${memory.title}" — find connections, gaps, and what I should explore next.`);
         setActiveAction(null);
@@ -652,11 +667,19 @@ export default function MemoryDetailPage() {
               const isActive = activeAction === action.id;
               return (
                 <div key={action.id} style={{ borderBottom: i < actions.length-1 ? '1px solid var(--border)' : 'none' }}>
-                  <button onClick={() => {
-                    if (['task','calendar'].includes(action.id)) setActiveAction(isActive ? null : action.id);
-                    else runAction(action.id);
-                  }}
-                    style={{ width:'100%', display:'flex', alignItems:'center', gap:11, padding:'13px 18px', background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit', transition:'background 0.12s', textAlign:'left' }}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (action.comingSoon) {
+                        showToast(`${action.label} is coming soon`, 'info');
+                        return;
+                      }
+                      if (['task','calendar'].includes(action.id)) setActiveAction(isActive ? null : action.id);
+                      else runAction(action.id);
+                    }}
+                    aria-disabled={action.comingSoon || undefined}
+                    data-testid={action.comingSoon ? `button-action-${action.id}-coming-soon` : `button-action-${action.id}`}
+                    style={{ width:'100%', display:'flex', alignItems:'center', gap:11, padding:'13px 18px', background:'transparent', border:'none', cursor: action.comingSoon ? 'help' : 'pointer', fontFamily:'inherit', transition:'background 0.12s', textAlign:'left', opacity: action.comingSoon ? 0.72 : 1 }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <div style={{ width:34, height:34, borderRadius:10, background:`color-mix(in srgb,${action.color} 12%,transparent)`, border:`1px solid color-mix(in srgb,${action.color} 22%,transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s' }}>
@@ -669,10 +692,18 @@ export default function MemoryDetailPage() {
                       <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0 }}>{action.desc}</p>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
-                      <span style={{ fontSize:9, fontWeight:600, padding:'2px 6px', background:`color-mix(in srgb,${action.color} 10%,transparent)`, color:action.color, borderRadius:6, border:`1px solid color-mix(in srgb,${action.color} 20%,transparent)`, whiteSpace:'nowrap' }}>
-                        {action.agent}
-                      </span>
-                      <ChevronRight size={12} color="var(--text-3)" style={{ transform: isActive ? 'rotate(90deg)' : 'none', transition:'transform 0.2s' }} />
+                      {action.comingSoon ? (
+                        <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', background:'rgba(148,163,184,0.12)', color:'#94a3b8', borderRadius:6, border:'1px solid rgba(148,163,184,0.25)', whiteSpace:'nowrap', textTransform:'uppercase', letterSpacing:'0.4px' }}>
+                          Coming soon
+                        </span>
+                      ) : (
+                        <span style={{ fontSize:9, fontWeight:600, padding:'2px 6px', background:`color-mix(in srgb,${action.color} 10%,transparent)`, color:action.color, borderRadius:6, border:`1px solid color-mix(in srgb,${action.color} 20%,transparent)`, whiteSpace:'nowrap' }}>
+                          {action.agent}
+                        </span>
+                      )}
+                      {!action.comingSoon && (
+                        <ChevronRight size={12} color="var(--text-3)" style={{ transform: isActive ? 'rotate(90deg)' : 'none', transition:'transform 0.2s' }} />
+                      )}
                     </div>
                   </button>
 

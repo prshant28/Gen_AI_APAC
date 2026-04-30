@@ -904,7 +904,7 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
                 <Brain size={13} color="#6366f1" />
                 <div style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 13 }}>Recent memories</div>
               </div>
-              <button onClick={() => navigate('/vault')} className="dash-action-link" style={{ color: '#6366f1' }}>
+              <button onClick={() => navigate('/insights?view=timeline')} className="dash-action-link" style={{ color: '#6366f1' }}>
                 View all <ArrowUpRight size={11} />
               </button>
             </div>

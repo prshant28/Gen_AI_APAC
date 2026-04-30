@@ -941,7 +941,9 @@ export default function DailyBriefingPage() {
                                   } else if (t.kind === 'event') {
                                     navigate('/calendar');
                                   } else if (t.kind === 'habit') {
-                                    navigate('/dashboard');
+                                    navigate('/focus');
+                                  } else if (t.kind === 'revisit') {
+                                    navigate('/learn?tab=revisits');
                                   }
                                 };
                                 return (

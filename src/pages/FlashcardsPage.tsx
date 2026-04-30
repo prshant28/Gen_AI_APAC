@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FlipHorizontal, Loader2, Award, X, ChevronLeft, ChevronRight, Star, Brain, CheckCircle, XCircle, RotateCcw, Zap, BookOpen, TrendingUp, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Memory, Flashcard } from '../lib/types';
@@ -194,6 +195,10 @@ const FlashcardsView: React.FC<FlashcardsViewProps> = ({ embedded = false }) => 
   const [filter, setFilter] = useState('');
   const [scores, setScores] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({ total: 0, studied: 0, avgScore: 0 });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkMemoryId = searchParams.get('memory_id') || '';
+  const [missingDeepLink, setMissingDeepLink] = useState(false);
+  const processedDeepLinkRef = useRef<string>('');
 
   useEffect(() => {
     fetch('/memories?limit=50').then(r => r.ok ? r.json() : []).then((data: unknown) => {
@@ -203,6 +208,47 @@ const FlashcardsView: React.FC<FlashcardsViewProps> = ({ embedded = false }) => 
     const savedScores = JSON.parse(localStorage.getItem('flashcard-scores') || '{}');
     setScores(savedScores);
   }, []);
+
+  // Deep-link: when arriving via /learn?tab=flashcards&memory_id=<id> from
+  // the memory detail Smart Action, jump straight into that deck. If the
+  // memory isn't in the recent 50, we fall back to fetching it directly so
+  // the modal can still open. Either way we strip the param afterwards so
+  // a refresh stays on the grid.
+  useEffect(() => {
+    if (!deepLinkMemoryId || isLoading) return;
+    if (processedDeepLinkRef.current === deepLinkMemoryId) return;
+    processedDeepLinkRef.current = deepLinkMemoryId;
+
+    const found = memories.find(m => m.id === deepLinkMemoryId);
+    const stripParam = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('memory_id');
+      setSearchParams(next, { replace: true });
+    };
+
+    if (found) {
+      setSelectedMemory(found);
+      stripParam();
+      return;
+    }
+    // Not in the cached list — try a direct fetch.
+    fetch(`/memories/${encodeURIComponent(deepLinkMemoryId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((m: Memory | null) => {
+        if (m && m.id) {
+          setMemories(prev => prev.some(x => x.id === m.id) ? prev : [m, ...prev]);
+          setSelectedMemory(m);
+        } else {
+          setMissingDeepLink(true);
+          setTimeout(() => setMissingDeepLink(false), 4000);
+        }
+      })
+      .catch(() => {
+        setMissingDeepLink(true);
+        setTimeout(() => setMissingDeepLink(false), 4000);
+      })
+      .finally(stripParam);
+  }, [deepLinkMemoryId, isLoading, memories, searchParams, setSearchParams]);
 
   useEffect(() => {
     const vals = Object.values(scores) as number[];
@@ -273,6 +319,16 @@ const FlashcardsView: React.FC<FlashcardsViewProps> = ({ embedded = false }) => 
             </div>
           ))}
         </div>
+
+        {/* Deep-link error banner — memory_id from URL didn't resolve */}
+        {missingDeepLink && (
+          <div data-testid="banner-flashcard-deeplink-missing" style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <XCircle size={14} color="#ef4444" />
+            <div style={{ color: 'var(--text-2)', fontSize: 12 }}>
+              Couldn't find that memory's flashcards — pick a deck from the list below.
+            </div>
+          </div>
+        )}
 
         {/* How it works banner */}
         <div style={{ padding: '12px 16px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 12, display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 4 }}>
