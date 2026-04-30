@@ -5234,3 +5234,89 @@
     margin-top: 2px;
   }
 }
+
+/* ============================================================
+   BOOKMARKS PAGE — advanced layout + mobile responsiveness
+   Scoped under .bookmarks-page so we don't leak globally.
+   ============================================================ */
+
+/* List-row item — stack image + body + actions on narrow screens */
+@media (max-width: 640px) {
+  .bookmarks-page .bm-item {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+  .bookmarks-page .bm-item .bm-item-body {
+    flex: 1 1 100% !important;
+    order: 2;
+    min-width: 0 !important;
+  }
+  .bookmarks-page .bm-item .bm-item-actions {
+    flex: 1 1 100% !important;
+    order: 3;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 2px;
+  }
+  .bookmarks-page .bm-item .bm-item-actions select {
+    flex: 1 1 auto;
+    min-width: 92px;
+  }
+}
+
+/* Card grid — single column on tiny screens for full-width thumbnails */
+@media (max-width: 480px) {
+  .bookmarks-page .bm-card-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Toolbar — controls row stays scannable; horizontal scroll for status pills */
+@media (max-width: 640px) {
+  .bookmarks-page .bm-toolbar {
+    padding: 10px !important;
+  }
+  .bookmarks-page .bm-controls-row {
+    gap: 6px !important;
+  }
+  .bookmarks-page .bm-status-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    padding-bottom: 2px;
+    margin: 0 -2px;
+    scrollbar-width: thin;
+  }
+  .bookmarks-page .bm-status-pills::-webkit-scrollbar { height: 3px; }
+  .bookmarks-page .bm-status-pills > button {
+    flex-shrink: 0;
+  }
+}
+
+/* Bulk action bar — wrap buttons, full-width input prompts */
+@media (max-width: 520px) {
+  .bookmarks-page .bm-bulk-bar {
+    padding: 8px !important;
+    gap: 5px !important;
+  }
+  .bookmarks-page .bm-bulk-bar > button {
+    flex: 1 1 calc(50% - 3px);
+    justify-content: center;
+  }
+  .bookmarks-page .bm-bulk-bar > span {
+    flex: 1 1 100%;
+    margin-bottom: 2px;
+  }
+}
+
+/* Card item title row — wrap status pill below title on narrow */
+@media (max-width: 380px) {
+  .bookmarks-page .bm-item-card .bm-item-title-row,
+  .bookmarks-page .bm-item .bm-item-title-row {
+    flex-wrap: wrap !important;
+  }
+}

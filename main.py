@@ -2501,6 +2501,7 @@ class BookmarkUpdateRequest(BaseModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     status: Optional[str] = None
+    pinned: Optional[bool] = None
 
 @app.get("/bookmarks")
 async def list_bookmarks_endpoint(status: str = "", limit: int = 100, include_archived: bool = False):
