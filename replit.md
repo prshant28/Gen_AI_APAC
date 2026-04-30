@@ -48,6 +48,9 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Multi-Agent Behaviour Discipline:** Orchestrator prevents auto-chaining of tasks post-capture and tracks a per-(uid, session) "focus item". A deterministic intent gate redirects pure recall/list intents to dedicated pages via `navigate` SSE events.
 - **Recall Single-Card Default:** `/recall` returns one focal card by default for single-topic questions, widening to a batch (cap 8) only when explicitly requested. `focal_source_id` parameter pins the primary card across follow-ups.
 
+### Testing
+- **End-to-end tests:** Playwright lives under `tests/` with config in `playwright.config.ts`. Run with `npm run test:e2e` (browsers install once via `npm run test:e2e:install`). The webServer config reuses the running dev server on port 5000. The first regression test (`tests/sidebar-active-cue.spec.ts`) locks in the collapsed-sidebar "you are here" cue.
+
 ### Feature Specifications
 - **Core AI Functionality:** Multi-agent orchestration and natural language processing.
 - **Knowledge Management:** Capture, semantic search, memory vault, and mind graph.

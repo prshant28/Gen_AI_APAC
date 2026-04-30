@@ -401,6 +401,7 @@ const Sidebar = ({
               );
             })()}
             <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
+              data-testid="sidebar-expand-toggle"
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
@@ -411,6 +412,7 @@ const Sidebar = ({
           <>
             <img src="/x247-logo.png" alt="x247 AI" className="x247-logo-img" draggable={false} style={{ height: 22, width: 'auto' }} />
             <button onClick={() => setIsCollapsed(true)} title="Collapse sidebar"
+              data-testid="sidebar-collapse-toggle"
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s', flexShrink: 0 }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
