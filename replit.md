@@ -12,7 +12,7 @@ Ask before making major changes.
 The application employs a multi-agent AI architecture with a central orchestrator.
 
 ### UI/UX Decisions
-The design system features dark glassmorphism with a neural theme, utilizing CSS custom properties for extensive theming. It supports responsive layouts and a light/dark theme toggle. The sidebar is redesigned for clarity, featuring pinned "ESSENTIALS" and collapsible groups for WORKSPACE, LEARN & GROW, and INSIGHTS. Onboarding includes an actionable "PICK ONE TO START" tour and a dismissible "GET FAMILIAR" checklist on the dashboard. The Advanced Dashboard is redesigned with stat cards, unified section headers, and derived "Smart Insights." The Neural Recall Empty State features a two-column rich landing with prompt sections, recent questions history, and a "Your knowledge" panel.
+The design system features dark glassmorphism with a neural theme, utilizing CSS custom properties for extensive theming. It supports responsive layouts, a light/dark theme toggle, and premium styling. The sidebar is redesigned for clarity, featuring pinned "ESSENTIALS" and collapsible groups for WORKSPACE, LEARN & GROW, and INSIGHTS. Onboarding includes an actionable "PICK ONE TO START" tour and a dismissible "GET FAMILIAR" checklist on the dashboard. The Advanced Dashboard is redesigned with stat cards, unified section headers, and derived "Smart Insights." The Neural Recall Empty State features a two-column rich landing with prompt sections, recent questions history, and a "Your knowledge" panel. UI strings and decorative emojis have been replaced with lucide icons or plain text.
 
 ### Technical Implementations
 - **Frontend:** Built with React, TypeScript, and Vite.
@@ -20,7 +20,7 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Multi-Agent System:** An Orchestrator dispatches tasks to specialized sub-agents via OpenAI function calling, managed by a `WorkflowEngine`.
 - **Live Voice/Video Brain:** Real-time bidirectional conversation with Google Gemini Live API.
 - **Plan Generator:** A 4-agent pipeline creates structured plans for various goals.
-- **Workspace Agent:** Manages backend-persisted projects with AI-driven organization.
+- **Workspace Agent:** Manages backend-persisted projects with items, tasks, and folders, including AI-driven organization.
 - **Discover Multi-Agent UX:** Enhances content discovery by visualizing content search, fetching, and ranking.
 - **Project Insights and Task Breakdown:** `insight_agent` suggests actions, and `plan_agent` breaks down tasks into micro-plans.
 - **Workspace Recall:** Searches across items, tasks, memories, and projects to synthesize cited answers.
@@ -38,15 +38,15 @@ The design system features dark glassmorphism with a neural theme, utilizing CSS
 - **Auto-tagging:** AI suggests and merges tags.
 - **SPA Deep-Link Hardening:** HTTP middleware serves `index.html` for SPA routes.
 - **Firestore Persistence Strategy:** Prioritizes explicit credentials, then Application Default Credentials, with an in-memory mock as a fallback for development.
-- **Daily Briefing:** AI-generated briefing grounded in recent memories and user stats.
+- **Daily Briefing:** AI-generated briefing grounded in recent memories and user stats, with an opt-in scheduler for in-app banner delivery.
 - **Per-User Data Scoping:** Multi-tenant isolation across all collections using `X-User-Id` header.
-- **Capture Page Upgrades:** Dedicated `/capture` route supporting various file uploads with inline previews and intelligent title generation.
-- **Inbox Management:** Library Inbox with sticky filter toolbar (source-type, date, domain, text search), server-side pagination, URL query string state mirroring, and "Undo" functionality.
+- **Capture Page Upgrades:** Dedicated `/capture` route supporting various file uploads (including `.pdf`, `.txt`, `.md`, `.markdown` up to 25 MB) with inline previews and intelligent title generation.
+- **Inbox Management:** Library Inbox with a sticky filter toolbar (source-type, date, domain, text search), server-side pagination, URL query string state mirroring, and "Undo" functionality for review/archive actions.
 - **Sidebar Inbox Badge:** Numeric badge on the Library nav item displaying unread capture count, updated dynamically.
-- **Recall AI Source-Type Intent:** `recall()` function prioritizes source-type filtering when explicitly mentioned in user queries.
+- **Recall AI Source-Type Intent:** `recall()` function prioritizes source-type filtering (YouTube/web/note/PDF) when explicitly mentioned in user queries.
 - **Recall AI Redesign:** `recall()` returns short, enriched answers with thumbnails/favicons/tags/key_points/relative dates, up to 8 cards, and 3 follow-up suggestions, supporting conversational history and advanced search query merging.
-- **Multi-Agent Behaviour Discipline:** Orchestrator prevents auto-chaining of tasks post-capture and tracks a per-(uid, session) "focus item". A deterministic intent gate redirects pure recall/list intents to dedicated pages.
-- **Recall Single-Card Default:** `/recall` returns one focal card by default for single-topic questions, widening to a batch only when explicitly requested. `focal_source_id` parameter pins the primary card across follow-ups.
+- **Multi-Agent Behaviour Discipline:** Orchestrator prevents auto-chaining of tasks post-capture and tracks a per-(uid, session) "focus item". A deterministic intent gate redirects pure recall/list intents to dedicated pages via `navigate` SSE events.
+- **Recall Single-Card Default:** `/recall` returns one focal card by default for single-topic questions, widening to a batch (cap 8) only when explicitly requested. `focal_source_id` parameter pins the primary card across follow-ups.
 
 ### Feature Specifications
 - **Core AI Functionality:** Multi-agent orchestration and natural language processing.

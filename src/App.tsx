@@ -328,6 +328,27 @@ const Sidebar = ({
   const isActive = (path: string) =>
     location.pathname === path || (path === '/dashboard' && location.pathname === '/');
 
+  // Active nav entry — used by the collapsed-mode "you are here" cue so the
+  // user can tell which page they're on without expanding the sidebar.
+  // Detail / sub-routes (e.g. /memory/:id, /capture, /profile) don't have
+  // their own sidebar slot, so they fall back to their owning section so
+  // the cue is still present.
+  const allNav = [...CORE_NAV, ...TOOLS_NAV, ...SYSTEM_NAV];
+  const findNavById = (id: string) => allNav.find(n => n.id === id);
+  const ROUTE_FALLBACKS: Array<{ prefix: string; id: string }> = [
+    { prefix: '/memory',  id: 'library' },
+    { prefix: '/session', id: 'library' },
+    { prefix: '/capture', id: 'library' },
+    { prefix: '/deck',    id: 'learn' },
+    { prefix: '/profile', id: 'settings' },
+  ];
+  const activeNav =
+    allNav.find(n => isActive(n.path)) ||
+    (() => {
+      const match = ROUTE_FALLBACKS.find(r => location.pathname.startsWith(r.prefix));
+      return match ? findNavById(match.id) : undefined;
+    })();
+
   // Per-nav badge map. Today only Library carries the Inbox-waiting count,
   // but the SidebarNavItem already accepts badgeCount/badgeCapped so adding
   // future badges (e.g. Briefing unread) is a one-line change here.
@@ -347,19 +368,45 @@ const Sidebar = ({
 
       {/* ── Header: logo + collapse toggle ─────────────────────────────────── */}
       <div style={{
-        padding: isCollapsed ? '13px 0' : '13px 14px',
+        padding: isCollapsed ? '10px 0' : '13px 14px',
         borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center',
+        display: 'flex',
+        flexDirection: isCollapsed ? 'column' : 'row',
+        alignItems: 'center',
         justifyContent: isCollapsed ? 'center' : 'space-between',
+        gap: isCollapsed ? 6 : 0,
         flexShrink: 0, minHeight: 54,
       }}>
         {isCollapsed ? (
-          <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
-            <ChevronRight size={15} strokeWidth={2} />
-          </button>
+          <>
+            {/* "You are here" cue — a tiny pill showing the active page's icon
+                so the user can tell which page they're on while collapsed. */}
+            {activeNav && (() => {
+              const ActiveIcon = activeNav.icon;
+              return (
+                <div
+                  data-testid="sidebar-active-cue"
+                  title={activeNav.label}
+                  aria-label={`Current page: ${activeNav.label}`}
+                  style={{
+                    width: 26, height: 26, borderRadius: 7,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `${activeNav.color}1f`,
+                    boxShadow: `inset 0 0 0 1px ${activeNav.color}33`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <ActiveIcon size={14} color={activeNav.color} strokeWidth={2} />
+                </div>
+              );
+            })()}
+            <button onClick={() => setIsCollapsed(false)} title="Expand sidebar"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 7, borderRadius: 8, color: 'var(--text-3)', transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)'; }}>
+              <ChevronRight size={15} strokeWidth={2} />
+            </button>
+          </>
         ) : (
           <>
             <img src="/x247-logo.png" alt="x247 AI" className="x247-logo-img" draggable={false} style={{ height: 22, width: 'auto' }} />
