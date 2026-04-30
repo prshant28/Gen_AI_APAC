@@ -82,6 +82,8 @@ export default function MemoryDetailPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showRevisit, setShowRevisit]       = useState(false);
   const [autoTagging, setAutoTagging] = useState(false);
+  const [pdfReuploading, setPdfReuploading] = useState(false);
+  const pdfReuploadInputRef = useRef<HTMLInputElement>(null);
   const [taskTitle, setTaskTitle]     = useState('');
   const [eventTitle, setEventTitle]   = useState('');
   const [eventDate, setEventDate]     = useState('');
@@ -380,18 +382,73 @@ export default function MemoryDetailPage() {
 
           {/* PDF placeholder when pdf_data missing (legacy memories OR
               uploaded PDFs that exceeded the embed-size cap and had their
-              binary stripped on save). Note: uploaded PDFs typically have
-              no `source_url`, so we don't gate on it — a missing
-              `pdf_data` for a `pdf` source is enough to warrant the
-              placeholder. */}
+              binary stripped on save). The Re-upload button POSTs the file
+              to /memories/{id}/reupload-pdf which parses + writes pdf_data
+              back onto the doc, then refetches the memory so the inline
+              iframe viewer renders. */}
           {memory.source_type === 'pdf' && !memory.pdf_data && (
             <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
-              <div style={{ padding:'18px 20px', borderRadius:12, border:'1px dashed var(--border-2)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:12 }}>
-                <FileText size={22} color="#f59e0b" />
-                <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ padding:'18px 20px', borderRadius:12, border:'1px dashed var(--border-2)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                <FileText size={22} color="#f59e0b" style={{ flexShrink:0 }} />
+                <div style={{ flex:1, minWidth:200 }}>
                   <p style={{ fontSize:13, fontWeight:700, color:'var(--text-1)', margin:0 }}>PDF not embedded</p>
-                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>This memory was captured before inline PDF embedding. Re-upload to view here.</p>
+                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>
+                    {pdfReuploading
+                      ? 'Re-uploading and parsing — hang tight...'
+                      : 'The PDF binary isn\'t saved with this memory yet. Re-upload the same file (under ~700 KB) to view it inline here.'}
+                  </p>
                 </div>
+                <input
+                  ref={pdfReuploadInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  style={{ display:'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !memory) return;
+                    e.target.value = ''; // allow re-selecting same file
+                    if (!/\.pdf$/i.test(file.name)) {
+                      showToast('Only .pdf files', 'error');
+                      return;
+                    }
+                    // Hard cap on inline-embed size: capture_agent's
+                    // MAX_EMBED_PDF_BYTES is 700 KB binary (~933 KB base64),
+                    // so anything bigger will parse but get its pdf_data
+                    // stripped before save. Stop early with a friendly
+                    // message instead of letting the user wait for a 413.
+                    if (file.size > 700 * 1024) {
+                      showToast('PDF too large for inline view — keep it under ~700 KB', 'error');
+                      return;
+                    }
+                    setPdfReuploading(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      const r = await fetch(`/memories/${memory.id}/reupload-pdf`, { method: 'POST', body: fd });
+                      if (!r.ok) {
+                        const j = await r.json().catch(() => ({}));
+                        throw new Error(j.detail || `Upload failed (${r.status})`);
+                      }
+                      // Refetch the memory so the inline viewer above renders
+                      const fresh = await fetch(`/memories/${memory.id}`).then(rr => rr.ok ? rr.json() : null);
+                      if (fresh) setMemory(fresh);
+                      showToast('PDF embedded — viewer is live', 'success');
+                    } catch (err: any) {
+                      showToast(err?.message || 'Re-upload failed', 'error');
+                    } finally {
+                      setPdfReuploading(false);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => pdfReuploadInputRef.current?.click()}
+                  disabled={pdfReuploading}
+                  data-testid="button-reupload-pdf"
+                  style={{ fontSize:12, fontWeight:700, color:'#fff', cursor: pdfReuploading ? 'default' : 'pointer', display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', border:'none', borderRadius:9, background: pdfReuploading ? 'var(--surface-3)' : 'linear-gradient(135deg,#f59e0b,#d97706)', fontFamily:'inherit', opacity: pdfReuploading ? 0.7 : 1, boxShadow: pdfReuploading ? 'none' : '0 4px 12px rgba(245,158,11,0.35)' }}>
+                  <RefreshCw size={13} style={pdfReuploading ? { animation:'spin 1s linear infinite' } : undefined} />
+                  {pdfReuploading ? 'Uploading…' : 'Re-upload PDF'}
+                </button>
               </div>
             </div>
           )}

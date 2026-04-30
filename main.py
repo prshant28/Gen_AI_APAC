@@ -790,6 +790,87 @@ async def patch_memory_endpoint(memory_id: str, body: MemoryPatchRequest):
     await doc_ref.update(updates)
     return {"id": memory_id, "updated": True, **updates}
 
+@app.post("/memories/{memory_id}/reupload-pdf")
+async def reupload_memory_pdf_endpoint(memory_id: str, file: UploadFile = File(...)):
+    """Re-upload a PDF for an existing memory so the inline viewer works.
+
+    Used when a memory was captured before inline-PDF embedding was added,
+    or when the original upload exceeded the embed-size cap and the binary
+    was stripped on save. Parses the PDF and writes pdf_data / pdf_word_count
+    / pdf_byte_size / source_filename onto the existing memory document.
+    The memory's title, summary, and tags are NOT touched.
+    """
+    from app.user_context import belongs_to_current_user
+
+    name = (file.filename or "").lower()
+    if not name.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only .pdf files are accepted here.")
+
+    db = await get_db()
+    doc_ref = db.collection("memories").document(memory_id)
+    doc = await doc_ref.get()
+    if not doc.exists or not belongs_to_current_user(doc.to_dict()):
+        raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found.")
+    if (doc.to_dict() or {}).get("source_type") != "pdf":
+        raise HTTPException(status_code=400, detail="This memory isn't a PDF.")
+
+    try:
+        max_bytes = 25 * 1024 * 1024
+        chunks: list[bytes] = []
+        total = 0
+        chunk_size = 256 * 1024
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(status_code=413, detail="File too large (max 25 MB).")
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+        if not raw:
+            raise HTTPException(status_code=400, detail="Empty file.")
+
+        # Use the same parser the capture flow uses so we get pdf_data
+        # (data-URL), word count, and byte size in identical shape. preview=True
+        # avoids creating a *new* memory — we only want the parsed payload.
+        parsed = await capture(source_type="pdf", pdf_bytes=raw, preview=True)
+        if not isinstance(parsed, dict) or "error" in parsed:
+            raise HTTPException(status_code=500, detail=(parsed or {}).get("error", "Failed to parse PDF."))
+
+        # capture_agent emits pdf_data + pdf_pages + pdf_size_kb +
+        # pdf_word_count (NOT pdf_byte_size — that field doesn't exist on
+        # the parsed payload). Persist exactly what the parser returns so
+        # the page-count and size badges in the inline viewer stay accurate.
+        updates: Dict[str, Any] = {}
+        if parsed.get("pdf_data"):
+            updates["pdf_data"] = parsed["pdf_data"]
+        if parsed.get("pdf_word_count") is not None:
+            updates["pdf_word_count"] = int(parsed["pdf_word_count"])
+        if parsed.get("pdf_pages") is not None:
+            updates["pdf_pages"] = int(parsed["pdf_pages"])
+        if parsed.get("pdf_size_kb") is not None:
+            updates["pdf_size_kb"] = float(parsed["pdf_size_kb"])
+        if file.filename:
+            updates["source_filename"] = file.filename
+
+        if not updates.get("pdf_data"):
+            # Parser succeeded but the binary was stripped because it
+            # exceeded MAX_EMBED_PDF_BYTES (~700 KB). Tell the user the
+            # real limit instead of silently doing nothing.
+            raise HTTPException(
+                status_code=413,
+                detail="PDF parsed but too large to embed inline (max ~700 KB for inline view). Try a smaller file or a different export.",
+            )
+
+        await doc_ref.update(updates)
+        return {"id": memory_id, "updated": True, **{k: v for k, v in updates.items() if k != "pdf_data"}, "pdf_embedded": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/memories/{memory_id}")
 async def delete_memory_endpoint(memory_id: str, hard: bool = False):
     """Soft-delete (move to Trash) by default; pass `?hard=true` to remove."""

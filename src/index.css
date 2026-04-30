@@ -825,8 +825,30 @@ img { max-width: 100%; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  align-items: stretch; /* both columns get the same row height when 2-col */
 }
 @media (min-width: 860px) { .calendar-layout { grid-template-columns: 1fr 260px; } }
+
+/* Upcoming sidebar — on mobile, plain stacked column. On desktop (when the
+   sidebar sits beside the calendar) we anchor an absolute scroll container
+   so the list height = calendar column height (because grid stretches both
+   children to match), and overflow lives inside the sidebar instead of
+   pushing the calendar down. */
+.cal-upcoming { display: flex; flex-direction: column; gap: 10px; }
+.cal-upcoming-list { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 860px) {
+  .cal-upcoming { position: relative; min-height: 320px; }
+  .cal-upcoming-list {
+    position: absolute;
+    left: 0; right: 0; top: 30px; bottom: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+  .cal-upcoming-list::-webkit-scrollbar { width: 6px; }
+  .cal-upcoming-list::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+  .cal-upcoming-list::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+}
 
 /* ── Page header row ──────────────────────────────────────────────────────── */
 .page-header {

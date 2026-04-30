@@ -383,11 +383,6 @@ const CalendarModule: React.FC = () => {
                 );
               })}
             </div>
-            {/* Today marker */}
-            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px rgba(99,102,241,0.6)' }} />
-              <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>{fmtDateLong(today)}</span>
-            </div>
           </motion.div>
         ) : (
           /* AGENDA VIEW */
@@ -432,13 +427,24 @@ const CalendarModule: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Sidebar: upcoming events */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+        {/* Sidebar: upcoming events.
+
+            Layout trick (works only at >=860px when grid is 2-col):
+            the OUTER motion.div is `position:relative` and intrinsically
+            short — it just contains the small header. The INNER `.cal-upcoming-list`
+            uses `position:absolute; inset:32px 0 0` so it stretches to fill
+            whatever vertical space the grid row gives it (= calendar column
+            height, since CSS-grid stretches both columns to the tallest
+            sibling). Internal `overflow-y:auto` keeps a long event list
+            from pushing the calendar down. On mobile (<860px) the absolute
+            block falls back to normal flow via the media query. */}
+        <motion.div className="cal-upcoming" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2, height: 22 }}>
             <h3 style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>Upcoming</h3>
             {upcoming.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{upcoming.length}</span>}
           </div>
 
+          <div className="cal-upcoming-list">
           {isLoading ? (
             <div className="loading-center">
               <Loader2 size={22} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
@@ -477,6 +483,7 @@ const CalendarModule: React.FC = () => {
               </button>
             </div>
           )}
+          </div>
         </motion.div>
       </div>
 

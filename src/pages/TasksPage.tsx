@@ -19,6 +19,7 @@ const TasksModule: React.FC<TasksPageProps> = ({ embedded = false }) => {
   const [newTask, setNewTask] = useState({ title: '', priority: 'medium', due_date: '' });
   const [tab, setTab] = useState<'pending' | 'completed'>('pending');
   const [filter, setFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [creating, setCreating] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -100,8 +101,25 @@ const TasksModule: React.FC<TasksPageProps> = ({ embedded = false }) => {
     catch (err) { console.error(err); }
   };
 
+  // Robust epoch parser: backend returns created_at as ISO string, but legacy
+  // rows can have a Firestore-style {seconds,nanoseconds} object or a number.
+  // Anything we can't parse sinks to 0 so it stacks at the bottom of "newest".
+  const epochOf = (t: any): number => {
+    const v = t?.created_at ?? t?.createdAt ?? t?.created;
+    if (!v) return 0;
+    if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
+    if (typeof v === 'string') { const n = Date.parse(v); return isNaN(n) ? 0 : n; }
+    if (typeof v === 'object' && typeof v.seconds === 'number') return v.seconds * 1000;
+    return 0;
+  };
+
+  // The priority filter chips only render in the Pending tab, so applying
+  // the filter to Completed would silently hide rows the user can't see why
+  // they're hidden. Scope it to pending only — Completed always shows all.
   const displayTasks = (tab === 'pending' ? tasks : completedTasks)
-    .filter(t => filter === 'all' || t.priority === filter);
+    .filter(t => tab !== 'pending' || filter === 'all' || t.priority === filter)
+    .slice()
+    .sort((a, b) => sortOrder === 'newest' ? epochOf(b) - epochOf(a) : epochOf(a) - epochOf(b));
 
   const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
   const today = tasks.filter(t => t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString()).length;
@@ -169,19 +187,33 @@ const TasksModule: React.FC<TasksPageProps> = ({ embedded = false }) => {
             </button>
           ))}
         </div>
-        {tab === 'pending' && (
-          <div style={{ display: 'flex', gap: 5 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 10.5 }}>
-              <Filter size={11} />
-            </div>
-            {['all', 'high', 'medium', 'low'].map(p => (
-              <button key={p} onClick={() => setFilter(p)}
-                style={{ padding: '4px 10px', borderRadius: 8, border: `1px solid ${filter === p ? (PRI_CONFIG[p]?.border ?? 'var(--border)') : 'var(--border)'}`, background: filter === p ? (PRI_CONFIG[p]?.bg ?? 'var(--surface-2)') : 'var(--surface-2)', color: filter === p ? (PRI_CONFIG[p]?.color ?? 'var(--text-1)') : 'var(--text-3)', fontSize: 11, fontWeight: filter === p ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', textTransform: 'capitalize' }}>
-                {p === 'all' ? 'All' : p}
-              </button>
-            ))}
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+          {tab === 'pending' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 10.5 }}>
+                <Filter size={11} />
+              </div>
+              {['all', 'high', 'medium', 'low'].map(p => (
+                <button key={p} onClick={() => setFilter(p)}
+                  style={{ padding: '4px 10px', borderRadius: 8, border: `1px solid ${filter === p ? (PRI_CONFIG[p]?.border ?? 'var(--border)') : 'var(--border)'}`, background: filter === p ? (PRI_CONFIG[p]?.bg ?? 'var(--surface-2)') : 'var(--surface-2)', color: filter === p ? (PRI_CONFIG[p]?.color ?? 'var(--text-1)') : 'var(--text-3)', fontSize: 11, fontWeight: filter === p ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', textTransform: 'capitalize' }}>
+                  {p === 'all' ? 'All' : p}
+                </button>
+              ))}
+              <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+            </>
+          )}
+          {/* Sort: newest / oldest. Visible on both tabs so the user can browse
+              recent vs early completions too. Active button is filled. */}
+          <div title="Sort order" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-3)', fontSize: 10.5 }}>
+            <Clock size={11} />
           </div>
-        )}
+          {(['newest', 'oldest'] as const).map(o => (
+            <button key={o} onClick={() => setSortOrder(o)} data-testid={`button-sort-${o}`}
+              style={{ padding: '4px 10px', borderRadius: 8, border: `1px solid ${sortOrder === o ? 'var(--primary-border)' : 'var(--border)'}`, background: sortOrder === o ? 'var(--primary-bg)' : 'var(--surface-2)', color: sortOrder === o ? 'var(--primary)' : 'var(--text-3)', fontSize: 11, fontWeight: sortOrder === o ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', textTransform: 'capitalize' }}>
+              {o}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Inline new task form */}
