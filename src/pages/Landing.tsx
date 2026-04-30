@@ -262,10 +262,8 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [chatStep, setChatStep] = useState(1);
   const [activePersona, setActivePersona] = useState(0);
 
-  // Typewriter state — true character-by-character typing
-  const [wordIdx, setWordIdx] = useState(0);
-  const [typed, setTyped] = useState('');
-  const [typingPhase, setTypingPhase] = useState<'typing' | 'holding' | 'deleting'>('typing');
+  // Typewriter state — closure-driven, single state to avoid React 19 Strict Mode double-fire
+  const [displayText, setDisplayText] = useState(HERO_WORDS[0].slice(0, 1));
 
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -281,34 +279,57 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Typewriter cycling — true type → hold → backspace → next
+  // Typewriter cycling — closure-driven state machine (Strict-Mode safe, never empty)
   useEffect(() => {
     if (reduceMotion) {
-      setTyped(HERO_WORDS[wordIdx]);
+      setDisplayText(HERO_WORDS[0]);
       return;
     }
-    const fullWord = HERO_WORDS[wordIdx];
-    let timeout: ReturnType<typeof setTimeout>;
-    if (typingPhase === 'typing') {
-      if (typed.length < fullWord.length) {
-        timeout = setTimeout(() => setTyped(fullWord.slice(0, typed.length + 1)), 55);
+    let cancelled = false;
+    let tid: ReturnType<typeof setTimeout>;
+    let wIdx = 0;
+    let curText = HERO_WORDS[0].slice(0, 1);
+    let phase: 'typing' | 'holding' | 'deleting' = 'typing';
+
+    const tick = () => {
+      if (cancelled) return;
+      const fullWord = HERO_WORDS[wIdx];
+      let delay = 55;
+
+      if (phase === 'typing') {
+        if (curText.length < fullWord.length) {
+          curText = fullWord.slice(0, curText.length + 1);
+          delay = 55;
+        } else {
+          phase = 'holding';
+          delay = 1800;
+        }
+      } else if (phase === 'holding') {
+        phase = 'deleting';
+        delay = 26;
       } else {
-        timeout = setTimeout(() => setTypingPhase('holding'), 1600);
+        // deleting — never go below 1 char so layout never collapses
+        if (curText.length > 1) {
+          curText = curText.slice(0, -1);
+          delay = 26;
+        } else {
+          wIdx = (wIdx + 1) % HERO_WORDS.length;
+          curText = HERO_WORDS[wIdx].slice(0, 1);
+          phase = 'typing';
+          delay = 220;
+        }
       }
-    } else if (typingPhase === 'holding') {
-      timeout = setTimeout(() => setTypingPhase('deleting'), 1200);
-    } else {
-      if (typed.length > 0) {
-        timeout = setTimeout(() => setTyped(typed.slice(0, -1)), 28);
-      } else {
-        timeout = setTimeout(() => {
-          setWordIdx(i => (i + 1) % HERO_WORDS.length);
-          setTypingPhase('typing');
-        }, 220);
-      }
-    }
-    return () => clearTimeout(timeout);
-  }, [typed, typingPhase, wordIdx, reduceMotion]);
+
+      setDisplayText(curText);
+      tid = setTimeout(tick, delay);
+    };
+
+    tid = setTimeout(tick, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(tid);
+    };
+  }, [reduceMotion]);
 
   // Animate chat preview
   useEffect(() => {
@@ -426,9 +447,13 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             transition={{ duration: 0.7, delay: 0.05 }}
           >
             <span className="lx-hero-line">The second brain that</span>
-            <span className="lx-hero-line lx-hero-line-animated">
+            <span
+              className="lx-hero-line lx-hero-line-animated"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <span className="lx-hero-word lx-hero-word-typewriter">
-                {typed}
+                {displayText}
                 <span className="lx-hero-caret" aria-hidden="true">|</span>
               </span>
             </span>
