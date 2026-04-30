@@ -106,6 +106,7 @@ import FocusPage from './pages/FocusPage';
 import LearnPage from './pages/LearnPage';
 import InsightsPage from './pages/InsightsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PageBreadcrumbs from './components/PageBreadcrumbs';
 import './pages/pages.css';
 
 // ── Core nav — the 5 daily-driver pages, each with a keyboard shortcut ──────
@@ -884,8 +885,17 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
             <AnimatePresence mode="wait">
               <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
                 <ErrorBoundary>
+                <PageBreadcrumbs />
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  {/* Auth pages aren't reachable for an already-signed-in user.
+                      If the URL still says /login (e.g. just after sign-in or a
+                      bookmark), bounce them to the dashboard instead of the
+                      404 page. */}
+                  <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/signin" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/signup" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} onSignOut={onSignOut} onUpgradeGuest={onUpgradeGuest} />} />
                   <Route path="/briefing" element={<DailyBriefingPage />} />
                   <Route path="/agent" element={<AgentPage />} />

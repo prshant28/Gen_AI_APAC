@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Brain, Tag, ExternalLink, Youtube, Globe, FileText, StickyNote,
+  Brain, Tag, ExternalLink, Youtube, Globe, FileText, StickyNote,
   CheckCircle2, Sparkles, Calendar, CheckSquare, ShoppingCart, Mail, Search,
   Network, Send, Loader2, Bot, Zap, BookOpen, Share2, Copy, Clock,
   FlipHorizontal, Clipboard, Link2, ChevronRight, AlertCircle, Layers,
@@ -217,18 +217,8 @@ export default function MemoryDetailPage() {
   return (
     <div className="mdetail-shell" style={{ maxWidth:1100, margin:'0 auto', display:'flex', flexDirection:'column', gap:0 }}>
 
-      {/* ── Back + Breadcrumb ─────────────────────────────────────── */}
-      <div className="mdetail-crumb" style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0 18px' }}>
-        <button onClick={() => navigate(-1)}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text-2)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-2)')}>
-          <ArrowLeft size={13} /> Back
-        </button>
-        <span style={{ color:'var(--text-3)', fontSize:12 }}>Vault</span>
-        <ChevronRight size={11} color="var(--text-3)" />
-        <span style={{ color:'var(--text-2)', fontSize:12, fontWeight:600, maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{memory.title}</span>
-      </div>
+      {/* Back + breadcrumb is now provided globally by <PageBreadcrumbs />
+          mounted in App.tsx — no per-page crumb needed here. */}
 
       {/* ── Hero Header ──────────────────────────────────────────── */}
       <motion.div className="mdetail-hero" initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
@@ -345,16 +335,41 @@ export default function MemoryDetailPage() {
                     ~{memory.pdf_word_count.toLocaleString()} words
                   </span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!memory.pdf_data) return;
+                    // Convert data URL → blob URL: Chrome blocks navigation to
+                    // top-level data: URIs for security, blob URLs work fine.
+                    fetch(memory.pdf_data)
+                      .then(r => r.blob())
+                      .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                        setTimeout(() => URL.revokeObjectURL(url), 60000);
+                      })
+                      .catch(() => window.open(memory.pdf_data!, '_blank', 'noopener,noreferrer'));
+                  }}
+                  data-testid="button-open-pdf"
+                  style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'var(--primary)', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', border:'1px solid var(--primary-border)', borderRadius:8, background:'var(--primary-bg)', fontFamily:'inherit' }}>
+                  <SquareArrowOutUpRight size={11} /> Open in new tab
+                </button>
                 <a href={memory.pdf_data} download={`${memory.title}.pdf`}
-                  style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'var(--primary)', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', border:'1px solid var(--primary-border)', borderRadius:8, background:'var(--primary-bg)' }}>
-                  <SquareArrowOutUpRight size={11} /> Download PDF
+                  data-testid="link-download-pdf"
+                  style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', border:'1px solid var(--border)', borderRadius:8, background:'var(--surface-2)' }}>
+                  Download
                 </a>
               </div>
             </div>
           )}
 
-          {/* PDF placeholder when pdf_data missing (legacy memories) */}
-          {memory.source_type === 'pdf' && !memory.pdf_data && memory.source_url && (
+          {/* PDF placeholder when pdf_data missing (legacy memories OR
+              uploaded PDFs that exceeded the embed-size cap and had their
+              binary stripped on save). Note: uploaded PDFs typically have
+              no `source_url`, so we don't gate on it — a missing
+              `pdf_data` for a `pdf` source is enough to warrant the
+              placeholder. */}
+          {memory.source_type === 'pdf' && !memory.pdf_data && (
             <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
               <div style={{ padding:'18px 20px', borderRadius:12, border:'1px dashed var(--border-2)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:12 }}>
                 <FileText size={22} color="#f59e0b" />

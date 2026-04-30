@@ -19,7 +19,18 @@ from app.ai_helper import chat_with_fallback, chat_json, get_primary_client
 
 # How big a PDF can be before we stop embedding it as base64 in the memory doc.
 # Larger PDFs still work — we just don't store the bytes (vault detail won't render).
-MAX_EMBED_PDF_BYTES = 3 * 1024 * 1024  # 3 MB
+MAX_EMBED_PDF_BYTES = 700 * 1024  # 700 KB binary (~933 KB base64)
+# Why 700 KB: Firestore enforces a hard 1 MiB-per-document limit. A
+# base64-encoded PDF inflates by ~33% (3 MB binary -> ~4 MB base64),
+# so anything larger than ~720 KB binary will silently fail to write
+# along with the entire memory doc, leaving the user with a
+# "captured but disappeared" PDF in their vault. Capping at 700 KB
+# keeps the encoded payload under ~933 KB, leaving comfortable
+# headroom for the rest of the doc fields (summary, key points,
+# tags, etc.). Larger PDFs still get captured — the text is parsed
+# and analyzed and saved as a normal memory; only the inline-embed
+# bytes are dropped, and the UI shows a "PDF too large to embed"
+# placeholder with the original file name.
 
 # How much raw text to send to the LLM for richer analysis (PDFs in particular).
 ANALYSIS_TEXT_BUDGET = 14000
@@ -522,30 +533,61 @@ async def _atomic_create_memory(memory_doc: dict, user_id: str, source_url: str,
     document with a new auto-generated ID — otherwise the URL collision would
     silently overwrite/return the existing doc and "Save anyway" would be a
     no-op for URL captures."""
-    try:
-        db = await get_db()
+    # Heavy fields that we'll drop on a retry if Firestore rejects the
+    # write for being too large. These are inline binary payloads that
+    # blow past the 1 MiB doc limit when the source file is bigger than
+    # our cap or when multiple attached binaries pile up.
+    _HEAVY_FIELDS = ("pdf_data", "image_data")
+
+    async def _do_write(doc: dict) -> dict:
         det_id = None if force_new else _memory_doc_id(user_id, source_url)
         if det_id:
             doc_ref = db.collection("memories").document(det_id)
             existing = await doc_ref.get()
             if getattr(existing, "exists", False):
                 md = await _doc_to_memory_dict(existing) or {"id": det_id}
-                memory_doc["id"] = det_id
-                memory_doc["duplicate"] = True
-                memory_doc["existing"] = md
-                return memory_doc
+                doc["id"] = det_id
+                doc["duplicate"] = True
+                doc["existing"] = md
+                return doc
             # Persist a normalized source_url so legacy `where` queries also hit this row
-            memory_doc["source_url"] = _normalize_url(source_url) or source_url
-            await doc_ref.set(memory_doc)
-            memory_doc["id"] = det_id
-            return memory_doc
-        # No URL → auto-id
-        _, doc_ref = await db.collection("memories").add(memory_doc)
-        memory_doc["id"] = doc_ref.id
-        return memory_doc
+            doc["source_url"] = _normalize_url(source_url) or source_url
+            await doc_ref.set(doc)
+            doc["id"] = det_id
+            return doc
+        _, doc_ref = await db.collection("memories").add(doc)
+        doc["id"] = doc_ref.id
+        return doc
+
+    try:
+        db = await get_db()
+        try:
+            return await _do_write(memory_doc)
+        except Exception as first_err:
+            # If the initial write failed AND we have heavy inline fields,
+            # retry once with those stripped so the memory still lands in
+            # the vault (with text + summary + metadata). Better than the
+            # silent "mock_id_*" fake-success path that used to leave the
+            # PDF entirely missing from the user's library.
+            heavy_present = [k for k in _HEAVY_FIELDS if memory_doc.get(k)]
+            if not heavy_present:
+                raise
+            print(
+                f"Firestore Save Retry: dropping heavy fields {heavy_present} "
+                f"after first attempt failed: {first_err}"
+            )
+            slim = {k: v for k, v in memory_doc.items() if k not in _HEAVY_FIELDS}
+            slim["embed_dropped"] = True
+            slim["embed_dropped_reason"] = "doc_too_large"
+            slim["embed_dropped_fields"] = heavy_present
+            return await _do_write(slim)
     except Exception as db_e:
-        print(f"Firestore Save Error: {db_e}")
+        # Last-ditch fallback so the frontend doesn't completely lose
+        # the capture. The mock_id makes it obvious this didn't persist.
+        print(f"Firestore Save Error (final): {db_e}")
         memory_doc["id"] = f"mock_id_{int(datetime.datetime.now().timestamp())}"
+        memory_doc["save_failed"] = True
+        memory_doc["save_error"] = str(db_e)
         return memory_doc
 
 

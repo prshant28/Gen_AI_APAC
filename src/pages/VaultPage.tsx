@@ -864,7 +864,37 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                       {selectedMemory.pdf_pages && <span>{selectedMemory.pdf_pages} pages</span>}
                       {selectedMemory.pdf_size_kb && <span>{selectedMemory.pdf_size_kb} KB</span>}
                       {selectedMemory.pdf_word_count && <span>~{selectedMemory.pdf_word_count.toLocaleString()} words</span>}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedMemory.pdf_data) return;
+                          fetch(selectedMemory.pdf_data)
+                            .then(r => r.blob())
+                            .then(blob => {
+                              const u = URL.createObjectURL(blob);
+                              window.open(u, '_blank', 'noopener,noreferrer');
+                              setTimeout(() => URL.revokeObjectURL(u), 60000);
+                            })
+                            .catch(() => window.open(selectedMemory.pdf_data!, '_blank', 'noopener,noreferrer'));
+                        }}
+                        data-testid="button-open-pdf-vault"
+                        style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', border: '1px solid var(--primary-border)', borderRadius: 7, background: 'var(--primary-bg)', fontFamily: 'inherit' }}
+                      >
+                        Open in new tab
+                      </button>
+                      <a href={selectedMemory.pdf_data} download={`${selectedMemory.title}.pdf`}
+                        data-testid="link-download-pdf-vault"
+                        style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)' }}>
+                        Download
+                      </a>
                     </div>
+                  </div>
+                )}
+                {selectedMemory.source_type === 'pdf' && !selectedMemory.pdf_data && (
+                  <div style={{ marginBottom: 18, padding: '14px 16px', borderRadius: 12, border: '1px dashed var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-3)' }}>
+                    <FileText size={14} color="#f59e0b" />
+                    <span style={{ color: 'var(--text-2)', fontWeight: 700 }}>PDF too large to embed inline.</span>
+                    <span>Text was extracted and analyzed — full inline preview is available for files under 700 KB.</span>
                   </div>
                 )}
 
