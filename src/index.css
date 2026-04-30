@@ -1130,3 +1130,19 @@ h6.md-h { font-size: 12.5px; color: var(--text-2); }
 @media (max-width: 480px) {
   .view-card { padding: 12px !important; border-radius: 12px !important; }
 }
+
+/* Compact agent markdown inside the small chat bubble on the memory page */
+.agent-msg-bubble .md-msg { font-size: 12.5px; }
+.agent-msg-bubble .md-p { font-size: 12.5px; margin: 5px 0; line-height: 1.6; }
+.agent-msg-bubble .md-li { font-size: 12.5px; line-height: 1.55; margin: 2px 0; }
+.agent-msg-bubble .md-ul, .agent-msg-bubble .md-ol { padding-left: 18px; margin: 4px 0; }
+.agent-msg-bubble h3.md-h { font-size: 14px; margin: 10px 0 4px; }
+.agent-msg-bubble h4.md-h { font-size: 13px; margin: 8px 0 4px; }
+.agent-msg-bubble h5.md-h { font-size: 12px; margin: 8px 0 3px; }
+.agent-msg-bubble h6.md-h { font-size: 11.5px; margin: 6px 0 3px; }
+.agent-msg-bubble .md-msg > *:first-child { margin-top: 0 !important; }
+.agent-msg-bubble .md-msg > *:last-child { margin-bottom: 0 !important; }
+.agent-msg-bubble .md-code-inline { font-size: 11.5px; padding: 1px 5px; }
+.agent-msg-bubble .md-pre { padding: 8px 10px; margin: 6px 0; }
+.agent-msg-bubble .md-pre .md-code-block { font-size: 11px; }
+.agent-msg-bubble .md-quote { padding: 3px 10px; margin: 6px 0; font-size: 12px; }

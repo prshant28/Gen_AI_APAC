@@ -13,6 +13,7 @@ import { YouTubeEmbed } from '../lib/utils';
 import { showToast } from '../App';
 import type { Memory } from '../lib/types';
 import { RevisitScheduler } from '../components/RevisitScheduler';
+import { MarkdownMessage } from '../components/MarkdownMessage';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 const SRC = {
@@ -547,8 +548,13 @@ export default function MemoryDetailPage() {
                       <Bot size={13} color="#fff" />
                     </div>
                   )}
-                  <div style={{ maxWidth:'80%', padding:'9px 13px', borderRadius: m.role==='user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.role==='user' ? 'var(--primary)' : 'var(--surface-2)', color: m.role==='user' ? '#fff' : 'var(--text-1)', fontSize:12.5, lineHeight:1.65, border: m.role==='user' ? 'none' : '1px solid var(--border)' }}>
-                    {m.loading ? <Loader2 size={13} style={{ animation:'spin 1s linear infinite' }} /> : m.content}
+                  <div className={m.role === 'assistant' ? 'agent-msg-bubble' : undefined}
+                    style={{ maxWidth:'80%', padding:'10px 14px', borderRadius: m.role==='user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.role==='user' ? 'var(--primary)' : 'var(--surface-2)', color: m.role==='user' ? '#fff' : 'var(--text-1)', fontSize:12.5, lineHeight:1.65, border: m.role==='user' ? 'none' : '1px solid var(--border)' }}>
+                    {m.loading
+                      ? <Loader2 size={13} style={{ animation:'spin 1s linear infinite' }} />
+                      : m.role === 'assistant'
+                        ? <MarkdownMessage content={m.content} />
+                        : m.content}
                   </div>
                 </div>
               ))}
