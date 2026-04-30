@@ -2216,7 +2216,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                         <Upload size={26} color="var(--text-3)" />
                       </div>
                       <p style={{ fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Drop file or click to upload</p>
-                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>PDF, TXT, MD · AI extracts and structures all content · Max 25 MB</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>PDF, TXT, MD · AI extracts &amp; structures all content · Max 25 MB</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '8px auto 0', maxWidth: 460, lineHeight: 1.5, padding: '7px 11px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.30)', borderRadius: 8 }}
+                        title="Firestore caps each document at 1 MiB. PDFs are stored base64 (~33% inflation), so ~700 KB raw is the largest that fits with the rest of the metadata.">
+                        <b style={{ color: '#f59e0b' }}>Heads up:</b> only PDFs <b>under ~700 KB</b> get the inline viewer on the memory page. Bigger PDFs are still parsed &amp; their text saved (so search/agents work), but the binary won&apos;t be embedded — host it on Drive/Dropbox if you want to view the original later.
+                      </p>
                     </div>
                   ) : (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -2231,6 +2235,12 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                           <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>
                             {(pdfFile.size / 1024 / 1024).toFixed(2)} MB · ready — click <b>Run Pipeline</b> below
                           </p>
+                          {/.pdf$/i.test(pdfFile.name) && pdfFile.size > 700 * 1024 && (
+                            <p style={{ fontSize: 10.5, color: '#f59e0b', margin: '4px 0 0', fontWeight: 600 }}
+                              title="Inline-embed cap is ~700 KB raw (Firestore 1 MiB doc limit, base64 inflation). Bigger PDFs still parse and save their text.">
+                                Above 700 KB — text will be saved &amp; searchable, but inline PDF viewer will be skipped.
+                            </p>
+                          )}
                         </div>
                         <button onClick={() => setPdfFile(null)}
                           style={{ padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>

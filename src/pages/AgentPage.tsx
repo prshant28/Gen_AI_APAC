@@ -13,6 +13,7 @@ import MessageToolbar from '../components/MessageToolbar';
 import ActionResultCards, { ROUTE_MAP } from '../components/ActionResultCards';
 import { LiveInlineGate } from '../components/LiveChatPanel';
 import AutoGrowTextarea from '../components/AutoGrowTextarea';
+import NavRedirectCard from '../components/NavRedirectCard';
 
 // ─── Persisted chat storage (cleared on sign-out by App.handleSignOut) ────
 const STORAGE_KEY_CURRENT = 'agent-hub-current-chat-v1';
@@ -78,6 +79,34 @@ const AGENT_LABEL: Record<string, string> = {
   AnalyticsAgent: 'Insights',
 };
 const friendlyAgent = (a: string) => AGENT_LABEL[a] || a.replace('Agent', '');
+
+// Per-tool human-readable verb for the Live Pipeline panel. Mapped on the
+// frontend (rather than threading through the SSE stream) because the
+// backend's TOOLS list is stable and we want the label to update the moment
+// `agent_start` arrives — before the tool body even runs. Falls back to the
+// agent's friendly name when we don't recognize the tool.
+// Keys MUST match the backend tool names emitted in `agent_start` events
+// (see TOOL_AGENT_MAP / TOOL_DISPLAY_NAMES in app/coordinator.py). If you
+// add a new tool there, add the friendly verb here so the Live Pipeline
+// panel can render the actual current task instead of falling back to the
+// generic "X working" label.
+const AGENT_TASK_VERB: Record<string, string> = {
+  capture_knowledge:   'Capturing knowledge',
+  recall_knowledge:    'Searching your memories',
+  list_memories:       'Listing your memories',
+  create_task:         'Creating a task',
+  list_tasks:          'Fetching your tasks',
+  schedule_event:      'Adding to your calendar',
+  list_schedule:       'Fetching your schedule',
+  get_daily_briefing:  'Building your daily briefing',
+  get_knowledge_stats: 'Crunching your vault stats',
+  generate_study_plan: 'Drafting a study plan',
+};
+
+const taskVerbForStep = (agent: string, tool?: string): string => {
+  if (tool && AGENT_TASK_VERB[tool]) return AGENT_TASK_VERB[tool];
+  return `${friendlyAgent(agent)} working`;
+};
 
 // Format a duration in ms as a short human-readable string ("420ms" / "2.4s" / "1m 12s").
 // Uses integer-second math at the minute boundary to avoid "1m 60s" rollover artifacts.
@@ -664,12 +693,18 @@ const AgentHubView = () => {
       }
       case 'navigate': {
         // Backend decided this user message belongs on a dedicated page.
-        // Drop the thinking placeholder, leave a tiny breadcrumb in chat
-        // so the user knows what happened, and route there with the
-        // original query prefilled.
+        // Instead of yanking the user there silently, render a NavRedirectCard
+        // in chat: short reason + preview of the top items + an explicit
+        // "Open <Page>" button + a soft 4.5s auto-redirect with countdown.
+        // This satisfies two product asks at once:
+        //   1) "Don't dump everything in chat — show some + redirect for the rest"
+        //   2) "When redirecting, tell the user before it happens"
         const path = (event.path as string) || '/recall';
         const q = (event.query as string) || '';
-        const reply = (event.message as string) || 'Opening…';
+        const reply = (event.message as string) || 'Redirecting…';
+        const pageLabel = (event.page_label as string) || 'page';
+        const reason = (event.reason as string) || 'Opening the dedicated page for the full view.';
+        const preview = Array.isArray(event.preview) ? event.preview : [];
         // Record so any follow-up workflow_complete with the same reply
         // text gets ignored and we don't render the message twice.
         lastNavigateRef.current = { workflowId: event.workflow_id, reply, ts: Date.now() };
@@ -678,16 +713,15 @@ const AgentHubView = () => {
           {
             id: `nav-${Date.now()}`,
             role: 'assistant' as const,
-            type: 'text' as const,
+            type: 'nav' as const,
             content: reply,
             ts: new Date().toISOString(),
+            nav: { path, query: q, pageLabel, reason, preview },
           },
         ]);
         setAgentStatuses({});
-        try {
-          const dest = q ? `${path}?q=${encodeURIComponent(q)}` : path;
-          navigate(dest);
-        } catch {}
+        // No imperative navigate() here — NavRedirectCard handles the
+        // soft auto-redirect (and the user-initiated one) itself.
         break;
       }
       case 'error':
@@ -777,25 +811,68 @@ const AgentHubView = () => {
             currently-active specialist whenever one is running. */}
         {(() => {
           const ALL_AGENTS = Object.keys(AGENT_LABEL);
-          const activeAgent = ALL_AGENTS.find(a => agentStatuses[a] === 'running');
+          // Prefer a non-Coordinator/Orchestrator running agent — the
+          // Coordinator marks itself "running" for the entire turn while
+          // sub-agents come and go, so picking it would make the panel
+          // permanently say "Now: Coordinator" instead of the actual
+          // worker (CaptureAgent, TaskAgent, etc). Only fall back to it
+          // when nobody else is currently working.
+          const isMeta = (a: string) => a === 'Orchestrator' || a === 'Coordinator';
+          const runningSpecialist = ALL_AGENTS.find(a => !isMeta(a) && agentStatuses[a] === 'running');
+          const runningMeta = ALL_AGENTS.find(a => isMeta(a) && agentStatuses[a] === 'running');
+          const activeAgent = runningSpecialist || runningMeta;
           const anyDone = Object.values(agentStatuses).some(s => s === 'done');
+          // Pull the most recent in-flight step from the latest thinking/steps
+          // message — that's where `agent_start` events accumulate. Used to
+          // derive the human-readable "what is it actually doing right now"
+          // line that anchors the Live Pipeline panel.
+          const lastInflight = [...messages].reverse().find(m => (m.type === 'thinking' || m.type === 'steps') && m.steps && m.steps.length > 0);
+          const liveStep = lastInflight?.steps?.slice().reverse().find(s => s.status === 'running')
+            || lastInflight?.steps?.[lastInflight!.steps!.length - 1];
+          const currentTaskVerb = activeAgent
+            ? taskVerbForStep(activeAgent, liveStep?.tool)
+            : (isStreaming ? 'Coordinator is planning your request' : '');
+          // Pipeline trail: friendly agent names in execution order, deduped.
+          const trailSeen = new Set<string>();
+          const trail: string[] = [];
+          for (const s of (lastInflight?.steps || [])) {
+            const lbl = AGENT_LABEL[s.agent];
+            if (lbl && !trailSeen.has(lbl)) { trailSeen.add(lbl); trail.push(lbl); }
+          }
           return (
             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-              style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}>
-                <Cpu size={11} color="#a78bfa" /> Live agents
-              </span>
-              {activeAgent ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 14, fontSize: 10.5, fontWeight: 700, color: '#f59e0b', flexShrink: 0 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', animation: 'pulse 1.2s ease-in-out infinite' }} />
-                  Now: {AGENT_LABEL[activeAgent]}
+              style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '11px 13px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+              {/* Row 1 — header + Now: <Agent> — <task verb> */}
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}>
+                  <Cpu size={11} color="#a78bfa" /> Live pipeline
                 </span>
-              ) : (
-                <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-3)', flexShrink: 0 }}>
-                  {anyDone ? 'All done' : 'Standing by'}
-                </span>
-              )}
-              <div style={{ flex: 1, height: 1, background: 'var(--border)', minWidth: 12 }} />
+                {activeAgent ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 14, fontSize: 11, fontWeight: 700, color: '#f59e0b', minWidth: 0 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
+                    <span style={{ flexShrink: 0 }}>Now: {AGENT_LABEL[activeAgent]}</span>
+                    <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>—</span>
+                    <span style={{ color: 'var(--text-1)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={currentTaskVerb}>
+                      {currentTaskVerb}
+                    </span>
+                  </span>
+                ) : isStreaming ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.30)', borderRadius: 14, fontSize: 11, fontWeight: 700, color: '#a78bfa' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa', animation: 'pulse 1.2s ease-in-out infinite' }} />
+                    Coordinator planning…
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}>
+                    {anyDone ? 'All done' : 'Standing by — ask me anything'}
+                  </span>
+                )}
+                {trail.length > 0 && (
+                  <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
+                    pipeline: {trail.join(' → ')}
+                  </span>
+                )}
+              </div>
+              {/* Row 2 — full agent roster pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {ALL_AGENTS.map(agent => {
                   const status = agentStatuses[agent] || 'idle';
@@ -808,7 +885,7 @@ const AgentHubView = () => {
                   return (
                     <span key={agent}
                       title={`${label} — ${statusLabel}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: bg, border: `1px solid ${borderColor}`, borderRadius: 16, fontSize: 11, fontWeight: 700, color: textColor, opacity: status === 'idle' ? 0.6 : 1 }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: bg, border: `1px solid ${borderColor}`, borderRadius: 16, fontSize: 11, fontWeight: 700, color: textColor, opacity: status === 'idle' ? 0.55 : 1 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, boxShadow: status === 'running' ? `0 0 6px ${dotColor}` : 'none', animation: status === 'running' ? 'pulse 1.2s ease-in-out infinite' : 'none' }} />
                       {label}
                       <span style={{ color: 'var(--text-3)', fontWeight: 500, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{statusLabel}</span>
@@ -912,6 +989,28 @@ const AgentHubView = () => {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Pre-redirect notice card — replaces silent navigate(). The
+                    backend's `navigate` event is rendered as one of these
+                    cards instead of pushing the route imperatively, so the
+                    user sees: short reason + preview of top items + an
+                    "Open <Page>" button + a 4.5s soft countdown. */}
+                {msg.type === 'nav' && msg.nav && (
+                  <NavRedirectCard
+                    path={msg.nav.path}
+                    query={msg.nav.query}
+                    pageLabel={msg.nav.pageLabel}
+                    reason={msg.nav.reason}
+                    preview={msg.nav.preview}
+                    alreadyAutoNavigated={msg.nav.autoNavigated}
+                    createdAtMs={msg.ts ? Date.parse(msg.ts) : undefined}
+                    onAutoNavigated={() => {
+                      setMessages(prev => prev.map(m => m.id === msg.id && m.nav
+                        ? { ...m, nav: { ...m.nav, autoNavigated: true } }
+                        : m));
+                    }}
+                  />
                 )}
 
                 {/* Streaming markdown */}

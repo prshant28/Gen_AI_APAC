@@ -70,11 +70,30 @@ export interface AgentMsg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  type: 'text' | 'thinking' | 'steps' | 'welcome' | 'streaming';
+  type: 'text' | 'thinking' | 'steps' | 'welcome' | 'streaming' | 'nav';
   steps?: AgentStepData[];
   agents?: string[];
   workflow_id?: string;
   ts: string;
+  // For type:'nav' — pre-redirect notice card. Shows the user a short
+  // explanation, an inline preview of the top-N matching items, and an
+  // explicit "Open" button so they confirm the route change instead of
+  // being yanked there silently.
+  nav?: {
+    path: string;            // e.g. "/focus", "/calendar"
+    query?: string;          // optional ?q= for the destination page's search box
+    pageLabel: string;       // human label for the destination ("Focus", "Calendar")
+    reason: string;          // one-line explainer ("Showing top 3 — open Focus for the full list")
+    preview?: NavPreviewItem[];
+    autoNavigated?: boolean; // becomes true after the soft auto-redirect fires
+  };
+}
+
+export interface NavPreviewItem {
+  id?: string;
+  title: string;
+  subtitle?: string;
+  icon?: 'task' | 'event' | 'memory' | 'note';
 }
 
 export interface AgentStepData {

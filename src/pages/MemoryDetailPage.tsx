@@ -392,10 +392,18 @@ export default function MemoryDetailPage() {
                 <FileText size={22} color="#f59e0b" style={{ flexShrink:0 }} />
                 <div style={{ flex:1, minWidth:200 }}>
                   <p style={{ fontSize:13, fontWeight:700, color:'var(--text-1)', margin:0 }}>PDF not embedded</p>
-                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>
-                    {pdfReuploading
-                      ? 'Re-uploading and parsing — hang tight...'
-                      : 'The PDF binary isn\'t saved with this memory yet. Re-upload the same file (under ~700 KB) to view it inline here.'}
+                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0', lineHeight:1.5 }}>
+                    {pdfReuploading ? (
+                      'Re-uploading and parsing — hang tight…'
+                    ) : (
+                      <>
+                        The PDF binary isn&apos;t saved with this memory yet. Re-upload to view inline — file must be <b>under ~700 KB</b>.
+                        <br />
+                        <span style={{ color:'var(--text-3)' }}>
+                          Why the small cap? PDFs are stored as base64 inside the memory document, and our database (Firestore) caps each document at 1 MiB. ~700 KB raw PDF ≈ 933 KB base64, which is the largest that reliably fits with the rest of the memory metadata. For bigger files, keep the PDF on Drive / Dropbox and paste the link as a separate memory.
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <input
@@ -417,7 +425,7 @@ export default function MemoryDetailPage() {
                     // stripped before save. Stop early with a friendly
                     // message instead of letting the user wait for a 413.
                     if (file.size > 700 * 1024) {
-                      showToast('PDF too large for inline view — keep it under ~700 KB', 'error');
+                      showToast(`PDF too big for inline view (${(file.size / 1024).toFixed(0)} KB). Database doc cap is ~700 KB raw — host bigger PDFs externally and link them.`, 'error');
                       return;
                     }
                     setPdfReuploading(true);

@@ -819,20 +819,84 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
     # If the user clearly wants to recall / list / open another page, redirect
     # there instead of running the planning loop. The dedicated pages handle
     # the search, render proper cards, and preserve focus for follow-ups.
+    #
+    # Per Apr 30 product update: instead of yanking the user to the page
+    # silently, we attach a small `preview` of the top-N items + a friendly
+    # `page_label` + `reason`. The frontend renders this as a "Redirecting…"
+    # card with a 4-5s soft countdown the user can pre-empt. They get
+    # immediate value (top 3-5 items) without us dumping the full list into
+    # chat and without surprising them with a page switch.
     nav = _classify_navigate_intent(message)
     if nav:
         path, prefilled = nav
-        nav_reply = {
-            "/recall":    "Opening Recall…",
-            "/tasks":     "Opening Tasks…",
-            "/calendar":  "Opening your Calendar…",
-            "/notes":     "Opening Notes…",
-            "/vault":     "Opening your Vault…",
-            "/briefing":  "Opening today's Briefing…",
-        }.get(path, "Opening…")
+        # Map each canonical nav path to (frontend_path, page_label,
+        # short_reason, preview_fetcher). Frontend paths point to the real
+        # hub-tab URL the legacy single-page route now lives at — so the
+        # client doesn't bounce through a RedirectWithBanner.
+        nav_meta = {
+            "/recall":   ("/recall",            "Recall",   "I'll search there with your phrase prefilled — Recall renders the full results with proper cards."),
+            "/tasks":    ("/focus",             "Focus",    "Showing your top pending tasks — open Focus for the full list, filters and bulk actions."),
+            "/calendar": ("/calendar",          "Calendar", "Showing your next few events — open Calendar for the full week and quick scheduling."),
+            "/notes":    ("/library?tab=notes", "Library",  "Showing your latest notes — open Library for the full archive, tags and search."),
+            "/vault":    ("/library?tab=vault", "Library",  "Showing your latest captures — open Library for tags, smart collections and bulk actions."),
+            "/briefing": ("/briefing",          "Daily Briefing", "Pulling together today's briefing — opening the full view."),
+        }
+        front_path, page_label, reason = nav_meta.get(path, (path, path.lstrip("/").title() or "Page", "Opening the dedicated page for the full view."))
+
+        # Best-effort preview fetch — each branch is wrapped in its own
+        # try/except AND a tight `asyncio.wait_for` so a slow Firestore
+        # call can never delay the redirect card. Preview is non-essential;
+        # the destination page re-fetches on mount and will show the
+        # full list either way.
+        preview: list[dict] = []
+        PREVIEW_TIMEOUT_S = 1.5
+        try:
+            if path == "/tasks":
+                from app.task_agent import list_tasks as _list_tasks
+                rows = await asyncio.wait_for(_list_tasks(status="pending", limit=3), timeout=PREVIEW_TIMEOUT_S)
+                for r in rows:
+                    title = (r.get("text") or r.get("title") or "Untitled task").strip()
+                    due = r.get("due_date") or r.get("due") or ""
+                    sub = f"due {due}" if due else (r.get("priority") and f"priority: {r['priority']}") or ""
+                    preview.append({"id": r.get("id"), "title": title[:90], "subtitle": sub[:60] if sub else None, "icon": "task"})
+            elif path == "/calendar":
+                from app.calendar_agent import list_upcoming_events as _list_events
+                rows = await asyncio.wait_for(_list_events(days=14), timeout=PREVIEW_TIMEOUT_S)
+                for r in (rows or [])[:3]:
+                    title = (r.get("title") or "Untitled event").strip()
+                    when = " ".join(filter(None, [r.get("date"), r.get("time")])).strip()
+                    preview.append({"id": r.get("id"), "title": title[:90], "subtitle": when[:60] if when else None, "icon": "event"})
+            elif path == "/vault":
+                from app.recall_agent import list_memories as _list_mem
+                rows = await asyncio.wait_for(_list_mem(limit=3), timeout=PREVIEW_TIMEOUT_S)
+                for r in (rows or [])[:3]:
+                    title = (r.get("title") or "Untitled").strip()
+                    src = (r.get("source_type") or "").upper()
+                    domain = r.get("domain") or ""
+                    sub = " · ".join([s for s in [src, domain] if s])
+                    preview.append({"id": r.get("id"), "title": title[:90], "subtitle": sub[:60] if sub else None, "icon": "memory"})
+            elif path == "/notes":
+                # Notes don't have a dedicated module helper; skip preview
+                # rather than reach into Firestore directly here.
+                pass
+        except asyncio.TimeoutError:
+            # Slow backend — ship the redirect anyway, destination page
+            # will load the real data on mount.
+            print(f"[coordinator] nav preview fetch timed out for {path} (>{PREVIEW_TIMEOUT_S}s); shipping redirect without preview")
+        except Exception as e:  # noqa: BLE001
+            print(f"[coordinator] nav preview fetch failed for {path}: {e}")
+
+        # Short header line that goes into the assistant bubble's content.
+        # Kept ultra-terse because the NavRedirectCard already shows the
+        # full reason + preview + button.
+        nav_reply = f"Redirecting to {page_label}…"
+
         yield sse("navigate", {
-            "path": path,
+            "path": front_path,
             "query": prefilled,
+            "page_label": page_label,
+            "reason": reason,
+            "preview": preview,
             "message": nav_reply,
             "workflow_id": workflow.id,
             "reply": nav_reply,
