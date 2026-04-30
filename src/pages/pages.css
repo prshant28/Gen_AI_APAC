@@ -4795,3 +4795,173 @@
     padding-bottom: 14px !important;
   }
 }
+
+/* ── Study Plan inputs grid — mobile responsive ─────────────────────── */
+.studyplan-input-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(180px, 1fr) 100px 130px;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 720px) {
+  .studyplan-input-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .studyplan-input-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 420px) {
+  .studyplan-input-grid {
+    grid-template-columns: 1fr;
+  }
+  .studyplan-input-grid > div:first-child {
+    grid-column: auto;
+  }
+}
+
+/* ── Dashboard briefing card — pending tasks ─────────────────────────── */
+.dash-briefing-tasks {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.dash-briefing-tasks-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.dash-briefing-task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+.dash-briefing-task-row:hover {
+  border-color: var(--primary-border);
+  transform: translateX(2px);
+}
+.dash-briefing-task-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dash-briefing-task-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-briefing-task-due {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.dash-briefing-task-due.overdue { color: #ef4444; }
+.dash-briefing-task-due.today { color: #f59e0b; }
+.dash-briefing-task-go {
+  flex-shrink: 0;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+}
+.dash-briefing-task-row:hover .dash-briefing-task-go {
+  color: var(--primary);
+}
+
+/* ── Daily Briefing page — pending tasks card ────────────────────────── */
+.briefing-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.briefing-pending-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-left: 3px solid var(--border);
+  transition: all 0.18s ease;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+.briefing-pending-task:hover {
+  border-color: var(--primary-border);
+  transform: translateX(2px);
+}
+.briefing-pending-task.pri-high   { border-left-color: #ef4444; }
+.briefing-pending-task.pri-medium { border-left-color: #f59e0b; }
+.briefing-pending-task.pri-low    { border-left-color: #10b981; }
+.briefing-pending-task-body {
+  flex: 1;
+  min-width: 0;
+}
+.briefing-pending-task-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.briefing-pending-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.briefing-pending-task-pri {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+.briefing-pending-task-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 11px;
+  background: var(--primary-bg);
+  border: 1px solid var(--primary-border);
+  color: var(--primary);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+.briefing-pending-task:hover .briefing-pending-task-go {
+  background: var(--primary);
+  color: #fff;
+}

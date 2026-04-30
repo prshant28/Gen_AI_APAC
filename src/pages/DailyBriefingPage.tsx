@@ -5,7 +5,7 @@ import {
   Sparkles, Volume2, Square, Pause, Play, RefreshCw, ListChecks, Clock,
   Calendar as CalendarIcon, BookOpen, History, Brain, ChevronRight, ExternalLink,
   CheckCircle2, Circle, Tag, Activity, TrendingUp, Hash, Bell, RotateCcw,
-  Target, Sparkle, AlertTriangle, Zap
+  Target, Sparkle, AlertTriangle, Zap, CheckSquare, ArrowUpRight
 } from 'lucide-react';
 import { showToast } from '../App';
 
@@ -154,6 +154,7 @@ export default function DailyBriefingPage() {
   const [recapLoading, setRecapLoading] = useState(false);
   const [advanced, setAdvanced] = useState<AdvancedResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
 
   // Audio (browser SpeechSynthesis) — incl. progress estimate driven by an
   // interval since the API has no native progress event in all browsers.
@@ -200,11 +201,12 @@ export default function DailyBriefingPage() {
 
   const loadAuxiliary = useCallback(async () => {
     try {
-      const [aRes, tRes, pRes, advRes] = await Promise.all([
+      const [aRes, tRes, pRes, advRes, ptRes] = await Promise.all([
         fetch('/briefing/actions'),
         fetch('/briefing/timeline'),
         fetch('/briefing/list?limit=14'),
         fetch('/dashboard/advanced'),
+        fetch('/tasks?status=pending&limit=8'),
       ]);
       if (aRes.ok) {
         const j = await aRes.json();
@@ -221,6 +223,10 @@ export default function DailyBriefingPage() {
       if (advRes.ok) {
         const j = await advRes.json();
         setAdvanced(j);
+      }
+      if (ptRes.ok) {
+        const j = await ptRes.json();
+        setPendingTasks(Array.isArray(j) ? j : []);
       }
     } catch { /* silent — page still works */ }
   }, []);
@@ -701,6 +707,57 @@ export default function DailyBriefingPage() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </section>
+
+              {/* Pending tasks — deep-link cards */}
+              <section className="briefing-card">
+                <div className="briefing-card-head">
+                  <div className="briefing-card-eyebrow"><CheckSquare size={12} /> PENDING TASKS</div>
+                  <span className="briefing-count">{pendingTasks.length} open</span>
+                </div>
+                {pendingTasks.length === 0 ? (
+                  <div className="briefing-empty">No pending tasks — you're all caught up. Add one from the Tasks page.</div>
+                ) : (
+                  <div className="briefing-pending-list">
+                    {pendingTasks.slice(0, 5).map((t) => {
+                      const priKey = (t.priority === 'high' || t.priority === 'low') ? t.priority : 'medium';
+                      const priColor = priKey === 'high' ? '#ef4444' : priKey === 'low' ? '#10b981' : '#f59e0b';
+                      const priBg = priKey === 'high' ? 'rgba(239,68,68,0.12)' : priKey === 'low' ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';
+                      const dueInfo = (() => {
+                        if (!t.due_date) return { label: '', overdue: false };
+                        const d = new Date(`${t.due_date}T00:00:00`);
+                        if (Number.isNaN(d.getTime())) return { label: '', overdue: false };
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+                        let label = '';
+                        if (diff < 0) label = `${Math.abs(diff)}d overdue`;
+                        else if (diff === 0) label = 'Due today';
+                        else if (diff === 1) label = 'Due tomorrow';
+                        else if (diff < 7) label = `Due in ${diff}d`;
+                        else label = `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                        return { label, overdue: diff < 0 };
+                      })();
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`briefing-pending-task pri-${priKey}`}
+                          onClick={() => navigate(`/tasks?focus=${encodeURIComponent(t.id)}`)}
+                        >
+                          <div className="briefing-pending-task-body">
+                            <div className="briefing-pending-task-title">{t.title}</div>
+                            <div className="briefing-pending-task-meta">
+                              <span className="briefing-pending-task-pri" style={{ color: priColor, background: priBg }}>{priKey}</span>
+                              {dueInfo.label && <span style={{ color: dueInfo.overdue ? '#ef4444' : 'var(--text-3)' }}>{dueInfo.label}</span>}
+                              {t.category && <span>· {t.category}</span>}
+                            </div>
+                          </div>
+                          <span className="briefing-pending-task-go">Go to <ArrowUpRight size={11} /></span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </section>
             </div>

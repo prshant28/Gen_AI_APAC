@@ -524,9 +524,18 @@ const ALL_NAV = [
    destination hub can show a one-time "X now lives in Y" banner via
    LegacyRedirectBanner. Direct visits (no state) show no banner.
 ────────────────────────────────────────────── */
-const RedirectWithBanner: React.FC<{ from: string; to: string }> = ({ from, to }) => (
-  <Navigate to={to} replace state={{ redirectedFrom: from }} />
-);
+const RedirectWithBanner: React.FC<{ from: string; to: string }> = ({ from, to }) => {
+  // Preserve the original query string when the redirect target doesn't have
+  // its own — keeps deep links like /tasks?focus=<id> working after the
+  // /tasks → /focus consolidation. If both sides have a query string, the
+  // target's wins (legacy explicit override).
+  const loc = useLocation();
+  let target = to;
+  if (loc.search && !to.includes('?')) {
+    target = `${to}${loc.search}`;
+  }
+  return <Navigate to={target} replace state={{ redirectedFrom: from }} />;
+};
 
 // Deep links into merged hub tabs/views — surfaced in the command palette
 // so users can jump straight to a sub-page (Library → Notes, Insights → Graph, etc.)

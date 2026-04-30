@@ -319,7 +319,7 @@ const PlanGeneratorPage: React.FC<PlanGeneratorPageProps> = ({ embedded = false 
       {/* Inputs card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         style={{ ...card, padding: '20px 22px', marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.6fr) minmax(180px, 1fr) 100px 130px', gap: 12, alignItems: 'end' }}>
+        <div className="studyplan-input-grid">
           <div>
             <label style={labelStyle}>Goal / Topic</label>
             <input type="text" value={topic} onChange={e => setTopic(e.target.value)}

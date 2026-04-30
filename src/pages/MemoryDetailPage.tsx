@@ -69,6 +69,10 @@ export default function MemoryDetailPage() {
   const [chatInput, setChatInput]     = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  // Per-mount random session id — keeps multi-turn context within a single
+  // page visit while preventing predictable session ids that could mix chat
+  // history across users (backend _SESSION_HISTORY is keyed by id only).
+  const chatSessionIdRef = useRef<string>(`memory-${Math.random().toString(36).slice(2, 12)}`);
 
   // Action state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -133,13 +137,13 @@ export default function MemoryDetailPage() {
     setChatLoading(true);
     try {
       const contextPrompt = `Context — Memory titled "${memory.title}":\n${memory.summary}\n\nKey points:\n${memory.key_points.join('\n')}\n\nUser question: ${text}`;
-      const res = await fetch('/agent', {
+      const res = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: contextPrompt }),
+        body: JSON.stringify({ message: contextPrompt, session_id: chatSessionIdRef.current }),
       });
       const data = await res.json();
-      const reply = data.response || data.content || data.message || 'I couldn\'t generate a response. Try again.';
+      const reply = data.reply || data.response || data.content || data.message || 'I couldn\'t generate a response. Try again.';
       setMsgs(m => m.map((x, i) => i === m.length - 1 ? { role:'assistant', content:reply } : x));
     } catch {
       setMsgs(m => m.map((x, i) => i === m.length - 1 ? { role:'assistant', content:'Something went wrong. Please try again.' } : x));
