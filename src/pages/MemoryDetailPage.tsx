@@ -6,6 +6,7 @@ import {
   Network, Send, Loader2, Bot, Zap, BookOpen, Share2, Copy, Clock,
   FlipHorizontal, Clipboard, Link2, ChevronRight, AlertCircle, Layers,
   MessageCircle, ListTodo, Bell, SquareArrowOutUpRight, RefreshCw,
+  ScanText, Image as ImageIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -362,6 +363,48 @@ export default function MemoryDetailPage() {
                   <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>This memory was captured before inline PDF embedding. Re-upload to view here.</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Image preview + recognized text — populated for memories created
+              from a session-tray image capture. The image is
+              rendered inline so the user can see what they captured, and the
+              OCR'd text is shown in a dedicated block so it's both readable
+              and search-friendly (the same text is also baked into the
+              memory's analyzed body, so semantic search picks it up). */}
+          {memory.image_data && (
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid var(--border)', background:'#0b0b0b', display:'flex', justifyContent:'center', alignItems:'center', maxHeight:560 }}>
+                <img src={memory.image_data} alt={memory.image_caption || memory.title}
+                  style={{ maxWidth:'100%', maxHeight:560, display:'block', objectFit:'contain' }} />
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:8, margin:'10px 0 0' }}>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:10.5, fontWeight:700, color:'#22d3ee', padding:'2px 8px', background:'rgba(34,211,238,0.10)', borderRadius:999, border:'1px solid rgba(34,211,238,0.25)' }}>
+                  <ImageIcon size={11} /> Image
+                </span>
+                {memory.image_caption && (
+                  <span style={{ fontSize:11.5, color:'var(--text-2)' }}>{memory.image_caption}</span>
+                )}
+                <a href={memory.image_data} download={`${memory.image_caption || memory.title || 'image'}.png`}
+                  style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'var(--primary)', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', border:'1px solid var(--primary-border)', borderRadius:8, background:'var(--primary-bg)' }}>
+                  <SquareArrowOutUpRight size={11} /> Download
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* OCR'd text body (if vision extracted any). Shown as monospaced
+              block so structured content like slide bullets / receipt lines
+              keep their shape. Hidden when empty — the AI summary above
+              already covers the gist. */}
+          {memory.image_data && memory.ocr_text && memory.ocr_text.trim() && (
+            <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
+              <h3 style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, fontWeight:800, color:'#22d3ee', margin:'0 0 10px', letterSpacing:0.6, textTransform:'uppercase' }}>
+                <ScanText size={13} color="#22d3ee" /> Recognized Text
+              </h3>
+              <pre style={{ margin:0, padding:'12px 14px', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, fontSize:12.5, lineHeight:1.6, color:'var(--text-1)', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', maxHeight:360, overflowY:'auto' }}>
+                {memory.ocr_text}
+              </pre>
             </div>
           )}
 

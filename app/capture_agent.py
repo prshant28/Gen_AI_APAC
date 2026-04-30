@@ -29,6 +29,71 @@ def get_openai_client() -> AsyncOpenAI:
     return get_primary_client()
 
 
+async def _ocr_image(data_url: str, *, caption_hint: str = "") -> str:
+    """Extract any visible text from a base64 data-URL image using a
+    vision-capable chat model (the primary AI client speaks the OpenAI
+    image_url content schema, which both Gemini-2.0-flash and
+    gpt-4o-mini honour). Returns the recognized text, or an empty string
+    on failure / when the image has no readable text. Best-effort: never
+    raises so the surrounding capture flow stays unblocked."""
+    if not data_url or not data_url.startswith("data:image/"):
+        return ""
+    instruction = (
+        "You are an OCR engine. Extract ALL legible text from this image, "
+        "preserving line breaks and reading order. If the image contains "
+        "slide bullets, lists, code, or table cells, keep that structure. "
+        "Do NOT summarize, translate, or add commentary. If there is no "
+        "readable text, reply with the single word: NONE."
+    )
+    if caption_hint:
+        instruction += f"\n\nCaller-supplied caption (context only): {caption_hint[:120]}"
+    try:
+        client = get_primary_client()
+        resp = await client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": instruction},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }],
+            temperature=0.0,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        # Fall back to OpenAI/OpenRouter if the primary refused or rate-limited.
+        print(f"_ocr_image primary error: {e}")
+        try:
+            from app.ai_helper import get_fallback_client
+            fb_client, fb_model = get_fallback_client()
+            if not fb_client:
+                return ""
+            resp = await fb_client.chat.completions.create(
+                model=fb_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": instruction},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }],
+                temperature=0.0,
+            )
+            text = (resp.choices[0].message.content or "").strip()
+        except Exception as e2:
+            print(f"_ocr_image fallback error: {e2}")
+            return ""
+    if not text:
+        return ""
+    # Normalize the model's "no text" sentinel.
+    if text.strip().upper() in {"NONE", "NO TEXT", "(NONE)", "N/A"}:
+        return ""
+    # Cap so a noisy OCR pass can't bloat the memory doc beyond the
+    # analysis budget downstream.
+    return text[:ANALYSIS_TEXT_BUDGET]
+
+
 async def analyze_with_openai(raw_text: str, model: str, *, source_type: str = "note") -> dict:
     """Generate a rich, structured analysis. The schema is the same across source
     types so the UI can render any subset; PDFs/web articles especially benefit
@@ -549,6 +614,13 @@ async def save_memory(memory_data: dict, user_id: str = "") -> dict:
         }
         # PDF-only optional fields
         for k in ("pdf_data", "pdf_pages", "pdf_size_kb", "pdf_word_count"):
+            if memory_data.get(k) is not None:
+                memory_doc[k] = memory_data.get(k)
+        # Image-only optional fields (session-tray OCR'd images).
+        # `image_data` is the base64 data URL so vault detail can render the
+        # original image; `image_caption` is the user-supplied label;
+        # `ocr_text` is the recognized text body so search and reading work.
+        for k in ("image_data", "image_caption", "ocr_text"):
             if memory_data.get(k) is not None:
                 memory_doc[k] = memory_data.get(k)
         # Free-form note from the user
@@ -1245,26 +1317,76 @@ async def process_capture_session(
                     continue
                 result = await capture(source_type="note", content=f"[Voice memo]\n{transcript}", user_id=user_id)
             elif kind == "image":
-                # Image items: caller passes caption/OCR text + a base64 data URL.
-                # We treat the caption as a note so it flows through the same pipeline,
-                # then attach the FULL data URL to the resulting memory doc under
-                # `image_data` so it round-trips to vault detail (mirrors how PDFs
-                # use `pdf_data`). Cap at MAX_EMBED_PDF_BYTES to avoid doc bloat.
+                # Image items: caller passes caption + a base64 data URL, optionally
+                # plus pre-computed `ocr_text` (frontend may have already kicked off
+                # OCR via /capture/ocr-image while the user was still building the
+                # tray). If no OCR was supplied we run vision OCR here so a slide /
+                # whiteboard / receipt screenshot becomes searchable text instead
+                # of an opaque caption.
+                #
+                # We treat the caption + OCR as a note so it flows through the same
+                # analysis pipeline, then attach the FULL data URL to the resulting
+                # memory doc under `image_data` so vault detail can render the
+                # original image (mirrors how PDFs use `pdf_data`). Cap at
+                # MAX_EMBED_PDF_BYTES to avoid Firestore doc bloat.
                 caption = (raw.get("caption") or raw.get("alt") or raw.get("title") or "Captured image").strip()
+                data_url = (raw.get("data_url") or "").strip()
                 ocr = (raw.get("ocr_text") or "").strip()
+                # Server-side cap on data-URL length sent to vision OCR —
+                # mirrors the /capture/ocr-image endpoint guard so a giant
+                # client upload can't run up model cost via this safety-net
+                # path either. Oversized images skip OCR but still get the
+                # caption-only / "too large to embed" handling below.
+                _ocr_cap = MAX_EMBED_PDF_BYTES * 4 // 3 + 1024
+                if not ocr and data_url and len(data_url) <= _ocr_cap:
+                    try:
+                        ocr = await _ocr_image(data_url, caption_hint=caption)
+                    except Exception as ocr_e:
+                        print(f"process_capture_session OCR error: {ocr_e}")
+                        ocr = ""
                 body = caption + (f"\n\nExtracted text:\n{ocr}" if ocr else "")
                 result = await capture(source_type="note", content=body, user_id=user_id)
                 if isinstance(result, dict):
-                    data_url = (raw.get("data_url") or "").strip()
+                    if ocr:
+                        result["ocr_text"] = ocr
                     # Rough byte estimate from base64 length (4 chars ≈ 3 bytes)
-                    if data_url and len(data_url) <= MAX_EMBED_PDF_BYTES * 4 // 3:
+                    embed_image = bool(data_url) and len(data_url) <= MAX_EMBED_PDF_BYTES * 4 // 3
+                    if embed_image:
                         result["image_data"] = data_url
                         result["image_caption"] = caption
-                        # Stamp a marker into notes so search / vault lists know
-                        result["notes"] = ((result.get("notes") or "") + f"\n\n[image attached · {caption}]").strip()
+                        marker = f"[image attached · {caption}"
+                        if ocr:
+                            marker += f" · {len(ocr.split())} words OCR'd"
+                        marker += "]"
+                        result["notes"] = ((result.get("notes") or "") + f"\n\n{marker}").strip()
                     elif data_url:
-                        # Too big to embed — store caption only and warn caller.
+                        # Too big to embed — store caption + OCR only and warn caller.
                         result["notes"] = ((result.get("notes") or "") + f"\n\n[image too large to embed · {caption}]").strip()
+                    # capture() above already persisted the memory doc (no URL →
+                    # auto-id), so the downstream save_memory() call would only
+                    # see a content-hash duplicate and never write `image_data`
+                    # / `ocr_text` to the existing row. Patch the saved doc
+                    # directly so vault detail can render the image and the
+                    # recognized text. Best-effort — never fails the session.
+                    saved_id = result.get("id")
+                    if saved_id and (embed_image or ocr):
+                        try:
+                            db = await get_db()
+                            patch = {}
+                            if embed_image:
+                                patch["image_data"] = data_url
+                                patch["image_caption"] = caption
+                            if ocr:
+                                patch["ocr_text"] = ocr
+                            if result.get("notes"):
+                                patch["notes"] = result["notes"]
+                            doc_ref = db.collection("memories").document(saved_id)
+                            existing = await doc_ref.get()
+                            if getattr(existing, "exists", False):
+                                merged = (existing.to_dict() or {}) | patch
+                                await doc_ref.set(merged)
+                        except Exception as patch_e:
+                            print(f"process_capture_session image patch error: {patch_e}")
             else:
                 errors.append({"index": idx, "kind": kind, "error": f"unsupported kind: {kind!r}"})
                 continue

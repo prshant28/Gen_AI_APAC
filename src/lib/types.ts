@@ -35,6 +35,13 @@ export interface Memory {
   pdf_pages?: number;
   pdf_size_kb?: number;
   pdf_word_count?: number;
+  // Image-specific (optional, populated for memories created from a
+  // session-tray image). `image_data` is the original
+  // base64 data URL so vault detail can render the picture inline;
+  // `ocr_text` is the recognized text body extracted by vision OCR.
+  image_data?: string;      // data:image/...;base64,...
+  image_caption?: string;
+  ocr_text?: string;
   // Inbox triage flags
   reviewed?: boolean;
   archived?: boolean;

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.db import get_db, log_interaction, get_collection_count
 from app.coordinator import run_coordinator, run_coordinator_stream, clear_session_history, get_session_history
-from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session, check_duplicate, preview_capture_session
+from app.capture_agent import capture, save_memory, generate_flashcards, generate_study_plan, generate_daily_briefing, auto_tag_memory, transcribe_audio, bundle_recent_activity, process_capture_session, check_duplicate, preview_capture_session, _ocr_image
 from app.recall_agent import recall, list_memories, get_memory, delete_memory, get_stats
 from app.task_agent import create_task, list_tasks, complete_task, get_tasks_summary, delete_task
 from app.calendar_agent import create_event, list_upcoming_events, delete_event, get_event, import_ics_events
@@ -1152,6 +1152,45 @@ async def capture_session_endpoint(request: CaptureSessionRequest):
         hint=request.hint or "",
     )
     return result
+
+
+# ─── Image OCR ───────────────────────────────────────────────────────────
+# Called by the Capture page when an image is added to the session tray, so
+# the recognized text round-trips back BEFORE the user commits the session.
+# The `process_capture_session` flow also runs OCR server-side as a safety
+# net if the frontend skipped this call (e.g. user committed too fast).
+
+class OcrImageRequest(BaseModel):
+    data_url: str = ""
+    caption: Optional[str] = ""
+
+
+# Server-side cap on data-URL length sent to vision OCR. The base64 payload
+# expands the binary by ~4/3, so this caps the original image at the same
+# 3 MB embed budget used elsewhere — protects against runaway model cost
+# and Firestore doc bloat from oversized client uploads.
+_OCR_DATA_URL_MAX_CHARS = (3 * 1024 * 1024) * 4 // 3 + 1024
+
+
+@app.post("/capture/ocr-image")
+async def capture_ocr_image_endpoint(request: OcrImageRequest):
+    """OCR a base64 data-URL image. Returns {ok, ocr_text, char_count}.
+    Best-effort — returns ok=true with empty text when the image has no
+    readable content; only fails the request on missing/invalid input."""
+    data_url = (request.data_url or "").strip()
+    if not data_url or not data_url.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="data_url must be a base64 data:image/* URL")
+    if len(data_url) > _OCR_DATA_URL_MAX_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail="image is too large for OCR (max ~3 MB original size)",
+        )
+    text = await _ocr_image(data_url, caption_hint=(request.caption or "").strip())
+    return {
+        "ok": True,
+        "ocr_text": text,
+        "char_count": len(text),
+    }
 
 
 # ─── Pre-save Duplicate Check ────────────────────────────────────────────

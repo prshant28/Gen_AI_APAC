@@ -295,7 +295,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     | { id: string; kind: 'note';  content: string }
     | { id: string; kind: 'link';  url: string }
     | { id: string; kind: 'voice'; transcript: string }
-    | { id: string; kind: 'image'; data_url: string; caption: string };
+    | { id: string; kind: 'image'; data_url: string; caption: string;
+        // OCR pipeline state — set when the image is first picked, then
+        // updated as the /capture/ocr-image round-trip progresses.
+        ocr_status?: 'reading' | 'done' | 'empty' | 'error';
+        ocr_text?: string };
 
   const [sessionMode, setSessionMode] = useState(false);
   const [sessionItems, setSessionItems] = useState<SessionItem[]>([]);
@@ -345,6 +349,14 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
       setSessionMode(true);
       setSessionResume(null);
       showToast(`Resumed ${savedItems.length} item${savedItems.length === 1 ? '' : 's'} from your last session`);
+      // Re-trigger OCR for any image items whose run was interrupted
+      // (status='reading') or failed previously (status='error') so the
+      // "Reading text…" pip resolves on its own without user action.
+      for (const it of savedItems as SessionItem[]) {
+        if (it.kind === 'image' && (it.ocr_status === 'reading' || it.ocr_status === 'error') && it.data_url) {
+          void runOcrForImage(it.id, it.data_url, it.caption);
+        }
+      }
     } catch { setSessionResume(null); }
   };
   const discardSavedSession = () => {
@@ -435,7 +447,7 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
             if (it.kind === 'note')  return { kind: 'note',  content: it.content };
             if (it.kind === 'link')  return { kind: 'link',  url: it.url };
             if (it.kind === 'voice') return { kind: 'voice', transcript: it.transcript };
-            return { kind: 'image', caption: it.caption };
+            return { kind: 'image', caption: it.caption, ocr_text: it.ocr_text || '' };
           }),
         }),
       });
@@ -508,6 +520,35 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     sessionVoice.setTranscript('');
   };
 
+  // Patch a single image session item by id (no-op if id is missing or the
+  // item is not an image kind). Used by the OCR round-trip to flip status
+  // and store the recognized text once the backend responds.
+  const patchSessionImage = (id: string, patch: Partial<Extract<SessionItem, { kind: 'image' }>>) => {
+    setSessionItems(prev => prev.map(it => (it.id === id && it.kind === 'image') ? { ...it, ...patch } : it));
+  };
+
+  // Kick off OCR for an image item. Best-effort — failures flip the pip to
+  // 'error' but never block the user from committing the session (the backend
+  // will OCR again as a safety net inside process_capture_session).
+  const runOcrForImage = async (id: string, dataUrl: string, caption: string) => {
+    try {
+      const r = await fetch('/capture/ocr-image', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data_url: dataUrl, caption }),
+      });
+      if (!r.ok) throw new Error(`OCR failed (${r.status})`);
+      const data = await r.json();
+      const text = (data?.ocr_text || '').trim();
+      patchSessionImage(id, {
+        ocr_text: text,
+        ocr_status: text ? 'done' : 'empty',
+      });
+    } catch {
+      patchSessionImage(id, { ocr_status: 'error' });
+    }
+  };
+
   const handleSessionImagePick = (file: File | null) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { showToast('Image too large (max 2MB)'); return; }
@@ -515,7 +556,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
     reader.onload = () => {
       const dataUrl = String(reader.result || '');
       if (!dataUrl) return;
-      addSessionItem({ id: newSessionId(), kind: 'image', data_url: dataUrl, caption: file.name.replace(/\.[^.]+$/, '') });
+      const id = newSessionId();
+      const caption = file.name.replace(/\.[^.]+$/, '');
+      addSessionItem({ id, kind: 'image', data_url: dataUrl, caption, ocr_status: 'reading', ocr_text: '' });
+      // Fire-and-forget OCR — UI shows a "Reading text…" pip until it returns.
+      void runOcrForImage(id, dataUrl, caption);
     };
     reader.readAsDataURL(file);
   };
@@ -537,7 +582,7 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
             if (it.kind === 'note')  return { kind: 'note',  content: it.content };
             if (it.kind === 'link')  return { kind: 'link',  url: it.url };
             if (it.kind === 'voice') return { kind: 'voice', transcript: it.transcript };
-            return { kind: 'image', data_url: it.data_url, caption: it.caption };
+            return { kind: 'image', data_url: it.data_url, caption: it.caption, ocr_text: it.ocr_text || '' };
           }),
           folder_mode: sessionFolderMode,
           folder_name: sessionFolderName.trim(),
@@ -1496,6 +1541,39 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                                 {sessionItemLabel(it)}
                               </span>
                             )}
+
+                            {/* OCR pip (image kind only) — surfaces the
+                                background "Reading text…" round-trip and the
+                                resulting word count once it returns. */}
+                            {!isEditing && it.kind === 'image' && it.ocr_status && (() => {
+                              const tone = it.ocr_status === 'reading'
+                                ? { color: 'var(--primary)', bg: 'var(--primary-bg)', border: 'var(--primary-border)' }
+                                : it.ocr_status === 'done'
+                                ? { color: '#10b981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.30)' }
+                                : it.ocr_status === 'empty'
+                                ? { color: 'var(--text-3)', bg: 'var(--surface)', border: 'var(--border)' }
+                                : { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.30)' };
+                              const wordCount = (it.ocr_text || '').trim().split(/\s+/).filter(Boolean).length;
+                              const label = it.ocr_status === 'reading' ? 'Reading text…'
+                                : it.ocr_status === 'done' ? `Text · ${wordCount}w`
+                                : it.ocr_status === 'empty' ? 'No text'
+                                : 'OCR retry';
+                              const title = it.ocr_status === 'done' && it.ocr_text
+                                ? it.ocr_text.slice(0, 400)
+                                : it.ocr_status === 'reading'
+                                ? 'Vision OCR is extracting text from this image.'
+                                : it.ocr_status === 'empty'
+                                ? 'Vision OCR found no readable text in this image.'
+                                : 'OCR failed. The backend will retry when the session is committed.';
+                              return (
+                                <span title={title}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                                    color: tone.color, background: tone.bg, border: `1px solid ${tone.border}`, flexShrink: 0 }}>
+                                  {it.ocr_status === 'reading' && <Loader2 size={9} className="spin" />}
+                                  {label}
+                                </span>
+                              );
+                            })()}
 
                             {/* Action buttons (hidden while editing) */}
                             {!isEditing && editable && (
