@@ -17,8 +17,6 @@ type LandingProps = {
 };
 
 // ── DATA ─────────────────────────────────────────────────────────
-const HERO_WORDS = ['thinks with you.', 'connects your ideas.', 'plans your week.', 'never forgets.', 'studies for you.'];
-
 const AGENTS = [
   { icon: Layers, name: 'Orchestrator', tagline: 'Routes intent', color: '#3b82f6', desc: 'Picks the right specialist for every query and streams the answer in real time via SSE.' },
   { icon: FileText, name: 'Capture', tagline: 'Universal ingest', color: '#22d3ee', desc: 'YouTube transcripts, web pages, PDFs, voice notes — all turned into clean tagged memory.' },
@@ -262,9 +260,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
   const [chatStep, setChatStep] = useState(1);
   const [activePersona, setActivePersona] = useState(0);
 
-  // Typewriter state — closure-driven, single state to avoid React 19 Strict Mode double-fire
-  const [displayText, setDisplayText] = useState(HERO_WORDS[0].slice(0, 1));
-
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -278,58 +273,6 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
-  // Typewriter cycling — closure-driven state machine (Strict-Mode safe, never empty)
-  useEffect(() => {
-    if (reduceMotion) {
-      setDisplayText(HERO_WORDS[0]);
-      return;
-    }
-    let cancelled = false;
-    let tid: ReturnType<typeof setTimeout>;
-    let wIdx = 0;
-    let curText = HERO_WORDS[0].slice(0, 1);
-    let phase: 'typing' | 'holding' | 'deleting' = 'typing';
-
-    const tick = () => {
-      if (cancelled) return;
-      const fullWord = HERO_WORDS[wIdx];
-      let delay = 55;
-
-      if (phase === 'typing') {
-        if (curText.length < fullWord.length) {
-          curText = fullWord.slice(0, curText.length + 1);
-          delay = 55;
-        } else {
-          phase = 'holding';
-          delay = 1800;
-        }
-      } else if (phase === 'holding') {
-        phase = 'deleting';
-        delay = 26;
-      } else {
-        // deleting — never go below 1 char so layout never collapses
-        if (curText.length > 1) {
-          curText = curText.slice(0, -1);
-          delay = 26;
-        } else {
-          wIdx = (wIdx + 1) % HERO_WORDS.length;
-          curText = HERO_WORDS[wIdx].slice(0, 1);
-          phase = 'typing';
-          delay = 220;
-        }
-      }
-
-      setDisplayText(curText);
-      tid = setTimeout(tick, delay);
-    };
-
-    tid = setTimeout(tick, 150);
-    return () => {
-      cancelled = true;
-      clearTimeout(tid);
-    };
-  }, [reduceMotion]);
 
   // Animate chat preview
   useEffect(() => {
@@ -447,15 +390,8 @@ export default function Landing({ navigate, isDark, toggleTheme }: LandingProps)
             transition={{ duration: 0.7, delay: 0.05 }}
           >
             <span className="lx-hero-line">The second brain that</span>
-            <span
-              className="lx-hero-line lx-hero-line-animated"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <span className="lx-hero-word lx-hero-word-typewriter">
-                {displayText}
-                <span className="lx-hero-caret" aria-hidden="true">|</span>
-              </span>
+            <span className="lx-hero-line">
+              <span className="lx-hero-word">thinks with you.</span>
             </span>
           </motion.h1>
 
