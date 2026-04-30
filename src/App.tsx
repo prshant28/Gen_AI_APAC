@@ -729,7 +729,7 @@ const QuickCaptureFAB = () => {
   );
 };
 
-const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignOut: () => void; isDark: boolean; toggleTheme: () => void }) => {
+const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { user: any; onSignOut: () => void; onUpgradeGuest: () => void | Promise<void>; isDark: boolean; toggleTheme: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -827,7 +827,7 @@ const AppShell = ({ user, onSignOut, isDark, toggleTheme }: { user: any; onSignO
                 <ErrorBoundary>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} onSignOut={onSignOut} />} />
+                  <Route path="/dashboard" element={<DashboardPage isDark={isDark} user={user} onSignOut={onSignOut} onUpgradeGuest={onUpgradeGuest} />} />
                   <Route path="/briefing" element={<DailyBriefingPage />} />
                   <Route path="/agent" element={<AgentPage />} />
                   <Route path="/recall" element={<RecallPage />} />
@@ -993,7 +993,11 @@ function AppRouter() {
     navigate('/dashboard', { replace: true });
   };
 
-  const handleSignOut = async () => {
+  // `redirectTo` lets callers route to a non-default destination after
+  // sign-out (e.g. the guest "Sign up free" CTA wants /login?mode=signup).
+  // We do a single navigate at the end so React Router doesn't get a
+  // chance to render an intermediate state where /login is unreachable.
+  const handleSignOut = async (redirectTo: string = '/') => {
     localStorage.removeItem(GUEST_USER_KEY);
     // Clear per-user transient state so the next user starts fresh
     try {
@@ -1003,7 +1007,7 @@ function AppRouter() {
     } catch {}
     try { await firebaseSignOut(); } catch {}
     setUser(null);
-    navigate('/', { replace: true });
+    navigate(redirectTo, { replace: true });
   };
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
@@ -1055,7 +1059,29 @@ function AppRouter() {
     );
   }
 
-  return <AppShell user={user} onSignOut={handleSignOut} isDark={isDark} toggleTheme={toggleTheme} />;
+  // Guest → signup CTA: do a HARD redirect via window.location.
+  //
+  // We previously tried `setUser(null) + navigate('/login?mode=signup')`,
+  // but in React 19 + RR7 the two state updates batch in a way that lets
+  // the AppRouter's `if (!user)` wildcard route (`*` -> Navigate to `/`)
+  // win first, dropping the user on the landing page. A hard reload
+  // guarantees the browser arrives at /login?mode=signup, the React tree
+  // is rebuilt fresh with no guest, and Login renders in sign-up mode.
+  const handleUpgradeGuest = () => {
+    try { localStorage.removeItem(GUEST_USER_KEY); } catch {}
+    try {
+      localStorage.removeItem('agent-hub-current-chat-v1');
+      localStorage.removeItem('agent-hub-current-session-id-v1');
+      localStorage.removeItem('agent-hub-sessions-v1');
+    } catch {}
+    // Fire-and-forget — we're about to reload anyway.
+    try { firebaseSignOut(); } catch {}
+    // `replace` rather than `assign` so the browser back button doesn't
+    // bounce the user from the signup page back to the dashboard (where
+    // the guest user no longer exists).
+    window.location.replace('/login?mode=signup');
+  };
+  return <AppShell user={user} onSignOut={handleSignOut} onUpgradeGuest={handleUpgradeGuest} isDark={isDark} toggleTheme={toggleTheme} />;
 }
 
 export default function App() {

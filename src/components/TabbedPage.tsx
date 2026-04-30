@@ -40,6 +40,21 @@ const TabbedPage: React.FC<Props> = ({
 
   const current = tabs.find(t => t.id === active) || tabs[0];
 
+  // On mobile the tablist becomes a horizontally scrollable strip (CSS
+  // takes over via `.tabbed-tablist` + media query). When the active tab
+  // changes, scroll it into view so users don't have to swipe to find it.
+  // Gated to mobile so we don't trigger unexpected scroll jumps on desktop
+  // where the tablist already lays out fully on screen.
+  const tablistRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    if (!window.matchMedia('(max-width: 640px)').matches) return;
+    const el = tablistRef.current?.querySelector<HTMLElement>(`button[data-tab-id="${active}"]`);
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [active]);
+
   return (
     <div style={{ color: 'var(--text-1)', padding: '14px 0' }}>
       {hub && <LegacyRedirectBanner hub={hub} />}
@@ -78,6 +93,8 @@ const TabbedPage: React.FC<Props> = ({
 
         <div
           role="tablist"
+          ref={tablistRef}
+          className="tabbed-tablist"
           style={{
             display: 'flex', gap: 4, marginTop: 14, flexWrap: 'wrap',
             background: 'var(--surface-2)', borderRadius: 10, padding: 4,
@@ -91,6 +108,7 @@ const TabbedPage: React.FC<Props> = ({
               <button
                 key={t.id}
                 role="tab"
+                data-tab-id={t.id}
                 aria-selected={isActive}
                 onClick={() => setActive(t.id)}
                 style={{

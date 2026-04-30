@@ -200,7 +200,7 @@ const HabitsPage: React.FC<HabitsPageProps> = ({ embedded = false }) => {
             <button onClick={() => setShowAdd(true)} style={{ padding: '7px 14px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 9, color: '#10b981', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Add first habit</button>
           </div>
         ) : (
-          <div>
+          <div className="habits-table-scroll">
             {/* day labels */}
             <div className="habits-grid-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) repeat(7, 38px) 60px 40px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 700, gap: 6 }}>
               <span>Habit</span>

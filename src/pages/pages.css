@@ -3829,6 +3829,104 @@
   .dash-section-head h3 { font-size: 15px !important; }
   .dash-grid-2 { grid-template-columns: 1fr !important; }
   .dash-insight-strip { grid-template-columns: 1fr !important; }
+  /* AI Daily Briefing card: it's the second-largest block on the
+     dashboard. On phones we shrink padding, fonts, and the icon avatar
+     so it stops dominating the viewport above the fold. The flex-basis
+     of `1 1 280px` from the inline style was leaking into the cross
+     axis on some layouts and producing a 280px-tall card with mostly
+     empty space, so we also cap height + reset flex-basis here. */
+  .dash-briefing {
+    max-width: 100% !important;
+    max-height: 132px !important;
+    padding: 10px 12px !important;
+    flex-basis: auto !important;
+    overflow: hidden !important;
+  }
+  .dash-briefing .dash-briefing-icon {
+    width: 26px !important; height: 26px !important; border-radius: 7px !important;
+  }
+  .dash-briefing .dash-briefing-eyebrow {
+    font-size: 8.5px !important; letter-spacing: 1.2px !important; margin-bottom: 3px !important;
+  }
+  .dash-briefing .dash-briefing-body {
+    font-size: 11.5px !important; line-height: 1.45 !important;
+    /* Clamp to 3 lines so a long AI summary doesn't blow the card out
+       past 1/3 of the phone viewport. The "Open full briefing" link
+       below already lets users see the whole thing. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+            line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .dash-briefing .briefing-handoff { font-size: 10.5px !important; padding-top: 6px !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TABBED PAGE — phone-friendly horizontal tab strip
+   On <=640px, switch the chip row from wrap-to-multiple-rows to a
+   single horizontally scrollable line. This stops the 11-tab Library
+   header from eating 2-3 rows of vertical space on mobile.
+   ───────────────────────────────────────────────────────────────── */
+.tabbed-tablist {
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabbed-tablist::-webkit-scrollbar { display: none; }
+.tabbed-tablist > button { scroll-snap-align: start; }
+
+@media (max-width: 640px) {
+  .tabbed-tablist {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100% !important;
+    /* Right-edge fade hint that there's more to scroll */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+  }
+  .tabbed-tablist > button {
+    flex-shrink: 0 !important;
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LIBRARY SUBPAGES — phone responsiveness
+   Notes uses a 300px sidebar + 1fr editor that overflows on phones.
+   Habits uses a wide weekly grid that needs to scroll horizontally.
+   Flashcards never had its grid rule defined.
+   ───────────────────────────────────────────────────────────────── */
+.flashcard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .notes-body-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+  /* Inside the notes list column, drop the 'sticky' + tall maxHeight so
+     the list flows naturally above the editor on phones. */
+  .notes-body-grid > div:first-child {
+    position: static !important;
+    max-height: none !important;
+  }
+  /* Habits weekly grid: original is ~516px wide. Let the parent
+     scroll horizontally and pin a min-width on each row so the
+     7-day strip stays legible. */
+  .habits-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .habits-grid-row { min-width: 520px; }
+}
+
+@media (max-width: 640px) {
+  .flashcard-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
 }
 
 /* ─────────────────────────────────────────────────────────────────

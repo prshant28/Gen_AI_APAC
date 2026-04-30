@@ -80,6 +80,21 @@ export default defineConfig(({mode}) => {
         '/agents': 'http://127.0.0.1:8000',
         '/workflows': 'http://127.0.0.1:8000',
         '/export': 'http://127.0.0.1:8000',
+        // Vault smart collections — pure API, no SPA page. Without this
+        // proxy entry, dev requests fall through to the SPA fallback and
+        // return index.html, which blows up `await r.json()` and surfaces
+        // as "Could not save collection" toast on the Vault.
+        '/smart-collections': 'http://127.0.0.1:8000',
+        // Tag manager APIs — pure API, no SPA page conflict.
+        '/tags-index': 'http://127.0.0.1:8000',
+        '/tags': 'http://127.0.0.1:8000',
+        // Library Trash tab — pure API.
+        '/trash': 'http://127.0.0.1:8000',
+        // /calendar is BOTH the SPA Calendar page (GET nav with text/html)
+        // AND an API namespace (/calendar/topics, /calendar/events,
+        // /calendar/import, /calendar/google/wizard). Bypass to SPA only on
+        // bare /calendar page navigation.
+        '/calendar': { target: 'http://127.0.0.1:8000', bypass: (req) => { const path = (req.url || '').split('?')[0]; return (req.method === 'GET' && path === '/calendar' && (req.headers['accept'] || '').includes('text/html')) ? req.url : null; } },
         // /briefing is BOTH the SPA Daily Briefing page (GET nav with text/html
         // Accept) and an API root with /briefing/list, /briefing/timeline,
         // /briefing/recap etc. Bypass to the SPA only on real page navigation

@@ -47,7 +47,7 @@ const SectionHeader = ({ icon: Icon, color, title, eyebrow, actionLabel, onActio
   </div>
 );
 
-const Dashboard = ({ isDark, user, onSignOut }: { isDark?: boolean; user?: any; onSignOut?: () => void | Promise<void> }) => {
+const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boolean; user?: any; onSignOut?: () => void | Promise<void>; onUpgradeGuest?: () => void | Promise<void> }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<Memory[]>([]);
@@ -104,6 +104,13 @@ const Dashboard = ({ isDark, user, onSignOut }: { isDark?: boolean; user?: any; 
   //    again. Without this, AppShell intercepts /login as a 404 since
   //    /login is only mounted in the no-user branch of AppRouter.
   const handleGuestUpgrade = async () => {
+    // Prefer the dedicated upgrade callback (single sign-out + nav to
+    // /login?mode=signup with no intermediate render). Fall back to the
+    // older two-step path only if the parent didn't supply it.
+    if (onUpgradeGuest) {
+      try { await onUpgradeGuest(); } catch {}
+      return;
+    }
     try { if (onSignOut) await onSignOut(); } catch {}
     navigate('/login?mode=signup');
   };
@@ -383,14 +390,14 @@ const Dashboard = ({ isDark, user, onSignOut }: { isDark?: boolean; user?: any; 
             className="dash-briefing"
             style={{ ...S.card, maxWidth: 360, padding: '14px 18px', border: '1px solid var(--primary-border)', flex: '1 1 280px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div className="dash-briefing-icon" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Sparkles size={15} color="var(--primary)" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
+                <div className="dash-briefing-eyebrow" style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
                 {briefingLoading
                   ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', opacity: 0.4, animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
-                  : <p style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
+                  : <p className="dash-briefing-body" style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
                 }
                 <button
                   type="button"
