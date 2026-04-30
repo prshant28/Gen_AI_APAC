@@ -5258,19 +5258,25 @@
    ───────────────────────────────────────────────────────────── */
 
 /* ── Projects (/workspace) — Workspace Recall search row ───────── */
-@media (max-width: 600px) {
-  .workspace-recall-row {
-    align-items: stretch !important;
-  }
+/* Tablet (≤860px): give the input its own full-width row so the chips +
+   label stay readable on the first row instead of compressing the input. */
+@media (max-width: 860px) {
   .workspace-recall-row > input.workspace-recall-input {
     flex: 1 1 100% !important;
     min-width: 0 !important;
     order: 5;
   }
   .workspace-recall-row > button:last-of-type {
+    order: 6;
+  }
+}
+@media (max-width: 600px) {
+  .workspace-recall-row {
+    align-items: stretch !important;
+  }
+  .workspace-recall-row > button:last-of-type {
     flex: 1 1 100% !important;
     justify-content: center !important;
-    order: 6;
     padding: 9px 14px !important;
   }
 }

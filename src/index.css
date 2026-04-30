@@ -701,19 +701,21 @@ img { max-width: 100%; }
   grid-template-columns: 1fr;
   gap: 14px;
 }
-@media (min-width: 640px) { .workspace-layout { grid-template-columns: 200px 1fr; } }
-@media (min-width: 900px) { .workspace-layout { grid-template-columns: 220px 1fr; } }
+@media (min-width: 720px) { .workspace-layout { grid-template-columns: 200px 1fr; } }
+@media (min-width: 1100px) { .workspace-layout { grid-template-columns: 240px 1fr; } }
 
-/* ── Workspace inner 2-col ────────────────────────────────────────────────── */
+/* ── Workspace inner 2-col ──────────────────────────────────────────────────
+   Bumped from 960px → 1180px so Items + Tasks each get >= ~440px of breathing
+   room. Below that we stack vertically so neither column gets squeezed. */
 .workspace-inner {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
 }
-@media (min-width: 960px) { .workspace-inner { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1180px) { .workspace-inner { grid-template-columns: 1.3fr 1fr; } }
 
 /* ── Workspace mobile/tablet polish ───────────────────────────────────────── */
-@media (max-width: 899px) {
+@media (max-width: 719px) {
   .workspace-layout > div:first-child { order: 2; }
   .workspace-layout > div:nth-child(2) { order: 1; }
 }
@@ -724,6 +726,11 @@ img { max-width: 100%; }
   }
   .workspace-kpi-strip {
     grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 480px) {
+  .workspace-kpi-strip {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -969,10 +976,9 @@ table { width: 100%; table-layout: fixed; }
   .settings-inner { max-width: 100% !important; }
 }
 
-/* ── Compact workspace layout at 870px ─────────────────────────────────────── */
-@media (min-width: 640px) and (max-width: 900px) {
-  .workspace-layout { grid-template-columns: 180px 1fr; }
-}
+/* (workspace-layout breakpoints are defined above with bumped 720/1100
+   thresholds — the older 640-900 override here was forcing two columns at
+   widths where the layout should now stack. Removed.) */
 
 /* ───────── Markdown rendering inside chat messages ───────── */
 .md-msg { color: inherit; }

@@ -7,8 +7,29 @@ from app.config import settings
 from app.ai_helper import chat_with_fallback, chat_json
 from app.user_context import get_uid, belongs_to_current_user
 
-STOPWORDS = {"the", "a", "an", "is", "are", "was", "were", "what", "how", "tell", "me", "find", "search", "recall", "about", "i", "my", "do", "know", "have", "can", "you"}
+STOPWORDS = {"the", "a", "an", "is", "are", "was", "were", "what", "how", "tell", "me", "find", "search", "recall", "about", "i", "my", "do", "did", "done", "know", "have", "can", "you", "to", "of", "in", "on", "for", "with", "and", "or"}
 ALLOWED_DOMAINS = ["AI", "Technology", "Science", "Business", "Health", "History", "Philosophy", "Engineering", "Productivity", "Other"]
+
+# Words that signal the user wants a time-ordered slice of their vault
+# ("what did I save recently", "show me my latest captures", "anything new today")
+RECENCY_KEYWORDS = {
+    "recent", "recently", "latest", "lately", "newest", "new",
+    "yesterday", "today", "tonight", "now", "just",
+    "last", "past", "currently", "current",
+    "save", "saved", "saves", "saving",
+    "capture", "captured", "captures", "capturing",
+    "added", "stored", "kept", "uploaded",
+}
+
+# Words that signal "show me everything / browse my vault" without a topic.
+# When combined with no real keywords, we just dump recent memories instead
+# of forcing a tag/domain/keyword match that returns nothing.
+BROWSE_KEYWORDS = {
+    "everything", "anything", "something", "stuff", "things",
+    "all", "any", "list", "show", "give", "see", "view", "browse",
+    "vault", "library", "memory", "memories", "captures", "items",
+    "saved", "content",
+}
 
 SOURCE_TYPE_KEYWORDS = {
     "youtube": {"youtube", "video", "videos", "yt", "watch", "watched"},
@@ -16,6 +37,33 @@ SOURCE_TYPE_KEYWORDS = {
     "note": {"note", "notes", "memo", "memos", "thought", "thoughts", "journal", "diary"},
     "pdf": {"pdf", "pdfs", "paper", "papers", "document", "documents", "doc", "docs"},
 }
+
+# Combined "non-topical" set — words that exist in queries but never describe
+# what the user is actually looking for. Used to decide whether the query has
+# any real topic at all (vs being a pure "give me anything" question).
+_ALL_SOURCE_WORDS = set().union(*SOURCE_TYPE_KEYWORDS.values())
+NON_TOPICAL_WORDS = STOPWORDS | RECENCY_KEYWORDS | BROWSE_KEYWORDS | _ALL_SOURCE_WORDS
+
+
+def _normalise(word: str) -> str:
+    return word.strip(".,!?;:'\"").lower()
+
+
+def _is_recency_intent(query: str) -> bool:
+    """True if the user is asking for time-ordered results."""
+    qwords = {_normalise(w) for w in (query or "").split()}
+    return bool(qwords & RECENCY_KEYWORDS)
+
+
+def _is_browse_intent(query: str) -> bool:
+    """True if the user is asking to browse their vault without a topic."""
+    qwords = {_normalise(w) for w in (query or "").split()}
+    return bool(qwords & BROWSE_KEYWORDS)
+
+
+def _topical_keywords(keywords: List[str]) -> List[str]:
+    """Strip recency/browse/source/stop words to leave only real topic words."""
+    return [k for k in keywords if _normalise(k) not in NON_TOPICAL_WORDS]
 
 SOURCE_LABELS = {
     "youtube": "YouTube video",
@@ -155,9 +203,16 @@ async def recall(
         all_source_words = set().union(*SOURCE_TYPE_KEYWORDS.values())
         keywords = [k for k in keywords if k.strip(".,!?;:'\"") not in all_source_words]
 
-    # Tier 0: when user explicitly mentions a source type (youtube/web/note/pdf),
-    # ALWAYS pull the matching items first. This guarantees we never return a note
-    # when they asked for YouTube videos.
+    # Detect intent. If the user is asking a generic "what did I save recently"
+    # / "show me anything" question, we DON'T want to force a tag/domain match
+    # (which would return nothing because their query has no real topic words).
+    # Instead, jump straight to the recency tier.
+    is_recency = _is_recency_intent(effective_query)
+    is_browse = _is_browse_intent(effective_query)
+    topical_kws = _topical_keywords(keywords)
+    no_topic = not topical_kws and not source_filter
+    fallback_used = False  # set when we serve recent memories instead of a match
+
     def _safe_ts(m):
         ts = m.get("created_at")
         if ts is None:
@@ -166,7 +221,27 @@ async def recall(
             return ts.isoformat()
         return str(ts)
 
-    if source_filter:
+    # Tier -1: pure recency / browse intent → return the latest captures
+    # directly, no LLM scan, no tag matching. This is the "what did I save
+    # recently?" path. It must work whether or not the memory has tags
+    # matching any word in the query.
+    if no_topic and (is_recency or is_browse):
+        try:
+            snapshot = await db.collection("memories") \
+                .order_by("created_at", direction="DESCENDING") \
+                .limit(40).get()
+            memories = [
+                doc.to_dict() | {"id": doc.id}
+                for doc in snapshot
+                if belongs_to_current_user(doc.to_dict())
+            ][:12]
+        except Exception as e:
+            print(f"Recency-intent fetch error: {e}")
+
+    # Tier 0: when user explicitly mentions a source type (youtube/web/note/pdf),
+    # ALWAYS pull the matching items first. This guarantees we never return a note
+    # when they asked for YouTube videos.
+    if not memories and source_filter:
         try:
             snapshot = await db.collection("memories") \
                 .where("source_type", "==", source_filter) \
@@ -273,10 +348,12 @@ async def recall(
         except Exception as e:
             print(f"Tier 3 Search Error: {e}")
 
-    # Final safety net: if this was a follow-up and tiers 1-3 came back empty
-    # (e.g. AI provider rate-limit hit during scan), return the most recent
-    # memories so the user always gets something useful.
-    if not memories and history and is_short_followup:
+    # Final safety net: if NOTHING matched across all tiers, fall back to the
+    # most recent memories so the user always gets something useful instead of
+    # a "capture more content" dead-end. This makes the agent feel like a real
+    # personal assistant — it answers questions about whatever's in the vault,
+    # not only the items whose tags happen to match the query words.
+    if not memories:
         try:
             snapshot = await db.collection("memories") \
                 .order_by("created_at", direction="DESCENDING") \
@@ -285,11 +362,15 @@ async def recall(
                 doc.to_dict() | {"id": doc.id}
                 for doc in snapshot
                 if belongs_to_current_user(doc.to_dict()) and _matches_filter(doc.to_dict())
-            ][:6]
+            ][:8]
+            if memories:
+                fallback_used = True
         except Exception as e:
-            print(f"Follow-up fallback error: {e}")
+            print(f"Empty-result recency fallback error: {e}")
 
     if not memories:
+        # Truly empty vault (or source-filter with zero matches and no general
+        # captures either). Be honest and inviting, not blamey.
         if source_filter:
             label = SOURCE_LABELS.get(source_filter, source_filter)
             msg = f"No {label} captures found yet. Capture one first!"
@@ -303,9 +384,15 @@ async def recall(
         }
 
     # Default: return ONE focal card. The user gets a clean, single-topic
-    # answer instead of a wall of search hits. Only widen to a batch (cap 8)
-    # when the user explicitly asks for "all / sare / list / top N / compare".
-    cap = 8 if _is_batch_query(query) else 1
+    # answer instead of a wall of search hits. Widen to a batch (cap 8) when
+    # the user explicitly asks for "all / sare / list / top N / compare", OR
+    # when this is a TOPIC-LESS recency/browse query (e.g. "what did I save
+    # recently?") or a no-match fallback. Crucially, "save"/"saved" alone
+    # does NOT widen — only when there's no real topic — so questions like
+    # "what did I save about retrieval pipelines" still return a focal card.
+    pure_recency_or_browse = (is_recency or is_browse) and no_topic
+    wants_list = _is_batch_query(query) or pure_recency_or_browse or fallback_used
+    cap = 8 if wants_list else 1
 
     # Honour the focal_source_id pin: if the caller (typically the /recall
     # follow-up flow) tells us the user is still on the same focal card,
@@ -346,6 +433,28 @@ async def recall(
             f"All memories below are {label}s — refer to them as such.\n"
         )
 
+    # Recency / browse / fallback intent → tell the model the cards below are
+    # the user's most recent captures (not topical search hits) so the answer
+    # frames them correctly instead of pretending they precisely match the query.
+    # Only applied when there's no real topic in the query — topical queries
+    # like "what did I save about retrieval pipelines" still get a normal
+    # search-result framing even though "save" is a recency word.
+    intent_constraint = ""
+    if fallback_used:
+        intent_constraint = (
+            "\nIMPORTANT: No memory directly matched the query. The cards below "
+            "are the user's MOST RECENT captures. Open with: 'Couldn't find an "
+            "exact match — here are your most recent saves:' then briefly name "
+            "1-2 of the latest items. Don't pretend they answer the question.\n"
+        )
+    elif pure_recency_or_browse:
+        intent_constraint = (
+            "\nIMPORTANT: The user is asking to see recent / latest captures. "
+            "The cards below are sorted newest-first. Open with a quick recap "
+            "like 'Your latest saves include…' and name the 2-3 most recent "
+            "titles in plain language. Don't apologise or say there's no match.\n"
+        )
+
     # Optional history block (last 4 turns max) — keeps follow-ups natural
     history_block = ""
     if history:
@@ -364,7 +473,7 @@ async def recall(
 
     synthesis_prompt = f"""You are the user's personal Second Brain assistant.
 The user asks: '{query}'
-{source_constraint}{history_block}
+{source_constraint}{intent_constraint}{history_block}
 Top memories from their vault:
 {formatted}
 
@@ -385,7 +494,12 @@ Write a SHORT, direct answer:
         answer = answer_raw.strip()
     except Exception as e:
         print(f"Synthesis Error: {e}")
-        answer = f"Found {len(top_memories)} relevant memories — see the cards below."
+        if fallback_used:
+            answer = f"Couldn't find an exact match — here are your {len(top_memories)} most recent saves."
+        elif pure_recency_or_browse:
+            answer = f"Your {len(top_memories)} most recent saves are below."
+        else:
+            answer = f"Found {len(top_memories)} relevant memories — see the cards below."
 
     # Generate 3 follow-up suggestions based on the top memories
     follow_ups: List[str] = []

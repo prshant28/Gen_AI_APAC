@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus, Edit2, FolderInput } from 'lucide-react';
+import { Search, Loader2, Youtube, Globe, FileText, StickyNote, Download, Trash2, ExternalLink, FlipHorizontal, Brain, CheckCircle2, Tag, Clock, X, RotateCcw, ChevronLeft, ChevronRight, Award, Database, Filter, ArrowUpDown, XCircle, CheckCircle, ListTodo, BookOpen, MessageCircle, Pin, PinOff, CheckSquare, Square, Save, Sparkles, Archive, ArchiveRestore, Plus, Edit2, FolderInput, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getYouTubeId, YouTubeEmbed, YouTubeThumbnail } from '../lib/utils';
 import type { Memory, Flashcard, SmartCollection, BulkApiResponse, DeepSearchResponse, DeepSearchHit } from '../lib/types';
@@ -248,6 +248,23 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
       });
     } catch {
       setMemories(prev => prev.map(x => x.id === m.id ? { ...x, pinned: !next } : x));
+    }
+  };
+
+  const toggleReviewed = async (m: Memory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !m.reviewed;
+    setMemories(prev => prev.map(x => x.id === m.id ? { ...x, reviewed: next } : x));
+    try {
+      const res = await fetch(`/memories/${m.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed: next }),
+      });
+      if (!res.ok) throw new Error('patch failed');
+      showToast(next ? 'Marked as done' : 'Marked as not done');
+    } catch {
+      setMemories(prev => prev.map(x => x.id === m.id ? { ...x, reviewed: !next } : x));
+      showToast("Couldn't update. Try again.", 'error');
     }
   };
 
@@ -704,6 +721,12 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                   {deepMode && deepResults[memory.id] && renderSnippet(memory.id)}
                 </div>
                 <div className="vault-row-actions">
+                  <button onClick={e => toggleReviewed(memory, e)} title={memory.reviewed ? 'Mark as not done' : 'Mark as done'}
+                    style={{ width: 28, height: 28, borderRadius: 7, background: memory.reviewed ? 'rgba(16,185,129,0.15)' : 'transparent', border: `1px solid ${memory.reviewed ? 'rgba(16,185,129,0.35)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: memory.reviewed ? '#10b981' : 'var(--text-3)', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { if (!memory.reviewed) { e.currentTarget.style.background = 'rgba(16,185,129,0.1)'; e.currentTarget.style.color = '#10b981'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.25)'; } }}
+                    onMouseLeave={e => { if (!memory.reviewed) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; } }}>
+                    {memory.reviewed ? <CheckCircle2 size={13} /> : <Circle size={13} />}
+                  </button>
                   <button onClick={e => togglePin(memory, e)} title={memory.pinned ? 'Unpin' : 'Pin to top'}
                     className={cn('vault-row-pin', memory.pinned && 'is-on')}>
                     {memory.pinned ? <Pin size={13} /> : <PinOff size={13} />}
@@ -775,6 +798,12 @@ const VaultView: React.FC<VaultViewProps> = ({ embedded = false, initialSourceFi
                       {!compact && (
                         <span style={{ padding: '2px 7px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text-3)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{memory.domain}</span>
                       )}
+                      <button onClick={e => toggleReviewed(memory, e)} title={memory.reviewed ? 'Mark as not done' : 'Mark as done'}
+                        style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: memory.reviewed ? 'rgba(16,185,129,0.18)' : 'transparent', border: `1px solid ${memory.reviewed ? 'rgba(16,185,129,0.35)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: memory.reviewed ? '#10b981' : 'var(--text-3)', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { if (!memory.reviewed) { e.currentTarget.style.background = 'rgba(16,185,129,0.1)'; e.currentTarget.style.color = '#10b981'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.25)'; } }}
+                        onMouseLeave={e => { if (!memory.reviewed) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; } }}>
+                        {memory.reviewed ? <CheckCircle2 size={actionIcon} /> : <Circle size={actionIcon} />}
+                      </button>
                       <button onClick={e => { e.stopPropagation(); setFlashcardsMemory(memory); }} title="Generate Flashcards"
                         style={{ width: actionBtn, height: actionBtn, borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.25)'; }}
