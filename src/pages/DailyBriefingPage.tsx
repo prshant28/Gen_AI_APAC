@@ -286,6 +286,22 @@ export default function DailyBriefingPage() {
     return () => { cancelled = true; };
   }, [tab]);
 
+  // Tasks due today already appear in TODAY'S TIMELINE (the backend
+  // includes them via /briefing/timeline). To avoid showing the same
+  // task in two places, the PENDING TASKS card hides anything dated
+  // today — overdue and future-dated tasks still belong here. Tasks
+  // with no due date stay visible (they're "open, no schedule").
+  const nonTodayPendingTasks = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayMs = today.getTime();
+    return pendingTasks.filter((t) => {
+      if (!t?.due_date) return true;
+      const d = new Date(`${t.due_date}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return true;
+      return d.getTime() !== todayMs;
+    });
+  }, [pendingTasks]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     handleStop();
@@ -710,17 +726,23 @@ export default function DailyBriefingPage() {
                 )}
               </section>
 
-              {/* Pending tasks — deep-link cards */}
+              {/* Pending tasks — deep-link cards. Tasks dated today are
+                  intentionally excluded here; they show up in
+                  TODAY'S TIMELINE in the side column. */}
               <section className="briefing-card">
                 <div className="briefing-card-head">
                   <div className="briefing-card-eyebrow"><CheckSquare size={12} /> PENDING TASKS</div>
-                  <span className="briefing-count">{pendingTasks.length} open</span>
+                  <span className="briefing-count">{nonTodayPendingTasks.length} open</span>
                 </div>
-                {pendingTasks.length === 0 ? (
-                  <div className="briefing-empty">No pending tasks — you're all caught up. Add one from the Tasks page.</div>
+                {nonTodayPendingTasks.length === 0 ? (
+                  <div className="briefing-empty">
+                    {pendingTasks.length === 0
+                      ? "No pending tasks — you're all caught up. Add one from the Tasks page."
+                      : "Today's tasks are in the timeline on the right. No other pending tasks right now."}
+                  </div>
                 ) : (
                   <div className="briefing-pending-list">
-                    {pendingTasks.slice(0, 5).map((t) => {
+                    {nonTodayPendingTasks.slice(0, 5).map((t) => {
                       const priKey = (t.priority === 'high' || t.priority === 'low') ? t.priority : 'medium';
                       const priColor = priKey === 'high' ? '#ef4444' : priKey === 'low' ? '#10b981' : '#f59e0b';
                       const priBg = priKey === 'high' ? 'rgba(239,68,68,0.12)' : priKey === 'low' ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';

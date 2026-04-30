@@ -58,7 +58,9 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
   const [revisitsUpcoming, setRevisitsUpcoming] = useState<any[]>([]);
   const [habits, setHabits] = useState<any[]>([]);
   const [adv, setAdv] = useState<DashAdvanced | null>(null);
-  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
+  // Pending-task list intentionally not loaded on the Dashboard — the
+  // AI Daily Briefing card is kept minimal here. Full task list lives
+  // on /briefing.
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const isGuest = !!(user?.isAnonymous || user?.isGuest);
@@ -137,10 +139,6 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
       .then(r => r.ok ? r.json() : null)
       .then((d: DashAdvanced | null) => { if (d) setAdv(d); })
       .catch(() => {});
-    fetch('/tasks?status=pending&limit=4')
-      .then(r => r.ok ? r.json() : [])
-      .then((t: any[]) => setPendingTasks(Array.isArray(t) ? t : []))
-      .catch(() => setPendingTasks([]));
   }, []);
 
   const refreshAdvanced = async () => {
@@ -402,45 +400,11 @@ const Dashboard = ({ isDark, user, onSignOut, onUpgradeGuest }: { isDark?: boole
                 <div className="dash-briefing-eyebrow" style={{ color: 'var(--primary)', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 5, fontWeight: 700 }}>AI DAILY BRIEFING</div>
                 {briefingLoading
                   ? <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', opacity: 0.4, animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
-                  : <p className="dash-briefing-body" style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0 }}>{briefing}</p>
+                  : <p className="dash-briefing-body" style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.55, margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{briefing}</p>
                 }
-                {pendingTasks.length > 0 && (
-                  <div className="dash-briefing-tasks">
-                    <div className="dash-briefing-tasks-label">Up next · {pendingTasks.length} pending</div>
-                    {pendingTasks.slice(0, 3).map(t => {
-                      const pri = t.priority === 'high' ? '#ef4444' : t.priority === 'low' ? '#10b981' : '#f59e0b';
-                      const dueInfo = (() => {
-                        if (!t.due_date) return { label: '', cls: '' };
-                        const d = new Date(`${t.due_date}T00:00:00`);
-                        if (Number.isNaN(d.getTime())) return { label: '', cls: '' };
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
-                        let label = '';
-                        let cls = '';
-                        if (diff < 0) { label = `${Math.abs(diff)}d overdue`; cls = 'overdue'; }
-                        else if (diff === 0) { label = 'Today'; cls = 'today'; }
-                        else if (diff === 1) { label = 'Tomorrow'; }
-                        else if (diff < 7) { label = `${diff}d`; }
-                        else { label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
-                        return { label, cls };
-                      })();
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className="dash-briefing-task-row"
-                          onClick={() => navigate(`/tasks?focus=${encodeURIComponent(t.id)}`)}
-                          title={`Go to: ${t.title}`}
-                        >
-                          <span className="dash-briefing-task-dot" style={{ background: pri }} />
-                          <span className="dash-briefing-task-title">{t.title}</span>
-                          {dueInfo.label && <span className={`dash-briefing-task-due ${dueInfo.cls}`}>{dueInfo.label}</span>}
-                          <span className="dash-briefing-task-go"><ChevronRight size={13} /></span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Dashboard intentionally keeps the briefing minimal — the
+                    "up next / pending tasks" list and full structured view
+                    live on /briefing so this card stays a glanceable summary. */}
                 <button
                   type="button"
                   className="briefing-handoff"

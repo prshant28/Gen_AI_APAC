@@ -4818,74 +4818,9 @@
   }
 }
 
-/* ── Dashboard briefing card — pending tasks ─────────────────────────── */
-.dash-briefing-tasks {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--border);
-}
-.dash-briefing-tasks-label {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: var(--text-3);
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-.dash-briefing-task-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  text-align: left;
-  font-family: inherit;
-  width: 100%;
-}
-.dash-briefing-task-row:hover {
-  border-color: var(--primary-border);
-  transform: translateX(2px);
-}
-.dash-briefing-task-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dash-briefing-task-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-1);
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.dash-briefing-task-due {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-.dash-briefing-task-due.overdue { color: #ef4444; }
-.dash-briefing-task-due.today { color: #f59e0b; }
-.dash-briefing-task-go {
-  flex-shrink: 0;
-  color: var(--text-3);
-  display: flex;
-  align-items: center;
-}
-.dash-briefing-task-row:hover .dash-briefing-task-go {
-  color: var(--primary);
-}
+/* (Dashboard "AI Daily Briefing" card stays minimal — the inline pending
+   task list previously lived here but was moved to /briefing only. The
+   .dash-briefing-task* CSS rules were removed along with the markup.) */
 
 /* ── Daily Briefing page — pending tasks card ────────────────────────── */
 .briefing-pending-list {
