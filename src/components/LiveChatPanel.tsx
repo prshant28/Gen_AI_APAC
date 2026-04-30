@@ -25,6 +25,63 @@ type TranscriptEntry =
   | { id: string; role: "user" | "model"; text: string; interrupted?: boolean }
   | { id: string; role: "tool"; name: string; args: Record<string, unknown>; result?: Record<string, unknown> };
 
+/**
+ * Strip "scratchpad" / chain-of-thought preamble that some Live model
+ * snapshots leak into the transcript stream — e.g. "**Crafting Initial
+ * Response** I've registered the greeting and am formulating…" before
+ * the actual reply. The system prompt forbids it but a belt-and-braces
+ * client filter keeps the UI clean if the model slips. We strip:
+ *   - leading bold-wrapped meta lines like **Crafting...**, **Drafting...**,
+ *     **Thinking...**, **Considering...**, **Planning...**, **Analysing...**,
+ *     **Initial Response**, **Refining...**, etc.
+ *   - leading "I've registered/I am formulating/Let me think/I will now…"
+ *     style narration up to the first sentence break.
+ * Anything inside the preamble is dropped; the rest of the text is kept.
+ */
+function stripScratchpad(raw: string): string {
+  if (!raw) return raw;
+  let t = raw;
+
+  // ── Stage 1: hold back partial preambles while streaming ────────────
+  // If the buffer LOOKS like an in-progress preamble that isn't yet
+  // long enough to terminate, return '' so nothing renders for now.
+  // The caller never mutates the raw buffer based on our return value,
+  // so the next chunk continues to accumulate and we re-evaluate.
+  const UNFINISHED_BOLD = /^\s*\*\*\s*(?:crafting|drafting|thinking|considering|planning|analy[sz]ing|reasoning|formulating|preparing|composing|building|generating|initial|refining|reviewing|reflecting)[^*]{0,200}$/i;
+  if (UNFINISHED_BOLD.test(t)) return '';
+  // Holdback for the narrated-preamble pattern: opener + meta verb,
+  // not yet ended with a sentence break. Generous 320-char window
+  // before we give up and let the text show.
+  const UNFINISHED_NARR = /^\s*(?:I(?:'ve|'m| have| am| will| shall)|Let me|Allow me|Okay,|Alright,)\s+(?:registered|noted|formulat|draft|consider|process|think|prepar|compos|generat|analy[sz])[^.!?]{0,400}$/i;
+  if (UNFINISHED_NARR.test(t) && t.length < 320) return '';
+
+  // ── Stage 2: strip completed preambles ──────────────────────────────
+  // a) Bold-wrapped meta headers (possibly repeated).
+  const META_HEADER_RE = /^\s*\*\*\s*(?:crafting|drafting|thinking|considering|planning|analy[sz]ing|reasoning|formulating|preparing|composing|building|generating|initial|refining|reviewing|reflecting)[^*]{0,80}\*\*\s*/i;
+  while (META_HEADER_RE.test(t)) t = t.replace(META_HEADER_RE, '');
+
+  // b) Narrated meta-preamble: opener + meta verb, then EVERYTHING
+  // up to a sentence boundary that's followed by a known reply-start
+  // word. Anchoring to the reply-start words ("Hello", "Sure", "Yes",
+  // "Here", etc.) keeps this safe — a legit reply like
+  // "I have reviewed your file." won't strip because nothing matches
+  // after the period, and "I've added it to your inbox." doesn't even
+  // hit the verb list.
+  const REPLY_START =
+    "Hello|Hi|Hey|Sure|Yes|No,|Okay|Alright|Here|There|That|This|It|You|We|" +
+    "Let me|I'll|I will|To answer|For (?:your|the)|Of course|Absolutely|" +
+    "Based on|According|Looking|From";
+  const NARRATED_PREAMBLE = new RegExp(
+    "^\\s*(?:I(?:'ve|'m| have| am| will| shall)|Let me|Allow me|Okay,|Alright,)\\s+" +
+    "(?:registered|noted|formulat|draft|consider|process|think|prepar|compos|generat|analy[sz])" +
+    "[\\s\\S]{0,320}?[.!?]\\s+(?=(?:" + REPLY_START + ")\\b)",
+    "i"
+  );
+  t = t.replace(NARRATED_PREAMBLE, '');
+
+  return t.trimStart();
+}
+
 function summariseToolResult(name: string, result: Record<string, unknown>, args: Record<string, unknown>): string {
   if (result?.error) return `Error: ${String(result.error)}`;
   switch (name) {
@@ -154,7 +211,14 @@ export const LiveInline: React.FC<LiveInlineProps> = ({ active, compact = false 
   }, []);
 
   const flushModel = useCallback(() => {
-    const t = modelBufRef.current.trim();
+    // Always strip scratchpad at flush time. The RAW buffer in
+    // modelBufRef keeps growing across chunks — we never mutate it
+    // here, we just compute a display value. This way a partial
+    // preamble that's currently being held back will eventually be
+    // recognised + stripped once the closing marker arrives, and
+    // the real reply that follows will start showing as a natural
+    // continuation.
+    const t = stripScratchpad(modelBufRef.current).trim();
     if (!t) return;
     setTranscript((cur) => {
       const next = [...cur];

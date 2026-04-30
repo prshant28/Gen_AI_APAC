@@ -4,7 +4,7 @@ import {
   Brain, Send, Search, Sparkles, Clock, Bot,
   Youtube, Globe, FileText, StickyNote, Loader2,
   ArrowRight, Mic, MicOff, X, Hash, History, Radio,
-  ChevronUp, ChevronDown, ExternalLink,
+  ChevronUp, ChevronDown, ExternalLink, Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MarkdownMessage from '../components/MarkdownMessage';
@@ -189,26 +189,92 @@ const SourceCard: React.FC<{
         )}
 
         {/* Footer actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 4 }}>
-          <button onClick={() => navigate(`/memory/${src.id}`)}
-            style={{ flex: 1, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            Open <ArrowRight size={10} />
-          </button>
-          <button onClick={() => onAsk(`Tell me more about "${src.title}". What are the key takeaways?`)}
-            title="Ask follow-up about this memory"
-            style={{ flex: 1, padding: '6px 10px', background: `${clr}14`, border: `1px solid ${clr}30`, borderRadius: 7, color: clr, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            Ask AI
-          </button>
-          {src.source_url && (
-            <a href={src.source_url} target="_blank" rel="noreferrer"
-              title={src.source_url}
-              style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>
-              <ExternalLink size={11} />
-            </a>
-          )}
-        </div>
+        <CardActions src={src} clr={clr} onAsk={onAsk} navigate={navigate} />
       </div>
     </motion.div>
+  );
+};
+
+/**
+ * Compact footer-actions row for a SourceCard. Pulled out so the
+ * "Mark as read" optimistic state lives in its own tiny component
+ * instead of bloating SourceCard's signature. The user explicitly
+ * asked for an inline way to mark a memory as finished/read from
+ * the recall answer, so it sits right next to Open/Ask.
+ *
+ * Posts to PATCH /memories/{id} with {reviewed: true}. On success
+ * the button flips to a green check + "Read" label and disables.
+ * Failure silently reverts so the user can retry.
+ */
+const CardActions: React.FC<{
+  src: Source;
+  clr: string;
+  onAsk: (q: string) => void;
+  navigate: (to: string) => void;
+}> = ({ src, clr, onAsk, navigate }) => {
+  const [reading, setReading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const markRead = async () => {
+    if (done || reading || !src.id) return;
+    setReading(true);
+    try {
+      const r = await fetch(`/memories/${encodeURIComponent(src.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed: true }),
+      });
+      if (r.ok) {
+        setDone(true);
+        try {
+          window.dispatchEvent(new CustomEvent('recall-toast', {
+            detail: { msg: 'Marked as read', type: 'success' },
+          }));
+        } catch {}
+      }
+    } catch {
+      // silent — user can retry
+    } finally {
+      setReading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 4, flexWrap: 'wrap' }}>
+      <button onClick={() => navigate(`/memory/${src.id}`)}
+        style={{ flex: '1 1 70px', padding: '6px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        Open <ArrowRight size={10} />
+      </button>
+      <button onClick={() => onAsk(`Tell me more about "${src.title}". What are the key takeaways?`)}
+        title="Ask follow-up about this memory"
+        style={{ flex: '1 1 70px', padding: '6px 8px', background: `${clr}14`, border: `1px solid ${clr}30`, borderRadius: 7, color: clr, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        Ask AI
+      </button>
+      <button onClick={markRead} disabled={done || reading}
+        title={done ? 'Already marked as read' : 'Mark this memory as read / finished'}
+        style={{
+          flex: '1 1 70px', padding: '6px 8px',
+          background: done ? 'rgba(34,197,94,0.14)' : 'var(--surface-2)',
+          border: done ? '1px solid rgba(34,197,94,0.35)' : '1px solid var(--border)',
+          borderRadius: 7,
+          color: done ? '#22c55e' : 'var(--text-2)',
+          fontSize: 11, fontWeight: 600,
+          cursor: done ? 'default' : (reading ? 'wait' : 'pointer'),
+          fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          opacity: reading ? 0.7 : 1,
+          transition: 'all 0.15s',
+        }}>
+        {reading ? <Loader2 size={10} className="spin" /> : <Check size={11} />}
+        {done ? 'Read' : 'Mark read'}
+      </button>
+      {src.source_url && (
+        <a href={src.source_url} target="_blank" rel="noreferrer"
+          title={src.source_url}
+          style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>
+          <ExternalLink size={11} />
+        </a>
+      )}
+    </div>
   );
 };
 
