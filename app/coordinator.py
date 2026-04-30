@@ -459,12 +459,33 @@ _RECALL_PATTERNS = [
 ]
 _TASKS_LIST_PATTERNS = [
     r"^\s*(show|list|open|view|see|dikha[oa]|batao)\b.*\b(my\s+)?tasks?\b",
-    r"^\s*(what|kya)\b.*\b(tasks?|todos?|to-?do)\b.*\b(today|now|pending|left|baki|hain|hai)\b",
+    r"^\s*(what|kya|kaun)\b.*\b(tasks?|todos?|to-?do)\b.*\b(today|now|pending|left|baki|hain|hai|this\s+week|tomorrow|do\s+i\s+(have|need))\b",
+    # "what do I need to do (today|tomorrow|this week)?", "what's on my plate"
+    r"\bwhat\s+do\s+i\s+(need\s+to\s+do|have\s+to\s+do)\b",
+    r"\bwhat.?s\s+on\s+my\s+(plate|to-?do)\b",
     r"\b(my\s+)?(task|todo)\s+list\b",
+    # "any tasks for today / tomorrow / this week"
+    r"\bany\s+(tasks?|todos?|to-?do)s?\b",
+    # Hinglish: "aaj ka kaam", "kal ke kaam", "kya karna hai"
+    r"\bkya\s+karna\s+(hai|h)\b",
+    r"\b(aaj|kal)\s+(ka|ke|ki)\s+(kaam|task|todo)s?\b",
 ]
 _SCHEDULE_LIST_PATTERNS = [
-    r"^\s*(show|list|open|view|see|dikha[oa]|batao)\b.*\b(my\s+)?(calendar|schedule|events?|agenda)\b",
-    r"\b(what.?s|kya hai)\b.*\b(on\s+(my\s+)?(calendar|schedule|agenda)|today.?s\s+schedule)\b",
+    r"^\s*(show|list|open|view|see|dikha[oa]|batao)\b.*\b(my\s+)?(calendar|schedule|events?|agenda|meetings?)\b",
+    # "what's on my calendar" + "what is on my calendar" (the previous regex
+    # missed "what is" because `what.?s` only matches "whats"/"what's").
+    r"\b(what.?s|what\s+is|what\s+are|kya\s+hai|kya\s+hain)\b.*\b(on\s+(my\s+)?(calendar|schedule|agenda)|today.?s\s+schedule|coming\s+up|upcoming)\b",
+    # "any meetings / events / appointments today/tomorrow/this week"
+    r"\bany\s+(meetings?|events?|appointments?|calls?|catch-?ups?)\b",
+    # "do I have anything (scheduled|on|planned) (today|tomorrow|this week)"
+    r"\bdo\s+i\s+have\s+(anything|something|any\s+(meetings?|events?|calls?))\b.*\b(today|tomorrow|this\s+week|on|planned|scheduled)?\b",
+    # "what's coming up", "what's next on my calendar"
+    r"\bwhat.?s\s+(coming\s+up|next|on)\b.*\b(week|calendar|schedule|today|tomorrow)?\b",
+    # Hinglish: "kal kya hai", "aaj kya hai", "is week mein kya hai".
+    # `(\s+\w+){0,3}` lets a few filler words sit between the time word
+    # and "kya hai" ("is week mein kya hai", "aaj evening kya hai") without
+    # going so wide that it eats unrelated questions.
+    r"\b(aaj|kal|is\s+week|is\s+hafte)(\s+\w+){0,3}\s+kya\s+(hai|h)\b",
 ]
 _NOTES_LIST_PATTERNS = [
     r"^\s*(show|list|open|view|dikha[oa])\b.*\b(my\s+)?notes?\b\s*$",
@@ -1078,6 +1099,12 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         step.entity_count = entity_meta["count"]
                         step.entity_noun = entity_meta["noun"]
                         step.entity_verb = entity_meta["verb"]
+                    # Inline preview rows for list-type tools — top 3 items with
+                    # title/subtitle/icon. Lets the chat surface real data
+                    # alongside the "X events / tasks / memories" chip even
+                    # when the navigate-intent classifier didn't pre-route the
+                    # query. Best-effort, never fatal.
+                    inline_preview = _build_inline_preview(tool_name, result)
                     yield sse("agent_complete", {
                         "step_id": step.id,
                         "agent": agent_name,
@@ -1088,6 +1115,7 @@ async def run_coordinator_stream(message: str, session_id: str) -> AsyncGenerato
                         "entity_count": step.entity_count,
                         "entity_noun": step.entity_noun,
                         "entity_verb": step.entity_verb,
+                        "inline_preview": inline_preview,
                     })
                 except asyncio.TimeoutError:
                     step.fail("Tool timed out")
@@ -1202,6 +1230,67 @@ _TOOL_ENTITY_LABELS: Dict[str, tuple] = {
 # list-tools whose result shape doesn't match any of these — the chip falls
 # back to the friendly agent path instead.
 _LIST_KEYS = ("memories", "sources", "tasks", "events", "items", "results")
+
+
+_INLINE_PREVIEW_TOOLS = {
+    "list_schedule":    "event",
+    "list_tasks":       "task",
+    "list_memories":    "memory",
+    "recall_knowledge": "memory",
+}
+
+
+def _build_inline_preview(tool_name: str, result: Any) -> Optional[List[Dict[str, Any]]]:
+    """Return up to 3 inline preview rows for list-type tools so the chat
+    can render real items alongside the entity-count chip. Mirrors the
+    shape of NavPreviewItem on the frontend ({title, subtitle, icon, id}).
+
+    Best-effort: returns None on any unrecognised shape rather than
+    invent rows. Never raises — this runs in the hot SSE loop.
+    """
+    icon = _INLINE_PREVIEW_TOOLS.get(tool_name)
+    if not icon:
+        return None
+    if isinstance(result, dict) and "error" in result:
+        return None
+
+    rows: List[Any] = []
+    try:
+        if isinstance(result, list):
+            rows = result
+        elif isinstance(result, dict):
+            for key in _LIST_KEYS:
+                val = result.get(key)
+                if isinstance(val, list):
+                    rows = val
+                    break
+    except Exception:  # noqa: BLE001
+        return None
+
+    out: List[Dict[str, Any]] = []
+    for r in rows[:3]:
+        if not isinstance(r, dict):
+            continue
+        title = (r.get("title") or r.get("text") or r.get("name") or "Untitled").strip()
+        subtitle: Optional[str] = None
+        if tool_name == "list_schedule":
+            when = " ".join(filter(None, [r.get("date"), r.get("time")])).strip()
+            subtitle = when or None
+        elif tool_name == "list_tasks":
+            due = r.get("due_date") or r.get("due") or ""
+            subtitle = f"due {due}" if due else (r.get("priority") and f"priority: {r['priority']}") or None
+        elif tool_name in ("list_memories", "recall_knowledge"):
+            src = (r.get("source_type") or "").upper()
+            domain = r.get("domain") or ""
+            joined = " · ".join([s for s in [src, domain] if s])
+            subtitle = joined or None
+        out.append({
+            "id": r.get("id"),
+            "title": title[:90],
+            "subtitle": (subtitle or "")[:60] or None,
+            "icon": icon,
+        })
+    return out or None
 
 
 def _extract_entity_meta(tool_name: str, result: Any) -> Optional[Dict[str, Any]]:

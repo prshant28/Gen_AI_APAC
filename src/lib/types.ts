@@ -113,6 +113,11 @@ export interface AgentStepData {
   entity_count?: number | null;
   entity_noun?: string;
   entity_verb?: string;
+  // Up to 3 inline preview rows for list-type tools (list_schedule,
+  // list_tasks, list_memories, recall_knowledge). Lets the chat surface
+  // the actual top items alongside the "X events" chip. Populated by
+  // _build_inline_preview on the backend; absent for non-list tools.
+  inline_preview?: NavPreviewItem[];
 }
 
 // ─── Workspace (project / folder / section / item / group) ────────────────────

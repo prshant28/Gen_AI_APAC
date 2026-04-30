@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Send, Mic, MicOff, Loader2, Plus, Radio, MessageSquare, Trash2,
-  X, Clock, Cpu, Check, AlertTriangle, ChevronDown,
+  X, Clock, Cpu, Check, AlertTriangle, ChevronDown, ArrowRight,
   Sparkles, ListChecks, Search as SearchIcon, GraduationCap, CalendarDays, Brain,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,6 +67,72 @@ const SUGGESTIONS: Suggestion[] = [
   { label: 'What is on my calendar?', msg: 'What is on my calendar this week?',                                icon: CalendarDays,  color: '#f472b6' },
   { label: 'Quiz me',             msg: 'Quiz me on what I have been learning this week using my flashcards.',  icon: Brain,         color: '#6366f1' },
 ];
+
+// Contextual follow-up chips shown immediately under an assistant reply that
+// just ran a list-type tool. Keeps the conversation flowing — instead of
+// dropping the user into a dead end after "8 events this week", we offer the
+// most likely next moves (schedule, drill into tomorrow, switch view).
+type FollowupChip = { label: string; msg: string };
+const CONTEXTUAL_FOLLOWUPS: Record<string, FollowupChip[]> = {
+  list_schedule: [
+    { label: 'What is tomorrow?',     msg: 'What is on my calendar tomorrow?' },
+    { label: 'Block focus time',      msg: 'Schedule a 90-minute focus block tomorrow morning.' },
+    { label: 'Reschedule something',  msg: 'Help me move one of my events to a better time.' },
+  ],
+  list_tasks: [
+    { label: 'Add a task',            msg: 'Create a new task for me.' },
+    { label: 'What is most urgent?',  msg: 'Which task should I do first today?' },
+    { label: 'Plan time for these',   msg: 'Block focus time on my calendar for these tasks.' },
+  ],
+  list_memories: [
+    { label: 'Recall by topic',       msg: 'Recall my recent saves about a specific topic.' },
+    { label: 'Build a study plan',    msg: 'Create a study plan from these recent saves.' },
+    { label: 'Quiz me',               msg: 'Quiz me on what I have been learning recently.' },
+  ],
+  recall_knowledge: [
+    { label: 'Tell me more',          msg: 'Tell me more about the top result.' },
+    { label: 'Build a study plan',    msg: 'Create a study plan from these results.' },
+    { label: 'Save a related note',   msg: 'Save a note linking these together.' },
+  ],
+};
+
+// Map a nav-redirect destination path to the same chip set as the
+// equivalent list tool — so messages routed through the navigate-intent
+// classifier (which never run a tool, just emit a `navigate` event) still
+// surface the contextual follow-ups. Stripped of query string + trailing slash
+// so "/library?tab=notes" still resolves to the notes path.
+const NAV_PATH_FOLLOWUPS: Record<string, FollowupChip[]> = {
+  '/calendar': CONTEXTUAL_FOLLOWUPS.list_schedule,
+  '/tasks':    CONTEXTUAL_FOLLOWUPS.list_tasks,
+  '/focus':    CONTEXTUAL_FOLLOWUPS.list_tasks,
+  '/vault':    CONTEXTUAL_FOLLOWUPS.list_memories,
+  '/library':  CONTEXTUAL_FOLLOWUPS.list_memories,
+  '/recall':   CONTEXTUAL_FOLLOWUPS.recall_knowledge,
+};
+
+// Pick the first list-style tool that completed in this message OR — when
+// the message was a nav-redirect with no tool steps — derive chips from
+// the destination path. Returns [] when nothing relevant happened (e.g.
+// capture, schedule create, generic chat) so the chip strip stays out of
+// the way.
+const getContextualFollowups = (msg: AgentMsg): FollowupChip[] => {
+  // 1. Tool-driven path — orchestrator actually ran a list_* tool.
+  if (msg.steps && msg.steps.length > 0) {
+    for (const s of msg.steps) {
+      if (s.status !== 'completed') continue;
+      const chips = s.tool ? CONTEXTUAL_FOLLOWUPS[s.tool] : null;
+      if (chips) return chips;
+    }
+  }
+  // 2. Nav-redirect path — message emitted by _classify_navigate_intent
+  //    has type:'nav' but no steps, so look up by destination path.
+  if (msg.type === 'nav' && msg.nav?.path) {
+    const base = (msg.nav.path.split('?')[0] || '').replace(/\/+$/, '') || '/';
+    const chips = NAV_PATH_FOLLOWUPS[base];
+    if (chips) return chips;
+  }
+  return [];
+};
 
 // Friendly display labels — never surface raw "FooAgent" identifiers in UI.
 const AGENT_LABEL: Record<string, string> = {
@@ -651,6 +717,7 @@ const AgentHubView = () => {
               entity_count: event.entity_count,
               entity_noun: event.entity_noun,
               entity_verb: event.entity_verb,
+              inline_preview: event.inline_preview,
             } : s) }
           : m));
         break;
@@ -1065,6 +1132,29 @@ const AgentHubView = () => {
                     {msg.role === 'assistant' && msg.steps && msg.steps.length > 0 && (
                       <ActionResultCards steps={msg.steps as any} />
                     )}
+
+                    {/* Contextual follow-up chips — only render after a list-type
+                        tool completed (list_schedule, list_tasks, list_memories,
+                        recall_knowledge) so the user gets a natural next step
+                        instead of staring at a dead-end answer. */}
+                    {msg.role === 'assistant' && !isStreaming && (() => {
+                      const chips = getContextualFollowups(msg);
+                      if (chips.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }} aria-label="Suggested next steps">
+                          <span style={{ alignSelf: 'center', color: 'var(--text-3)', fontSize: 10.5, fontWeight: 600, marginRight: 2 }}>Next:</span>
+                          {chips.map((c, ci) => (
+                            <button key={ci} onClick={() => handleSend(c.msg)}
+                              className="agent-quick-chip"
+                              style={{ ['--qa-color' as any]: '#a78bfa' } as React.CSSProperties}
+                              title={c.msg}>
+                              <ArrowRight size={10} color="#a78bfa" />
+                              <span>{c.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
 
                     {/* Quiet meta row: timestamp + export menu only */}
                     {msg.role === 'assistant' && (
