@@ -2,16 +2,19 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bookmark, Plus, Search, Trash2, ExternalLink, Globe, Tag as TagIcon,
   CheckCircle2, Clock, BookOpen, Filter, X, Link as LinkIcon,
-  Star, Archive, ArchiveRestore, FolderInput, Play, CheckSquare, Square, Download,
-  Pin, LayoutGrid, List as ListIcon, ArrowDownAZ, ArrowDownWideNarrow, Calendar as CalendarIcon
+  Archive, ArchiveRestore, FolderInput, Play, CheckSquare, Square, Download,
+  Pin, ArrowDownAZ, ArrowDownWideNarrow, Calendar as CalendarIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getYouTubeId } from '../lib/utils';
 import { showToast } from '../App';
 import type { BulkApiResponse } from '../lib/types';
+import ViewModeToggle, { useViewModePref } from '../components/ViewModeToggle';
 
 type BMStatus = 'unread' | 'reading' | 'done';
-type ViewMode = 'list' | 'card';
+// Aligned with the shared ViewModeToggle hook ('list' | 'grid'). The old
+// HEAD value 'card' is treated as 'grid' everywhere below.
+type ViewMode = 'list' | 'grid';
 type SortBy = 'recent' | 'oldest' | 'az' | 'most-tagged';
 
 interface BM {
@@ -40,7 +43,9 @@ const SORT_META: Record<SortBy, { label: string; icon: React.ComponentType<{ siz
   'most-tagged':{ label: 'Most tagged', icon: ArrowDownWideNarrow },
 };
 
-const LS_VIEW = 'bm-view-mode';
+// `viewMode` and `density` are persisted by `useViewModePref` under
+// `recall:bookmarks:*`. Sort order keeps its own legacy key so existing
+// users don't lose their preference.
 const LS_SORT = 'bm-sort-by';
 const readLS = <T extends string>(k: string, fallback: T, allowed: T[]): T => {
   try {
@@ -69,17 +74,19 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
   const [moveProjectPrompt, setMoveProjectPrompt] = useState(false);
   const [moveProjectInput, setMoveProjectInput] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => readLS<ViewMode>(LS_VIEW, 'list', ['list', 'card']));
+  // viewMode + density come from the shared hook (persisted under
+  // `recall:bookmarks:*`). sortBy + sort menu / keyboard shortcuts are
+  // Bookmarks-specific and stay local.
+  const { viewMode, setViewMode, density, setDensity } = useViewModePref('recall:bookmarks');
   const [sortBy, setSortBy]     = useState<SortBy>(() => readLS<SortBy>(LS_SORT, 'recent', ['recent', 'oldest', 'az', 'most-tagged']));
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Persist view + sort prefs
-  useEffect(() => { try { localStorage.setItem(LS_VIEW, viewMode); } catch { /* ignore */ } }, [viewMode]);
+  // Persist sort pref (viewMode + density already persisted by useViewModePref)
   useEffect(() => { try { localStorage.setItem(LS_SORT, sortBy); } catch { /* ignore */ } }, [sortBy]);
 
-  // Close sort menu on outside click + keyboard "/" focus search
+  // Close sort menu on outside click + keyboard "/" focuses the search input
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (showSortMenu && sortBtnRef.current && !sortBtnRef.current.parentElement?.contains(e.target as Node)) {
@@ -319,14 +326,15 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
     showToast(`Exported ${chosen.length} bookmarks`);
   };
 
-  // Single render fn so list and card mode share the same per-item markup.
-  // Card mode = thumbnail on top, body below; list mode = horizontal row.
+  // Single render fn so list and grid mode share the same per-item markup.
+  // Grid mode = thumbnail on top, body below; list mode = horizontal row.
   const renderBookmark = (bm: BM, mode: ViewMode) => {
     const meta = STATUS_META[bm.status] || STATUS_META.unread;
     const StatusIcon = meta.icon;
     const ytId = getYouTubeId(bm.url);
     const isSel = selectedIds.has(bm.id);
-    const isCard = mode === 'card';
+    const isCard = mode === 'grid';
+    const dateStr = bm.created_at ? new Date(bm.created_at).toLocaleDateString() : '';
 
     const thumb = ytId ? (
       <a href={bm.url} target="_blank" rel="noreferrer" title={`Play "${bm.title}" on YouTube`}
@@ -387,6 +395,10 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
           </div>
           <div className="bm-item-meta" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', fontSize: 11, flexWrap: 'wrap' }}>
             <Globe size={10} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isCard ? 200 : 220 }}>{bm.url}</span>
+            {dateStr && (<>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={9} /> {dateStr}</span>
+            </>)}
           </div>
           {bm.tags.length > 0 && (
             <div className="bm-item-tags" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -547,19 +559,8 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
             )}
           </div>
 
-          {/* View mode toggle (list / card) */}
-          <div className="bm-view-toggle" style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: 2 }}>
-            {(['list', 'card'] as const).map(m => {
-              const Icon = m === 'list' ? ListIcon : LayoutGrid;
-              const active = viewMode === m;
-              return (
-                <button key={m} onClick={() => setViewMode(m)} title={m === 'list' ? 'Compact list' : 'Card grid'}
-                  style={{ padding: '5px 10px', background: active ? 'var(--surface)' : 'transparent', border: 'none', borderRadius: 7, color: active ? 'var(--primary)' : 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontFamily: 'inherit' }}>
-                  <Icon size={13} />
-                </button>
-              );
-            })}
-          </div>
+          {/* View / density toggle replaced by the shared ViewModeToggle —
+              now lives on the utility row below alongside the filter chips. */}
         </div>
 
         {/* Row 3 — utility chips */}
@@ -605,6 +606,19 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
               </button>
             </>
           )}
+
+          {/* Shared view / density toggle (same component used on Vault and
+              Notes). Persisted under `recall:bookmarks:*` so each surface
+              remembers its own choice. Pushed to the right with auto-margin. */}
+          <div style={{ marginLeft: 'auto' }}>
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewMode={setViewMode}
+              density={density}
+              onDensity={setDensity}
+              testIdPrefix="bookmarks"
+            />
+          </div>
         </div>
 
         {/* BULK ACTION BAR (only when selecting) */}
@@ -691,7 +705,10 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
         )}
       </div>
 
-      {/* LIST */}
+      {/* LIST or GRID — outer wrapper stays a column flex so the optional
+          "Pinned" / "All bookmarks" section headers can sit between two
+          inner containers (each carrying the shared lib-list / lib-grid
+          classes used by Vault + Notes). */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}>Loading bookmarks...</div>
@@ -710,18 +727,18 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
         ) : (
           <>
             {pinnedItems.length > 0 && (
-              <div className="bm-section-header" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', padding: '4px 2px' }}>
-                <Pin size={11} color="#ec4899" /> Pinned <span style={{ opacity: 0.6 }}>({pinnedItems.length})</span>
-              </div>
-            )}
-            {viewMode === 'card' ? (
-              <div className="bm-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-                {pinnedItems.map(bm => renderBookmark(bm, 'card'))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {pinnedItems.map(bm => renderBookmark(bm, 'list'))}
-              </div>
+              <>
+                <div className="bm-section-header" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 10.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', padding: '4px 2px' }}>
+                  <Pin size={11} color="#ec4899" /> Pinned <span style={{ opacity: 0.6 }}>({pinnedItems.length})</span>
+                </div>
+                <div className={
+                  viewMode === 'list'
+                    ? 'lib-list'
+                    : density === 'compact' ? 'lib-grid lib-compact' : 'lib-grid'
+                }>
+                  {pinnedItems.map(bm => renderBookmark(bm, viewMode))}
+                </div>
+              </>
             )}
 
             {pinnedItems.length > 0 && otherItems.length > 0 && (
@@ -729,15 +746,13 @@ const BookmarksPage: React.FC<BookmarksPageProps> = ({ embedded = false }) => {
                 <Bookmark size={11} /> All bookmarks <span style={{ opacity: 0.6 }}>({otherItems.length})</span>
               </div>
             )}
-            {viewMode === 'card' ? (
-              <div className="bm-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-                {otherItems.map(bm => renderBookmark(bm, 'card'))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {otherItems.map(bm => renderBookmark(bm, 'list'))}
-              </div>
-            )}
+            <div className={
+              viewMode === 'list'
+                ? 'lib-list'
+                : density === 'compact' ? 'lib-grid lib-compact' : 'lib-grid'
+            }>
+              {otherItems.map(bm => renderBookmark(bm, viewMode))}
+            </div>
           </>
         )}
       </div>

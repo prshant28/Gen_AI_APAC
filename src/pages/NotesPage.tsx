@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { showToast } from '../App';
 import type { BulkApiResponse } from '../lib/types';
+import ViewModeToggle, { useViewModePref } from '../components/ViewModeToggle';
 
 interface Note {
   id: string;
@@ -56,6 +57,7 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
   const [moveProjectPrompt, setMoveProjectPrompt] = useState(false);
   const [moveProjectInput, setMoveProjectInput] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const { viewMode, setViewMode, density, setDensity } = useViewModePref('recall:notes');
 
   const loadNotes = useCallback(() => {
     fetch(`/notes${showArchived ? '?include_archived=true' : ''}`)
@@ -287,6 +289,19 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
             </button>
           </div>
 
+          {/* Same view-mode toggle Vault uses, so users get one mental model
+              across the Library hub. Persisted under `recall:notes:*` so
+              Notes' choice doesn't bleed into Vault or Bookmarks. */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewMode={setViewMode}
+              density={density}
+              onDensity={setDensity}
+              testIdPrefix="notes"
+            />
+          </div>
+
           {selectMode && selectedIds.size > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, background: 'var(--surface-2)', border: '1px solid var(--primary-border)', borderRadius: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
@@ -356,7 +371,27 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
             </div>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }} className="scroll-custom">
+          <div
+            className={
+              loading || filtered.length === 0
+                ? 'scroll-custom'
+                : viewMode === 'list'
+                  ? 'scroll-custom lib-list'
+                  : density === 'compact' ? 'scroll-custom lib-grid lib-compact' : 'scroll-custom lib-grid'
+            }
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              ...((loading || filtered.length === 0) ? { display: 'flex', flexDirection: 'column' } : {}),
+              // The Notes sidebar is ~300px wide, but `.lib-grid` inherits
+              // viewport-based breakpoints from Vault (3 / 5 cols at desktop
+              // widths) which would make cards uselessly cramped here.
+              // Override inline so the narrow container gets a sane column
+              // count while still differentiating compact from comfortable.
+              ...(viewMode === 'grid' && filtered.length > 0
+                ? { gridTemplateColumns: density === 'compact' ? 'repeat(2, 1fr)' : '1fr' }
+                : {}),
+            }}>
             {loading ? (
               <div style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: 12, padding: 30 }}>Loading...</div>
             ) : filtered.length === 0 ? (
@@ -365,28 +400,72 @@ const NotesPage: React.FC<NotesPageProps> = ({ embedded = false }) => {
                 <div style={{ fontSize: 12 }}>No notes yet</div>
                 <button onClick={createNew} style={{ marginTop: 10, padding: '6px 12px', background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8, color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Create first note</button>
               </div>
-            ) : filtered.map(n => {
+            ) : viewMode === 'list' ? filtered.map(n => {
               const isSel = selectedIds.has(n.id);
+              const active = selectedId === n.id;
               return (
-              <motion.div key={n.id} onClick={() => selectMode ? toggleSelect(n.id) : setSelectedId(n.id)}
-                whileHover={{ x: 2 }}
-                style={{ padding: '10px 12px', background: selectMode && isSel ? 'rgba(99,102,241,0.12)' : selectedId === n.id ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${selectMode && isSel ? 'var(--primary)' : selectedId === n.id ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 11, cursor: 'pointer', position: 'relative' }}>
-                <div style={{ display: 'flex', alignItems: 'start', gap: 8 }}>
+                <motion.div key={n.id} onClick={() => selectMode ? toggleSelect(n.id) : setSelectedId(n.id)}
+                  whileHover={{ x: 2 }}
+                  className="lib-row"
+                  style={{ background: selectMode && isSel ? 'rgba(99,102,241,0.12)' : active ? 'var(--primary-bg)' : 'var(--surface)', borderColor: selectMode && isSel ? 'var(--primary)' : active ? 'var(--primary-border)' : 'var(--border)' }}>
                   {selectMode && (
                     isSel
-                      ? <CheckSquare size={13} color="var(--primary)" style={{ flexShrink: 0, marginTop: 1 }} />
-                      : <Square size={13} color="var(--text-3)" style={{ flexShrink: 0, marginTop: 1 }} />
+                      ? <CheckSquare size={13} color="var(--primary)" style={{ flexShrink: 0 }} />
+                      : <Square size={13} color="var(--text-3)" style={{ flexShrink: 0 }} />
                   )}
-                  {n.pinned && <Pin size={11} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: selectedId === n.id ? 'var(--primary)' : 'var(--text-1)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</div>
-                    <div style={{ color: 'var(--text-3)', fontSize: 10.5, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.content.replace(/[#*`]/g, '').slice(0, 80) || 'Empty note'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--text-3)', fontSize: 9.5 }}>
-                      <Clock size={9} /> {new Date(n.updated_at).toLocaleDateString()} · {n.word_count} words
+                  {n.pinned && <Pin size={12} color="#f59e0b" style={{ flexShrink: 0 }} />}
+                  <div className="lib-row-main">
+                    <div className="lib-row-title" style={{ color: active ? 'var(--primary)' : 'var(--text-1)' }}>{n.title}</div>
+                    <div className="lib-row-meta">
+                      {n.tags.slice(0, 3).map(t => (
+                        <span key={t} style={{ color: 'var(--primary)', fontWeight: 700 }}>#{t}</span>
+                      ))}
+                      {n.tags.length > 3 && <span style={{ color: 'var(--text-3)', fontWeight: 700 }}>+{n.tags.length - 3}</span>}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <Clock size={10} /> {new Date(n.updated_at).toLocaleDateString()}
+                      </span>
+                      <span>· {n.word_count} words</span>
                     </div>
                   </div>
-                </div>
-              </motion.div>
+                  <div className="lib-row-actions">
+                    <button onClick={e => { e.stopPropagation(); togglePin(n.id, n.pinned); }} title={n.pinned ? 'Unpin' : 'Pin to top'}
+                      style={{ width: 26, height: 26, borderRadius: 7, background: n.pinned ? 'rgba(245,158,11,0.12)' : 'transparent', border: `1px solid ${n.pinned ? 'rgba(245,158,11,0.3)' : 'transparent'}`, color: n.pinned ? '#f59e0b' : 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {n.pinned ? <Pin size={12} /> : <PinOff size={12} />}
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); deleteNote(n.id); }} title="Delete"
+                      style={{ width: 26, height: 26, borderRadius: 7, background: 'transparent', border: '1px solid transparent', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            }) : filtered.map(n => {
+              const isSel = selectedIds.has(n.id);
+              const active = selectedId === n.id;
+              const compact = density === 'compact';
+              return (
+                <motion.div key={n.id} onClick={() => selectMode ? toggleSelect(n.id) : setSelectedId(n.id)}
+                  whileHover={{ y: -2 }}
+                  style={{ padding: compact ? '8px 10px' : '10px 12px', background: selectMode && isSel ? 'rgba(99,102,241,0.12)' : active ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${selectMode && isSel ? 'var(--primary)' : active ? 'var(--primary-border)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', position: 'relative', display: 'flex', flexDirection: 'column', gap: compact ? 3 : 5, minHeight: compact ? 56 : 72 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {selectMode && (isSel
+                      ? <CheckSquare size={11} color="var(--primary)" style={{ flexShrink: 0 }} />
+                      : <Square size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />)}
+                    {n.pinned && <Pin size={10} color="#f59e0b" style={{ flexShrink: 0 }} />}
+                    <div style={{ color: active ? 'var(--primary)' : 'var(--text-1)', fontSize: compact ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>{n.title}</div>
+                  </div>
+                  {!compact && (
+                    <div style={{ color: 'var(--text-3)', fontSize: 10.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.content.replace(/[#*`]/g, '').slice(0, 80) || 'Empty note'}</div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)', fontSize: 9.5, marginTop: 'auto', flexWrap: 'wrap' }}>
+                    {n.tags.slice(0, compact ? 1 : 2).map(t => <span key={t} style={{ color: 'var(--primary)', fontWeight: 700 }}>#{t}</span>)}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <Clock size={9} />{new Date(n.updated_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </motion.div>
               );
             })}
           </div>

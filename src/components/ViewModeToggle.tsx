@@ -4,6 +4,56 @@ import { LayoutGrid, List as ListIcon, Rows2, Rows3 } from 'lucide-react';
 export type ViewMode = 'grid' | 'list';
 export type Density = 'comfortable' | 'compact';
 
+// Legacy keys: prior versions stored a single global view+density preference
+// shared across the standalone /vault page and both Library tabs. We keep
+// reading them as a one-time fallback so users don't lose their choice when
+// per-surface keys are introduced (and likewise for Notes / Bookmarks now
+// that they get the same toggle).
+const LEGACY_VIEW_KEY = 'recall:vault:viewMode';
+const LEGACY_DENSITY_KEY = 'recall:vault:density';
+
+export const loadViewMode = (key: string): ViewMode => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'list' || v === 'grid') return v;
+    const legacy = localStorage.getItem(LEGACY_VIEW_KEY);
+    if (legacy === 'list' || legacy === 'grid') {
+      try { localStorage.setItem(key, legacy); } catch { /* ignore */ }
+      return legacy;
+    }
+    return 'grid';
+  } catch { return 'grid'; }
+};
+
+export const loadDensity = (key: string): Density => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'comfortable' || v === 'compact') return v;
+    const legacy = localStorage.getItem(LEGACY_DENSITY_KEY);
+    if (legacy === 'comfortable' || legacy === 'compact') {
+      try { localStorage.setItem(key, legacy); } catch { /* ignore */ }
+      return legacy;
+    }
+    return 'comfortable';
+  } catch { return 'comfortable'; }
+};
+
+/**
+ * Persist view mode + density to localStorage under
+ * `${storageKey}:viewMode` / `${storageKey}:density`. Reusable by every
+ * surface (Vault, Notes, Bookmarks, Library tabs) so each remembers its
+ * own choice while sharing the same component + behavior.
+ */
+export const useViewModePref = (storageKey: string) => {
+  const viewKey = `${storageKey}:viewMode`;
+  const densityKey = `${storageKey}:density`;
+  const [viewMode, setViewMode] = React.useState<ViewMode>(() => loadViewMode(viewKey));
+  const [density, setDensity] = React.useState<Density>(() => loadDensity(densityKey));
+  React.useEffect(() => { try { localStorage.setItem(viewKey, viewMode); } catch { /* ignore */ } }, [viewMode, viewKey]);
+  React.useEffect(() => { try { localStorage.setItem(densityKey, density); } catch { /* ignore */ } }, [density, densityKey]);
+  return { viewMode, setViewMode, density, setDensity };
+};
+
 interface Props {
   viewMode: ViewMode;
   onViewMode: (v: ViewMode) => void;
