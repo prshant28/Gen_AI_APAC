@@ -3996,6 +3996,62 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   CAPTURE PAGE — phone polish (file preview + 7-agent pipeline)
+   The dropped-file preview was clipping long unbreakable identifiers
+   on the left and the PDF iframe was 420px tall (>50% of an iPhone
+   viewport). The 7-agent pipeline scrolled horizontally but on phones
+   the user only saw 4 of 7 agents, with no visual hint that more
+   exist beyond the right edge.
+   ───────────────────────────────────────────────────────────────── */
+.capture-pdf-frame {
+  height: 420px;
+}
+/* Larger variant used by the post-processed PDF preview block — keeps the
+   existing 540px feel on desktop, but still benefits from the mobile shrink. */
+.capture-pdf-frame.capture-pdf-frame-large {
+  height: 540px;
+}
+@media (max-width: 640px) {
+  .capture-pdf-frame {
+    height: 300px;
+  }
+  .capture-pdf-frame.capture-pdf-frame-large {
+    height: 360px;
+  }
+  .capture-text-preview {
+    font-size: 12px !important;
+    padding: 12px 14px !important;
+    max-height: 200px !important;
+  }
+  /* Pipeline strip: shrink each agent so all 7 fit without scroll on
+     a 360-375px viewport, and add a right-edge fade so users still
+     see there's a row beyond the visible area when it does overflow. */
+  .capture-pipeline-row {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  }
+  .capture-pipeline-step {
+    min-width: 44px !important;
+    gap: 4px !important;
+  }
+  .capture-pipeline-bubble {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .capture-pipeline-bubble svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+  .capture-pipeline-label {
+    font-size: 8.5px !important;
+    line-height: 1.1 !important;
+  }
+  .capture-pipeline-connector {
+    min-width: 4px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
    LIBRARY POWER-UPS — Task #18
    Smart collections strip, deep-search highlight, bulk action bar,
    pin/select on Vault rows + cards, tag prompt.

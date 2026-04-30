@@ -6,7 +6,7 @@ import {
   Youtube, Link2, Zap, Shield, Network, Search, Layers,
   AlertCircle, Eye, FileDigit, Target, BookOpen, HelpCircle, ListChecks,
   Clock, FolderOpen, Star, ArrowRight, GitBranch, ChevronUp, ChevronDown,
-  Pencil, Trash2, BookmarkPlus, Wand2, ShieldCheck,
+  Pencil, Trash2, BookmarkPlus, Wand2, ShieldCheck, Check, Plus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { YouTubeEmbed, YouTubeThumbnail, getYouTubeId } from '../lib/utils';
@@ -14,6 +14,9 @@ import { showToast } from '../App';
 import type { Memory } from '../lib/types';
 import { RevisitScheduler } from '../components/RevisitScheduler';
 import AutoGrowTextarea from '../components/AutoGrowTextarea';
+
+// EditableText is defined below — it depends on AutoGrowTextarea + lucide icons
+// imported above and is used throughout the capture preview panel.
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 const safeHostname = (raw: string): string | null => {
@@ -57,6 +60,81 @@ const AGENTS = [
 ];
 
 type AgentStatus = 'idle' | 'active' | 'done' | 'error';
+
+/* ── EditableText ────────────────────────────────────────────────
+   Tiny inline editor used across the capture preview so the user can
+   tweak the AI's output (title, summary, each key insight, each
+   action item, each study question) before clicking "Save to Vault".
+   Single-line uses <input>; multiline uses AutoGrowTextarea so the
+   box grows with content. Enter saves (single-line); Cmd/Ctrl+Enter
+   saves (multiline); Escape always cancels. Empty save-attempts are
+   ignored — to remove an item the user clicks the trash icon, not
+   "Save with empty value", which prevents accidental loss. */
+const EditableText: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  multiline?: boolean;
+  placeholder?: string;
+  display?: React.ReactNode;
+  inputStyle?: React.CSSProperties;
+  iconSize?: number;
+}> = ({ value, onChange, multiline, placeholder, display, inputStyle, iconSize = 11 }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  // Re-sync the draft if the parent value changes while we're not editing
+  // (e.g. a different preview is loaded).
+  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+
+  const commit = () => {
+    const next = (draft || '').trim();
+    if (next && next !== value) onChange(next);
+    setEditing(false);
+  };
+  const cancel = () => { setDraft(value); setEditing(false); };
+
+  if (editing) {
+    const commonProps = {
+      value: draft,
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(e.target.value),
+      autoFocus: true,
+      placeholder,
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
+        if (e.key === 'Enter') {
+          if (!multiline) { e.preventDefault(); commit(); return; }
+          if (e.metaKey || e.ctrlKey) { e.preventDefault(); commit(); }
+        }
+      },
+      style: { width: '100%', padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--primary-border)', background: 'var(--surface)', color: 'var(--text-1)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' as const, ...inputStyle },
+    };
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0, width: '100%' }}>
+        {multiline
+          ? <AutoGrowTextarea {...(commonProps as any)} maxHeight={260} rows={3} />
+          : <input type="text" {...(commonProps as any)} />}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button type="button" onClick={cancel}
+            style={{ padding: '4px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={commit}
+            style={{ padding: '4px 10px', background: 'var(--primary)', border: 'none', borderRadius: 7, cursor: 'pointer', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Check size={11} /> Save
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0, width: '100%' }}>
+      <span style={{ flex: 1, minWidth: 0 }}>{display ?? (value || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{placeholder || 'Empty'}</span>)}</span>
+      <button type="button" onClick={() => setEditing(true)} aria-label="Edit"
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3, color: 'var(--text-3)', display: 'inline-flex', flexShrink: 0, borderRadius: 6, alignSelf: 'flex-start', marginTop: 2 }}>
+        <Pencil size={iconSize} />
+      </button>
+    </span>
+  );
+};
 
 /* ── Voice recording helper ─────────────────────────────────────── */
 function useVoiceRecorder() {
@@ -137,6 +215,44 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
   const [activeAgentDesc, setActiveAgentDesc] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceRecorder();
+
+  // ── Preview mutation helpers ────────────────────────────────────
+  // The preview panel lets the user tweak / prune the AI's output
+  // before saving. Edits flow through `setPreview` so the (possibly
+  // modified) preview is what gets POSTed in handleSave.
+  const updatePreviewField = <K extends keyof Memory>(key: K, val: Memory[K]) =>
+    setPreview(p => p ? ({ ...p, [key]: val }) : p);
+  const removeListItem = (
+    key: 'key_points' | 'action_items' | 'study_questions' | 'glossary' | 'tags',
+    idx: number,
+  ) => setPreview(p => {
+    if (!p) return p;
+    const arr = (p as any)[key];
+    if (!Array.isArray(arr)) return p;
+    return { ...p, [key]: arr.filter((_: any, i: number) => i !== idx) };
+  });
+  const updateStringListItem = (
+    key: 'key_points' | 'action_items' | 'study_questions',
+    idx: number,
+    val: string,
+  ) => setPreview(p => {
+    if (!p) return p;
+    const arr = (p as any)[key] as string[] | undefined;
+    if (!Array.isArray(arr)) return p;
+    return { ...p, [key]: arr.map((it, i) => i === idx ? val : it) };
+  });
+  const [tagDraft, setTagDraft] = useState('');
+  const addTag = (raw: string) => {
+    const t = raw.trim().replace(/^#/, '').toLowerCase();
+    if (!t) return;
+    setPreview(p => {
+      if (!p) return p;
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      if (tags.includes(t)) return p;
+      return { ...p, tags: [...tags, t] };
+    });
+    setTagDraft('');
+  };
 
   // ── Time Capture (capture-my-last-N-hours bundle) ───────────────
   const [bundling, setBundling] = useState<null | number>(null); // hours we're bundling, or null
@@ -2045,13 +2161,14 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                       </div>
                       {/* Inline preview: PDFs render in iframe; text files show first chars */}
                       {pdfObjectUrl && /\.pdf$/i.test(pdfFile.name) && (
-                        <div style={{ height: 420, background: '#1a1a1a' }}>
+                        <div className="capture-pdf-frame" style={{ background: '#1a1a1a' }}>
                           <iframe src={pdfObjectUrl} title="PDF preview"
                             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
                         </div>
                       )}
                       {!/\.pdf$/i.test(pdfFile.name) && (
-                        <div style={{ padding: '14px 16px', maxHeight: 240, overflow: 'auto', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, background: 'var(--surface)', whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace' }}>
+                        <div className="capture-text-preview"
+                          style={{ padding: '14px 16px', maxHeight: 240, overflow: 'auto', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, background: 'var(--surface)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace' }}>
                           {textPreview || <span style={{ color: 'var(--text-3)' }}>Reading file…</span>}
                         </div>
                       )}
@@ -2086,17 +2203,21 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                       </span>
                     )}
                   </div>
-                  {/* Agents row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}
-                    className="scroll-custom">
+                  {/* Agents row — see .capture-pipeline-row in pages.css for
+                      the mobile shrink + right-edge fade that prevents the
+                      7th agent ("Guardian") from being clipped on phones. */}
+                  <div className="capture-pipeline-row scroll-custom"
+                    style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}>
                     {AGENTS.map((ag, i) => {
                       const st = agentState[ag.id] || 'idle';
                       return (
                         <React.Fragment key={ag.id}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 64, flexShrink: 0 }}>
+                          <div className="capture-pipeline-step"
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 64, flexShrink: 0 }}>
                             <motion.div
                               animate={st === 'active' ? { scale: [1, 1.15, 1], boxShadow: [`0 0 0 0 ${ag.color}44`, `0 0 0 8px ${ag.color}22`, `0 0 0 0 ${ag.color}00`] } : {}}
                               transition={{ repeat: Infinity, duration: 1.2 }}
+                              className="capture-pipeline-bubble"
                               style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${st === 'idle' ? 'var(--border)' : ag.color}`, background: st === 'idle' ? 'var(--surface-2)' : st === 'done' ? `color-mix(in srgb,${ag.color} 18%,transparent)` : `color-mix(in srgb,${ag.color} 14%,transparent)`, transition: 'all 0.3s' }}>
                               {st === 'done'
                                 ? <CheckCircle2 size={16} color={ag.color} />
@@ -2104,12 +2225,14 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                                 ? <AlertCircle size={16} color="#ef4444" />
                                 : <ag.icon size={15} color={st === 'active' ? ag.color : 'var(--text-3)'} />}
                             </motion.div>
-                            <span style={{ fontSize: 9.5, fontWeight: st === 'active' ? 700 : 500, color: st === 'idle' ? 'var(--text-3)' : ag.color, textAlign: 'center', lineHeight: 1.2 }}>
+                            <span className="capture-pipeline-label"
+                              style={{ fontSize: 9.5, fontWeight: st === 'active' ? 700 : 500, color: st === 'idle' ? 'var(--text-3)' : ag.color, textAlign: 'center', lineHeight: 1.2 }}>
                               {ag.label}
                             </span>
                           </div>
                           {i < AGENTS.length - 1 && (
-                            <div style={{ flex: 1, height: 2, background: agentState[AGENTS[i + 1].id] && agentState[AGENTS[i + 1].id] !== 'idle' ? AGENTS[i].color : 'var(--border)', transition: 'background 0.4s', minWidth: 8 }} />
+                            <div className="capture-pipeline-connector"
+                              style={{ flex: 1, height: 2, background: agentState[AGENTS[i + 1].id] && agentState[AGENTS[i + 1].id] !== 'idle' ? AGENTS[i].color : 'var(--border)', transition: 'background 0.4s', minWidth: 8 }} />
                           )}
                         </React.Fragment>
                       );
@@ -2142,7 +2265,16 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.12)', borderRadius: 5, fontSize: 10, fontWeight: 700 }}>{preview.domain}</span>
                 <span style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.12)', borderRadius: 5, fontSize: 10, fontWeight: 700 }}>{preview.source_type}</span>
               </div>
-              <h3 style={{ fontSize: 'clamp(15px,2.8vw,20px)', fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{preview.title}</h3>
+              <div className="capture-preview-title-wrap" style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <EditableText
+                  value={preview.title}
+                  onChange={v => updatePreviewField('title', v)}
+                  placeholder="Untitled capture"
+                  iconSize={13}
+                  display={<h3 style={{ fontSize: 'clamp(15px,2.8vw,20px)', fontWeight: 800, margin: 0, lineHeight: 1.3, color: '#fff' }}>{preview.title}</h3>}
+                  inputStyle={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}
+                />
+              </div>
             </div>
             <button onClick={() => { setPreview(null); setAgentState({}); }}
               style={{ padding: 8, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0 }}>
@@ -2213,7 +2345,11 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
 
           {preview.source_type === 'pdf' && (preview.pdf_data || pdfObjectUrl) && (
             <div style={{ padding: '16px 20px 0' }}>
-              <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', height: 540, background: '#1a1a1a' }}>
+              {/* Use the same .capture-pdf-frame class as the upload-stage iframe so
+                  this post-processing PDF preview also shrinks 540 → 360px on phones
+                  instead of dominating the viewport. The class default is 420px;
+                  we override desktop here to keep the existing larger 540px feel. */}
+              <div className="capture-pdf-frame capture-pdf-frame-large" style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: '#1a1a1a' }}>
                 <iframe src={preview.pdf_data || pdfObjectUrl} title="PDF preview" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '10px 0 0' }}>
@@ -2250,9 +2386,13 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 <h4 style={{ fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 11.5, letterSpacing: 0.6, textTransform: 'uppercase' }}>
                   <Sparkles size={13} color="var(--primary)" /> Executive Summary
                 </h4>
-                <p style={{ color: 'var(--text-1)', lineHeight: 1.7, fontSize: 13.5, margin: 0, fontWeight: 500 }}>
-                  {preview.executive_summary}
-                </p>
+                <EditableText
+                  value={preview.executive_summary}
+                  onChange={v => updatePreviewField('executive_summary', v)}
+                  multiline
+                  placeholder="Add an executive summary…"
+                  display={<p style={{ color: 'var(--text-1)', lineHeight: 1.7, fontSize: 13.5, margin: 0, fontWeight: 500 }}>{preview.executive_summary}</p>}
+                />
               </section>
             )}
 
@@ -2260,7 +2400,13 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
               <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
                 <Brain size={14} color="var(--primary)" /> Summary
               </h4>
-              <p style={{ color: 'var(--text-2)', lineHeight: 1.75, fontSize: 13.5, margin: 0 }}>{preview.summary}</p>
+              <EditableText
+                value={preview.summary}
+                onChange={v => updatePreviewField('summary', v)}
+                multiline
+                placeholder="Add a summary…"
+                display={<p style={{ color: 'var(--text-2)', lineHeight: 1.75, fontSize: 13.5, margin: 0 }}>{preview.summary}</p>}
+              />
             </section>
 
             <section>
@@ -2268,10 +2414,20 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 <CheckCircle2 size={14} color="#10b981" /> Key Insights
               </h4>
               <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 8, padding: 0, listStyle: 'none', margin: 0 }}>
-                {preview.key_points.map((point, i) => (
-                  <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-                    <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, flexShrink: 0, border: '1px solid var(--primary-border)' }}>{i + 1}</span>
-                    {point}
+                {(Array.isArray(preview.key_points) ? preview.key_points : []).map((point, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-2)', border: '1px solid var(--border)', alignItems: 'flex-start' }}>
+                    <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, flexShrink: 0, border: '1px solid var(--primary-border)', marginTop: 1 }}>{i + 1}</span>
+                    <EditableText
+                      value={point}
+                      onChange={v => updateStringListItem('key_points', i, v)}
+                      multiline
+                      placeholder="Edit insight…"
+                    />
+                    <button type="button" onClick={() => removeListItem('key_points', i)}
+                      aria-label={`Remove insight ${i + 1}`}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3, color: 'var(--text-3)', display: 'inline-flex', flexShrink: 0, borderRadius: 6, marginTop: 2 }}>
+                      <Trash2 size={11} />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -2285,8 +2441,19 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 0, listStyle: 'none', margin: 0 }}>
                   {preview.action_items.map((item, i) => (
                     <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'rgba(249,115,22,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--text-1)', border: '1px solid rgba(249,115,22,0.18)', alignItems: 'flex-start' }}>
-                      <ListChecks size={14} color="#f97316" style={{ flexShrink: 0, marginTop: 1 }} />
-                      <span style={{ lineHeight: 1.55 }}>{item}</span>
+                      <ListChecks size={14} color="#f97316" style={{ flexShrink: 0, marginTop: 3 }} />
+                      <EditableText
+                        value={item}
+                        onChange={v => updateStringListItem('action_items', i, v)}
+                        multiline
+                        placeholder="Edit action item…"
+                        display={<span style={{ lineHeight: 1.55 }}>{item}</span>}
+                      />
+                      <button type="button" onClick={() => removeListItem('action_items', i)}
+                        aria-label={`Remove action item ${i + 1}`}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3, color: 'var(--text-3)', display: 'inline-flex', flexShrink: 0, borderRadius: 6, marginTop: 2 }}>
+                        <Trash2 size={11} />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -2300,8 +2467,13 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 8 }}>
                   {preview.glossary.map((g, i) => (
-                    <div key={i} style={{ padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: '#a78bfa', marginBottom: 3, letterSpacing: 0.2 }}>{g.term}</div>
+                    <div key={i} style={{ padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)', position: 'relative' }}>
+                      <button type="button" onClick={() => removeListItem('glossary', i)}
+                        aria-label={`Remove glossary entry ${g.term}`}
+                        style={{ position: 'absolute', top: 6, right: 6, background: 'transparent', border: 'none', cursor: 'pointer', padding: 3, color: 'var(--text-3)', display: 'inline-flex', borderRadius: 6 }}>
+                        <Trash2 size={11} />
+                      </button>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#a78bfa', marginBottom: 3, letterSpacing: 0.2, paddingRight: 18 }}>{g.term}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{g.definition}</div>
                     </div>
                   ))}
@@ -2316,9 +2488,20 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
                 </h4>
                 <ol style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 0, margin: 0, listStyle: 'none' }}>
                   {preview.study_questions.map((q, i) => (
-                    <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'rgba(34,211,238,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--text-1)', border: '1px solid rgba(34,211,238,0.18)' }}>
-                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(34,211,238,0.18)', color: '#0e7490', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>Q{i + 1}</span>
-                      <span style={{ lineHeight: 1.55 }}>{q}</span>
+                    <li key={i} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'rgba(34,211,238,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--text-1)', border: '1px solid rgba(34,211,238,0.18)', alignItems: 'flex-start' }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(34,211,238,0.18)', color: '#0e7490', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0, marginTop: 1 }}>Q{i + 1}</span>
+                      <EditableText
+                        value={q}
+                        onChange={v => updateStringListItem('study_questions', i, v)}
+                        multiline
+                        placeholder="Edit question…"
+                        display={<span style={{ lineHeight: 1.55 }}>{q}</span>}
+                      />
+                      <button type="button" onClick={() => removeListItem('study_questions', i)}
+                        aria-label={`Remove question ${i + 1}`}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3, color: 'var(--text-3)', display: 'inline-flex', flexShrink: 0, borderRadius: 6, marginTop: 2 }}>
+                        <Trash2 size={11} />
+                      </button>
                     </li>
                   ))}
                 </ol>
@@ -2329,10 +2512,39 @@ const CaptureView: React.FC<CaptureViewProps> = ({ embedded = false }) => {
               <h4 style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13 }}>
                 <Tag size={14} color="#fbbf24" /> Smart Tags
               </h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {preview.tags.map(tag => (
-                  <span key={tag} style={{ padding: '4px 10px', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--primary-border)' }}>#{tag}</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
+                {(Array.isArray(preview.tags) ? preview.tags : []).map((tag, i) => (
+                  <span key={tag + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px 4px 10px', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--primary-border)' }}>
+                    #{tag}
+                    <button type="button" onClick={() => removeListItem('tags', i)}
+                      aria-label={`Remove tag ${tag}`}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--primary)', opacity: 0.55, display: 'inline-flex', borderRadius: 4 }}>
+                      <X size={10} />
+                    </button>
+                  </span>
                 ))}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 4px 2px 8px', background: 'var(--surface-2)', borderRadius: 8, border: '1px dashed var(--border)' }}>
+                  <input
+                    value={tagDraft}
+                    onChange={e => setTagDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                        e.preventDefault();
+                        addTag(tagDraft);
+                      } else if (e.key === 'Escape') {
+                        setTagDraft('');
+                      }
+                    }}
+                    placeholder="add tag"
+                    aria-label="Add a new tag"
+                    style={{ width: 80, padding: '2px 4px', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-1)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+                  />
+                  <button type="button" onClick={() => addTag(tagDraft)} disabled={!tagDraft.trim()}
+                    aria-label="Add tag"
+                    style={{ background: 'transparent', border: 'none', cursor: tagDraft.trim() ? 'pointer' : 'default', padding: 2, color: 'var(--text-3)', display: 'inline-flex', borderRadius: 4, opacity: tagDraft.trim() ? 1 : 0.4 }}>
+                    <Plus size={11} />
+                  </button>
+                </span>
               </div>
             </section>
 
