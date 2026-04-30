@@ -225,10 +225,6 @@ const RecallView = () => {
   const [isListening, setIsListening] = useState(false);
   const [playingYt, setPlayingYt] = useState<Set<string>>(new Set());
   const [liveOpen, setLiveOpen] = useState(false);
-  // Pinned focal source for the current "topic" — set after the first reply
-  // and reused on every follow-up so the user keeps seeing the same primary
-  // card instead of it flipping between turns. Cleared on "New chat".
-  const [focalSourceId, setFocalSourceId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem('recall-x247-history') || '[]');
@@ -272,6 +268,28 @@ const RecallView = () => {
       .map(m => ({ role: m.role, content: m.content }));
   }, [messages]);
 
+  // For each assistant message, compute the set of source IDs that were
+  // already shown in earlier assistant messages of this same chat. The
+  // render layer uses this to hide duplicate cards on follow-up turns —
+  // the user complained that the same memory card appeared again and
+  // again across follow-ups, which was noisy. The first turn that
+  // surfaces a memory keeps the card; later turns just answer in text
+  // unless they bring a genuinely new memory.
+  const shownSourceIdsByMsg = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const seen = new Set<string>();
+    for (const m of messages) {
+      // Snapshot what was already seen BEFORE this message rendered.
+      map.set(m.id, new Set(seen));
+      if (m.role === 'assistant' && m.sources) {
+        for (const s of m.sources) {
+          if (s.id) seen.add(s.id);
+        }
+      }
+    }
+    return map;
+  }, [messages]);
+
   const toggleVoice = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
@@ -312,9 +330,6 @@ const RecallView = () => {
         body: JSON.stringify({
           query: msg,
           history: priorHistory,
-          // Pin the same focal card across follow-ups in the same chat. The
-          // backend will fetch + prepend it and dedupe from the rest.
-          ...(focalSourceId ? { focal_source_id: focalSourceId } : {}),
         }),
       });
       const data = await res.json();
@@ -329,13 +344,6 @@ const RecallView = () => {
         }
         : m
       ));
-      // First successful turn establishes the focal card. Subsequent turns
-      // keep the same focal — they don't overwrite it — so follow-ups don't
-      // flip to a different primary item just because the new sub-question
-      // happens to rank a different memory higher.
-      if (!focalSourceId && sources[0]?.id) {
-        setFocalSourceId(sources[0].id);
-      }
     } catch {
       setMessages(prev => prev.map(m => m.id === aiId
         ? { ...m, content: 'Connection error — please try again.', streaming: false }
@@ -374,7 +382,7 @@ const RecallView = () => {
             </div>
           </div>
           {messages.length > 0 && (
-            <button onClick={() => { setMessages([]); setPlayingYt(new Set()); setFocalSourceId(null); }}
+            <button onClick={() => { setMessages([]); setPlayingYt(new Set()); }}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <X size={11} /> New chat
             </button>
@@ -504,32 +512,57 @@ const RecallView = () => {
                     </div>
                   </div>
 
-                  {/* Source cards grid — compact: smaller minmax, tighter gap */}
-                  {msg.sources && msg.sources.length > 0 && (
-                    <div style={{ paddingLeft: 40 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-                        <span style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
-                          {msg.sources.length} {msg.sources.length === 1 ? 'memory' : 'memories'} from your vault
-                        </span>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  {/* Source cards grid — compact: smaller minmax, tighter
+                      gap. Dedupe: filter out any source already shown in
+                      an earlier assistant message of this same chat so
+                      follow-up answers don't repeat the same card. */}
+                  {(() => {
+                    const allSources = msg.sources || [];
+                    if (allSources.length === 0) return null;
+                    const alreadyShown = shownSourceIdsByMsg.get(msg.id) || new Set<string>();
+                    // Filter against earlier turns AND against duplicates
+                    // within this same response — a single payload that
+                    // happened to include the same source ID twice would
+                    // otherwise render duplicate cards with duplicate keys.
+                    const localSeen = new Set<string>();
+                    const newSources = allSources.filter(s => {
+                      if (!s.id || alreadyShown.has(s.id) || localSeen.has(s.id)) return false;
+                      localSeen.add(s.id);
+                      return true;
+                    });
+                    if (newSources.length === 0) return null;
+                    const skipped = allSources.length - newSources.length;
+                    return (
+                      <div style={{ paddingLeft: 40 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                          <span style={{ color: 'var(--text-3)', fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                            {newSources.length} {newSources.length === 1 ? 'new memory' : 'new memories'} from your vault
+                            {skipped > 0 && (
+                              <span style={{ marginLeft: 6, color: 'var(--text-3)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                                · {skipped} reused from above
+                              </span>
+                            )}
+                          </span>
+                          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 9 }}>
+                          {newSources.map((src) => {
+                            const playKey = `${msg.id}:${src.id}`;
+                            return (
+                              <SourceCard
+                                key={src.id}
+                                src={src}
+                                onAsk={(q) => handleSend(q)}
+                                onPlay={() => setPlayingYt(prev => { const n = new Set(prev); n.add(playKey); return n; })}
+                                isPlaying={playingYt.has(playKey)}
+                                onStop={() => setPlayingYt(prev => { const n = new Set(prev); n.delete(playKey); return n; })}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 9 }}>
-                        {msg.sources.map((src) => {
-                          const playKey = `${msg.id}:${src.id}`;
-                          return (
-                            <SourceCard
-                              key={src.id}
-                              src={src}
-                              onAsk={(q) => handleSend(q)}
-                              onPlay={() => setPlayingYt(prev => { const n = new Set(prev); n.add(playKey); return n; })}
-                              isPlaying={playingYt.has(playKey)}
-                              onStop={() => setPlayingYt(prev => { const n = new Set(prev); n.delete(playKey); return n; })}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Follow-up chips */}
                   {msg.follow_ups && msg.follow_ups.length > 0 && !msg.streaming && (
