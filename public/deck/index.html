@@ -218,6 +218,7 @@
     <div class="brand"><span class="dot"></span> Recall <span style="color:var(--accent)">X247</span> · Product Deck</div>
     <div style="display:flex;gap:8px">
       <button class="pillbtn" id="notesBtn" title="Toggle speaker notes (N)">Speaker notes</button>
+      <a class="pillbtn" id="downloadBtn" href="recall-x247-deck.pdf" download="Recall-X247-Product-Deck.pdf" title="Download pre-rendered PDF (D)">Download PDF</a>
       <button class="pillbtn" id="printBtn" title="Print / save as PDF (P)">Print</button>
     </div>
   </div>
@@ -694,7 +695,7 @@
   </div>
 
   <div class="chrome bot">
-    <div class="keyhint">← / → navigate · N speaker notes · P print · F fullscreen</div>
+    <div class="keyhint">← / → navigate · N speaker notes · P print · D download PDF · F fullscreen</div>
     <div class="counter" id="counter">1 / 18</div>
   </div>
 
@@ -811,6 +812,7 @@
       case 'End': go(slides.length-1); break;
       case 'n': case 'N': notes.classList.toggle('open'); break;
       case 'p': case 'P': window.print(); break;
+      case 'd': case 'D': document.getElementById('downloadBtn')?.click(); break;
       case 'f': case 'F': if(!document.fullscreenElement){ document.documentElement.requestFullscreen?.(); } else { document.exitFullscreen?.(); } break;
     }
   });

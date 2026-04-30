@@ -14,7 +14,8 @@
     "check:vendor-leaks": "bash scripts/check-no-vendor-leaks.sh",
     "start": "python main.py",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "export:deck-pdf": "node scripts/export-deck-pdf.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
