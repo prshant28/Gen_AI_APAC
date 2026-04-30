@@ -7,6 +7,11 @@ coverage/
 .env*
 !.env.example
 
+# Playwright
+test-results/
+playwright-report/
+.cache/ms-playwright/
+
 # Python bytecode
 __pycache__/
 *.pyc
