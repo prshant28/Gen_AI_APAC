@@ -3953,6 +3953,49 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   REVISITS — phone polish
+   The card uses a `1fr auto` grid on desktop so the Go-to + 5 icon
+   buttons sit on the right of the body. On a 375px phone the right
+   column eats most of the row and the action chips wrap into a
+   tight 2-3 column block beside the title (looks crammed in
+   IMG_4228). On <=640px collapse to a single column so the action
+   row gets full width below the title and finger-friendly spacing.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .revisit-card {
+    grid-template-columns: 1fr !important;
+    padding: 12px 14px !important;
+  }
+  .revisit-card-title {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: 100% !important;
+    word-break: break-word;
+  }
+  .revisit-card-actions {
+    justify-content: flex-start !important;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    margin-top: 2px;
+    gap: 8px !important;
+    /* Slightly larger tap targets on mobile so the icon row is easy
+       to thumb without mis-tapping. */
+  }
+  .revisit-card-actions button {
+    min-height: 32px;
+  }
+  /* "Go to" button stretches so it's the obvious primary action.
+     Targets an explicit class (not :first-child) because the button
+     is omitted for completed revisits — without this, :first-child
+     would stretch the delete button instead. */
+  .revisit-card-actions .revisit-card-primary-action {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
    LIBRARY POWER-UPS — Task #18
    Smart collections strip, deep-search highlight, bulk action bar,
    pin/select on Vault rows + cards, tag prompt.

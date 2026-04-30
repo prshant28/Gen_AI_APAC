@@ -219,16 +219,17 @@ const RevisitsPage: React.FC<RevisitsPageProps> = ({ embedded = false }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map(rv => (
             <motion.div key={rv.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              className="revisit-card"
               style={{
                 display: 'grid', gridTemplateColumns: '1fr auto', gap: 12,
                 padding: '14px 16px', background: 'var(--surface)',
                 border: `1px solid ${rv._overdue ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`,
                 borderRadius: 12,
               }}>
-              <div style={{ minWidth: 0 }}>
+              <div className="revisit-card-body" style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                   <Bell size={13} color={rv._overdue ? '#ef4444' : '#f59e0b'} />
-                  <strong style={{ fontSize: 14, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 460 }}>{rv.title}</strong>
+                  <strong className="revisit-card-title" style={{ fontSize: 14, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 460 }}>{rv.title}</strong>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
                     {FREQ_LABEL[rv.frequency] || rv.frequency}
                     {rv.frequency === 'custom_days' && rv.interval_days ? ` · ${rv.interval_days}d` : ''}
@@ -248,9 +249,9 @@ const RevisitsPage: React.FC<RevisitsPageProps> = ({ embedded = false }) => {
                   <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{rv.notes}</p>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <div className="revisit-card-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {rv.status !== 'completed' && (
-                  <button onClick={() => goTo(rv)} style={btnAccent} title="Open + count visit">
+                  <button onClick={() => goTo(rv)} className="revisit-card-primary-action" style={btnAccent} title="Open + count visit">
                     {rv.url ? <ExternalLink size={11} /> : <ChevronRight size={11} />} Go to
                   </button>
                 )}
