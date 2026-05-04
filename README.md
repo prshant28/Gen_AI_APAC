@@ -684,7 +684,7 @@ npm run test:e2e           # run all tests
 |---|---|---|---|
 | `GEN_APAC_API_KEY` | ✅ (or alternative) | — | OpenRouter API key (primary AI) |
 | `OPENAI_API_KEY` | ✅ (or alternative) | — | OpenAI API key (direct, takes highest priority) |
-| `GEMINI_API_KEY` | ✅ (or alternative) | — | Google Gemini API key |
+| `GEMINI_API_KEY` | — | — | Google Gemini API key |
 | `PRIMARY_AI_KEY` | — | — | Explicit primary AI key override |
 | `PRIMARY_AI_BASE_URL` | — | Auto-detected | Base URL for primary AI provider |
 | `PRIMARY_AI_MODEL` | — | `gpt-4o-mini` | Model name for primary provider |
@@ -854,10 +854,10 @@ gcloud run deploy recall-x247 \
 
 | Secret | Description |
 |---|---|
-| `GEN_APAC_API_KEY` | OpenRouter / OpenAI API key |
+| `GEN_APAC_API_KEY` | OpenRouter / OpenAI API key *(Optional)* |
 | `GCP_PROJECT_ID` | Google Cloud Project ID |
 | `GCP_SA_KEY` | Google Cloud Service Account JSON (base64-encoded) |
-| `GEMINI_API_KEY` | *(Optional)* Google Gemini API key |
+| `GEMINI_API_KEY` | Google Gemini API key |
 
 ### Product Slide Deck
 
