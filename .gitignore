@@ -7,6 +7,9 @@ coverage/
 .env*
 !.env.example
 
+# Firebase secrets — copy to environment variables instead (see .env.example)
+firebase-applet-config.json
+
 # Playwright
 test-results/
 playwright-report/

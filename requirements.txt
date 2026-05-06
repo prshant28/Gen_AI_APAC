@@ -16,6 +16,8 @@ pypdf>=4.0.0
 python-dotenv>=1.0.0
 lxml>=5.0.0
 python-multipart>=0.0.9
+firebase-admin>=6.2.0
+slowapi>=0.1.9
 beautifulsoup4
 fastapi
 google-api-python-client
