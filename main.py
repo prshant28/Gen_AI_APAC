@@ -3,6 +3,7 @@ import re
 import time
 import json
 import uuid
+import secrets
 import datetime
 import logging
 import asyncio
@@ -79,18 +80,73 @@ from app.live_agent import relay_live_session, is_live_configured, GEMINI_LIVE_M
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recall-x247")
 
+_APP_ENV = os.getenv("APP_ENV", "development")
+
 app = FastAPI(
     title="Recall X247 API",
     description="AI-powered Second Brain — powered by Google Gemini 2.0",
-    version="2.0.0"
+    version="2.0.0",
+    # Disable interactive API docs in production to avoid exposing the full
+    # endpoint surface to attackers (HIGH-04).
+    docs_url="/docs" if _APP_ENV != "production" else None,
+    redoc_url="/redoc" if _APP_ENV != "production" else None,
+    openapi_url="/openapi.json" if _APP_ENV != "production" else None,
 )
+
+# ─── Rate limiting (CRIT-04) ────────────────────────────────────────────────
+# Limit abusive or accidental over-use of AI endpoints to protect API key
+# spend. Limits are conservative defaults; override via env vars if needed.
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+
+    _limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+    app.state.limiter = _limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    _RATE_LIMIT_AI = os.getenv("RATE_LIMIT_AI_PER_MINUTE", "20") + "/minute"
+    _RATE_LIMIT_CAPTURE = os.getenv("RATE_LIMIT_CAPTURE_PER_MINUTE", "10") + "/minute"
+    logger.info("Rate limiting enabled: AI=%s, Capture=%s", _RATE_LIMIT_AI, _RATE_LIMIT_CAPTURE)
+except ImportError:
+    _limiter = None
+    _RATE_LIMIT_AI = "200/minute"
+    _RATE_LIMIT_CAPTURE = "200/minute"
+    logger.warning("slowapi not installed — rate limiting disabled. Run: pip install slowapi")
+
+def _rate_limit(limit: str):
+    """Return a slowapi rate-limit decorator, or a no-op if slowapi is unavailable."""
+    if _limiter is not None:
+        return _limiter.limit(limit)
+    # No-op decorator when slowapi is not installed.
+    def _noop(fn):
+        return fn
+    return _noop
+
+# ─── CORS (HIGH-02) ──────────────────────────────────────────────────────────
+# `allow_origins=["*"]` combined with `allow_credentials=True` is invalid per
+# the CORS spec (credentialed requests require explicit origins).  We now
+# restrict to the production origin in production and allow localhost in dev.
+_cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if _cors_origins_env:
+    _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+elif _APP_ENV == "production":
+    # Fall back to same-origin only; operators MUST set CORS_ALLOWED_ORIGINS.
+    _cors_origins = []
+else:
+    # Development: allow common local origins.
+    _cors_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins if _cors_origins else ["*"],
+    allow_credentials=bool(_cors_origins),   # credentials only when origins are explicit
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id"],
 )
 
 # Compression: prefer brotli (≈15-25 % smaller than gzip on JS/CSS) and fall
@@ -440,21 +496,16 @@ async def api_health():
 
 @app.get("/health")
 async def health():
+    """Public liveness check — returns only status to avoid leaking infra info (HIGH-03)."""
     try:
         from app.db import is_using_mock_db
-        memories_count = await get_collection_count("memories")
-        tasks_count = await get_collection_count("tasks")
-        persistence = "in-memory-mock" if is_using_mock_db() else "firestore"
         return {
             "status": "ok",
-            "persistence": persistence,
-            "memories_count": memories_count,
-            "tasks_count": tasks_count,
-            "ai_provider": "openai" if settings.using_openai else "gemini",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "demo_mode": is_using_mock_db(),  # Tells the frontend to show a warning banner (MED-07).
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Health check failed")
 
 def _settings_payload():
     import os as _os
@@ -520,17 +571,19 @@ async def test_ai_endpoint():
 # --- Chat / Coordinator ---
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def api_chat(request: ChatRequest):
-    return await chat_endpoint(request)
+@_rate_limit(_RATE_LIMIT_AI)
+async def api_chat(request: Request, body: ChatRequest):
+    return await chat_endpoint(request, body)
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
-    result = await run_coordinator(request.message, request.session_id)
+@_rate_limit(_RATE_LIMIT_AI)
+async def chat_endpoint(request: Request, body: ChatRequest):
+    result = await run_coordinator(body.message, body.session_id)
     if "error" in result and result.get("error") == "Unauthorized":
         raise HTTPException(status_code=401, detail=result["reply"])
     await log_interaction(
         session_id=result["session_id"],
-        user_message=request.message,
+        user_message=body.message,
         reply=result["reply"],
         agents_called=result["agents_called"]
     )
@@ -551,11 +604,12 @@ async def agent_chat_history(session_id: str = "agent-hub"):
 
 
 @app.post("/agent/chat/stream")
-async def agent_chat_stream(request: ChatRequest):
+@_rate_limit(_RATE_LIMIT_AI)
+async def agent_chat_stream(request: Request, body: ChatRequest):
     """SSE streaming endpoint — yields agent events as they happen."""
     async def event_generator():
         try:
-            async for event in run_coordinator_stream(request.message, request.session_id):
+            async for event in run_coordinator_stream(body.message, body.session_id):
                 yield event
         except asyncio.CancelledError:
             pass
@@ -603,14 +657,15 @@ async def list_agents_endpoint():
 # --- Capture ---
 
 @app.post("/capture")
-async def capture_endpoint(request: CaptureRequest):
-    logger.info(f"Capture request: {request.source_type}")
+@_rate_limit(_RATE_LIMIT_CAPTURE)
+async def capture_endpoint(request: Request, body: CaptureRequest):
+    logger.info(f"Capture request: {body.source_type}")
     try:
         result = await capture(
-            source_type=request.source_type,
-            url=request.url,
-            content=request.content,
-            preview=request.preview,
+            source_type=body.source_type,
+            url=body.url,
+            content=body.content,
+            preview=body.preview,
         )
         if "error" in result:
             if "OPENAI_API_KEY" in str(result['error']) or "not found" in str(result['error']).lower():
@@ -1174,7 +1229,7 @@ async def share_memory_endpoint(memory_id: str):
     if not doc.exists or not belongs_to_current_user(doc.to_dict()):
         raise HTTPException(status_code=404, detail="Memory not found")
     mem = doc.to_dict()
-    share_token = mem.get("share_token") or uuid.uuid4().hex[:14]
+    share_token = mem.get("share_token") or secrets.token_hex(16)  # 128 bits of entropy
     shared_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     await db.collection("memories").document(memory_id).update({
         "share_token": share_token,

@@ -74,6 +74,7 @@ import {
   resetPassword,
   checkRedirectResult,
   signOut as firebaseSignOut,
+  signInAsGuest,
 } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 // ── Route-level code splitting ─────────────────────────────────────────────
@@ -863,6 +864,45 @@ const QuickCaptureFAB = () => {
   );
 };
 
+// ── Email verification banner (HIGH-08) ──────────────────────────────────────
+const EmailVerificationBanner = ({ user }: { user: any }) => {
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+  const handleResend = async () => {
+    try {
+      const { resendVerificationEmail } = await import('./lib/firebase');
+      await resendVerificationEmail();
+      setSent(true);
+      setError('');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to send. Please try again.');
+    }
+  };
+  return (
+    <div style={{
+      background: 'rgba(234,179,8,0.12)', borderBottom: '1px solid rgba(234,179,8,0.3)',
+      padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 10,
+      fontSize: 12, color: 'var(--text-2)', flexShrink: 0,
+    }}>
+      <AlertTriangle size={13} color="#ca8a04" style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1 }}>
+        Please verify your email address to secure your account.
+        {user?.email && <> A verification link was sent to <strong>{user.email}</strong>.</>}
+      </span>
+      {!sent ? (
+        <button onClick={handleResend} style={{
+          background: 'rgba(234,179,8,0.2)', border: '1px solid rgba(234,179,8,0.4)',
+          color: '#ca8a04', borderRadius: 6, padding: '3px 10px', fontSize: 11,
+          cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', flexShrink: 0,
+        }}>Resend email</button>
+      ) : (
+        <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ Sent!</span>
+      )}
+      {error && <span style={{ color: '#dc2626', fontSize: 11 }}>{error}</span>}
+    </div>
+  );
+};
+
 const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { user: any; onSignOut: () => void; onUpgradeGuest: () => void | Promise<void>; isDark: boolean; toggleTheme: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -870,6 +910,14 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  // Check if the backend is running in demo / in-memory-mock mode (MED-07).
+  useEffect(() => {
+    fetch('/health').then(r => r.json()).then(d => {
+      if (d?.demo_mode) setIsDemoMode(true);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -953,6 +1001,45 @@ const AppShell = ({ user, onSignOut, onUpgradeGuest, isDark, toggleTheme }: { us
             </button>
           </div>
         </header>
+
+        {/* Email-not-verified banner (HIGH-08) */}
+        {user && !user.isAnonymous && !user.isGuest && user.emailVerified === false && (
+          <EmailVerificationBanner user={user} />
+        )}
+
+        {/* Mock-DB / demo-mode warning banner (MED-07) */}
+        {isDemoMode && (
+          <div style={{
+            background: 'rgba(234,88,12,0.10)', borderBottom: '1px solid rgba(234,88,12,0.3)',
+            padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 10,
+            fontSize: 12, color: 'var(--text-2)', flexShrink: 0,
+          }}>
+            <AlertTriangle size={13} color="#ea580c" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>⚠️ Demo mode</strong> — the backend is running without a Firestore connection.
+              Data is stored in memory only and will be lost on server restart.
+            </span>
+          </div>
+        )}
+
+        {/* Guest / demo-data banner (MED-01) */}
+        {(user?.isAnonymous || user?.isGuest) && (
+          <div style={{
+            background: 'rgba(59,130,246,0.10)', borderBottom: '1px solid rgba(59,130,246,0.25)',
+            padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 10,
+            fontSize: 12, color: 'var(--text-2)', flexShrink: 0,
+          }}>
+            <Info size={13} color="#3b82f6" style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>
+              You&rsquo;re exploring <strong>demo data</strong>. Your changes are temporary and will not be saved.
+            </span>
+            <button onClick={onUpgradeGuest} style={{
+              background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', border: 'none',
+              color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11,
+              cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', flexShrink: 0,
+            }}>Sign up free →</button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)', minHeight: 0 }} className="scroll-custom responsive-content">
           <div style={{ maxWidth: 1280, margin: '0 auto', minWidth: 0 }}>
@@ -1097,9 +1184,12 @@ function AppRouter() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    (localStorage.getItem('recall-theme-v2') as 'light' | 'dark') || 'light'
-  );
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('recall-theme-v2') as 'light' | 'dark' | null;
+    if (saved) return saved;
+    // Respect system preference on first load (UX-06).
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -1142,9 +1232,17 @@ function AppRouter() {
   }, [authLoading, isReady]);
 
   const handleGuestSignIn = async () => {
-    const guestUser = { uid: `guest-${Date.now()}`, displayName: 'Guest User', email: 'guest@recall-x247.local', photoURL: null, isAnonymous: true, isGuest: true };
-    localStorage.setItem(GUEST_USER_KEY, JSON.stringify(guestUser));
-    setUser(guestUser);
+    try {
+      // Use Firebase Anonymous Auth to get a real unique UID per guest session.
+      // This prevents all guests from sharing the same "guest" namespace.
+      await signInAsGuest();
+      // onAuthStateChanged will pick up the anonymous user and set state.
+    } catch {
+      // Fallback: create a local guest object if Anonymous Auth is unavailable.
+      const guestUser = { uid: `guest-${Date.now()}`, displayName: 'Guest User', email: 'guest@recall-x247.local', photoURL: null, isAnonymous: true, isGuest: true };
+      localStorage.setItem(GUEST_USER_KEY, JSON.stringify(guestUser));
+      setUser(guestUser);
+    }
     navigate('/dashboard', { replace: true });
   };
 
